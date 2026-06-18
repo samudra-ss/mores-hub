@@ -4,48 +4,218 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MORES HV — Helicopter View</title>
-<script>document.documentElement.dataset.theme = localStorage.getItem("erp.theme") || "light";</script>
-<link rel="stylesheet" href="/static/styles.css">
+<style>
+:root {
+  --bg: #0a0a0c; --panel: #141417; --field: #1b1b1f; --field-border: #2b2b31;
+  --text: #f4f4f6; --muted: #8b8b94; --line: #1f1f24;
+  --violet: #8b5cf6; --violet-light: #a78bfa; --violet-dark: #7c46e8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  background:
+    radial-gradient(1100px 620px at 85% -10%, rgba(139,92,246,.16), transparent 60%),
+    radial-gradient(800px 500px at 0% 110%, rgba(139,92,246,.08), transparent 55%),
+    var(--bg);
+  color: var(--text); min-height: 100vh; overflow-x: hidden;
+}
+body::before {  /* faint blueprint grid */
+  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .5;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+/* nav */
+nav.top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 7vw; position: relative; z-index: 2;
+}
+.logo { display: flex; align-items: baseline; gap: 9px; }
+.logo .m { font-size: 21px; font-weight: 800; letter-spacing: 1px; }
+.logo .m span { color: var(--violet-light); }
+.logo .sub { font-family: Consolas, monospace; font-size: 9.5px; letter-spacing: 3px;
+  color: var(--muted); text-transform: uppercase; }
+.btn {
+  font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 9px;
+  padding: 10px 20px; border: 1px solid var(--field-border); background: transparent; color: var(--text);
+  transition: filter .15s, transform .1s, background .15s;
+}
+.btn:hover { background: rgba(255,255,255,.05); }
+.btn-primary {
+  border: none; color: #fff;
+  background: linear-gradient(180deg, var(--violet-light) 0%, var(--violet) 55%, var(--violet-dark) 100%);
+  box-shadow: 0 10px 26px rgba(139,92,246,.30);
+}
+.btn-primary:hover { filter: brightness(1.07); }
+.btn-primary:active { transform: translateY(1px); }
+/* hero */
+.hero { padding: 6vh 7vw 4vh; position: relative; z-index: 2; max-width: 1150px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--violet-light);
+  background: rgba(139,92,246,.12); border: 1px solid rgba(139,92,246,.35);
+  padding: 6px 14px; border-radius: 99px; margin-bottom: 26px;
+}
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #2fd584; box-shadow: 0 0 8px #2fd584; animation: pulse 2.2s infinite; }
+@keyframes pulse { 50% { opacity: .4; } }
+.hero h1 { font-size: clamp(34px, 6vw, 62px); font-weight: 800; line-height: 1.05; letter-spacing: -1.5px; max-width: 16ch; }
+.hero h1 b { color: var(--violet-light); font-weight: 800; }
+.hero p.lead { color: #c7c7cf; font-size: clamp(15px, 2vw, 19px); margin: 22px 0 30px; max-width: 56ch; line-height: 1.6; }
+.cta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.cta .btn { padding: 13px 28px; font-size: 15px; }
+.meta { color: var(--muted); font-size: 13px; margin-top: 18px; }
+/* feature grid */
+.features { padding: 2vh 7vw 8vh; position: relative; z-index: 2; max-width: 1150px; }
+.features h2 { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+  border: 1px solid var(--line); border-radius: 14px; padding: 22px;
+}
+.card .ic { font-size: 20px; margin-bottom: 12px; display: block; }
+.card h3 { font-size: 15.5px; font-weight: 700; margin-bottom: 7px; }
+.card p { color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+.foot { padding: 24px 7vw; color: #5d5d66; font-size: 12px; border-top: 1px solid var(--line); position: relative; z-index: 2; }
+/* login popup */
+.backdrop {
+  position: fixed; inset: 0; background: rgba(6,6,8,.72); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; padding: 24px; z-index: 50;
+}
+.backdrop.show { display: flex; animation: fade .15s ease-out; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.login-pop {
+  width: min(400px, 100%); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 16px; padding: 34px 32px; position: relative;
+  box-shadow: 0 30px 90px rgba(0,0,0,.6); animation: pop .18s ease-out;
+}
+@keyframes pop { from { transform: translateY(10px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.login-pop .close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; }
+.login-pop .brand2 { font-size: 18px; font-weight: 800; letter-spacing: .5px; }
+.login-pop .brand2 span { color: var(--violet-light); }
+.login-pop h3 { font-size: 20px; margin: 16px 0 4px; }
+.login-pop .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+.login-pop label { display: block; font-size: 11.5px; font-weight: 600; color: #c7c7cf; margin: 0 0 7px; }
+.fld { margin-bottom: 16px; }
+.fld input {
+  width: 100%; padding: 12px 14px; font-size: 14px; color: var(--text); font-family: inherit;
+  background: var(--field); border: 1px solid var(--field-border); border-radius: 9px; outline: none;
+}
+.fld input:focus { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(139,92,246,.20); }
+.row { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 20px; font-size: 13px; }
+.remember { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; }
+.remember input { accent-color: var(--violet); }
+.forgot { color: var(--violet-light); cursor: pointer; }
+.login-pop button[type=submit] { width: 100%; padding: 13px; font-weight: 600; font-size: 14.5px; }
+.err { background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: #ff9d9d; padding: 10px 13px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.hint { color: #5d5d66; font-size: 11.5px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); line-height: 1.7; }
+.hint b { color: #9a9aa4; }
+.note { color: var(--muted); font-size: 12px; margin-top: 12px; }
+</style>
 </head>
 <body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="brand"><span class="brand-logo">M</span>
-      <span>MORES<b>.</b>&thinsp;HV<small class="brand-sub">Helicopter View</small></span></div>
-    <nav id="nav">
-      <a href="#/dashboard" data-route="dashboard">&#x25A6; Dashboard</a>
-      <a href="#/projecthv" data-route="projecthv">&#x25C9; Project HV</a>
-      <a href="#/journals" data-route="journals">&#x2630; Journal Entries</a>
-      <a href="#/bank" data-route="bank">&#x21C4; Bank Import</a>
-      <a href="#/budgets" data-route="budgets">&#x25CE; Budgets</a>
-      <a href="#/investments" data-route="investments">&#x2726; Investments</a>
-      <a href="#/projects" data-route="projects">&#x25B3; Projects</a>
-      <a href="#/reports" data-route="reports">&#x25A4; Reports</a>
-      <a href="#/settings" data-route="settings">&#x2699; Settings</a>
-    </nav>
-    <div class="sidebar-foot" id="userBox"></div>
-  </aside>
-  <div class="main">
-    <header class="topbar">
-      <div class="topbar-left">
-        <label class="topbar-field">Company
-          <select id="companySelect"></select>
-        </label>
-        <label class="topbar-field">Year
-          <select id="yearSelect"></select>
-        </label>
-      </div>
-      <div class="topbar-right">
-        <span id="scopeBadge" class="scope-badge"></span>
-        <button class="btn btn-ghost" id="themeBtn" title="Toggle dark / light mode">&#127769;</button>
-        <button class="btn btn-ghost" id="logoutBtn">Logout</button>
-      </div>
-    </header>
-    <main id="content" class="content"></main>
+  <nav class="top">
+    <div class="logo">
+      <div class="m">MORES<span>.</span>HV</div>
+      <div class="sub">Helicopter View</div>
+    </div>
+    <button class="btn" id="navSignIn">Sign In</button>
+  </nav>
+
+  <header class="hero">
+    <div class="badge"><span class="dot"></span> Go-Live ready · Group Finance Console</div>
+    <h1>A <b>helicopter view</b> of your group&rsquo;s finance.</h1>
+    <p class="lead">Multi-company accounting, budgets vs realization, project performance, bank import and
+      cash flow — consolidated across MORES Holding and every entity, in one console.</p>
+    <div class="cta">
+      <button class="btn btn-primary" id="heroCta">Go Live — Sign In</button>
+      <a class="btn" href="#features">Explore features</a>
+    </div>
+    <div class="meta" id="heroMeta">Secure sign-in · Admin · Accountant · Viewer/Auditor roles</div>
+  </header>
+
+  <section class="features" id="features">
+    <h2>What&rsquo;s inside</h2>
+    <div class="grid">
+      <div class="card"><span class="ic">&#x25A6;</span><h3>Consolidated Dashboard</h3>
+        <p>Revenue, expense, office cost, cash flow and budget use — per company or for the whole holding.</p></div>
+      <div class="card"><span class="ic">&#x25CE;</span><h3>Budgets vs Realization</h3>
+        <p>Plan per account and per project; track realization against budget with variance and % used.</p></div>
+      <div class="card"><span class="ic">&#x25C9;</span><h3>Project HV</h3>
+        <p>Gain vs budget per project, three-year trends, and side-by-side two-project comparison.</p></div>
+      <div class="card"><span class="ic">&#x21C4;</span><h3>Bank Import (BCA)</h3>
+        <p>Paste receipts or upload mutasi-rekening CSV / e-statement PDF, then book straight to accounts.</p></div>
+      <div class="card"><span class="ic">&#x25A4;</span><h3>Statements &amp; Export</h3>
+        <p>P&amp;L, Balance Sheet, Trial Balance, Cash Flow — export to Excel and PDF, with charts.</p></div>
+      <div class="card"><span class="ic">&#x2726;</span><h3>Investment Analysis</h3>
+        <p>Track long-horizon initiatives — scholarships, R&amp;D, partnerships — with ROI and payback.</p></div>
+    </div>
+  </section>
+
+  <div class="foot">MORES Holding · PT Mores Data Analitika · Sibernetika MA · Mores Lintas Teknika · Kultura Media Antara · Modus Reform Studio</div>
+
+  <!-- login popup -->
+  <div class="backdrop" id="loginBackdrop">
+    <div class="login-pop">
+      <button class="close" id="loginClose" title="Close">&times;</button>
+      <div class="brand2">MORES<span>.</span>HV</div>
+      <h3>Welcome Back</h3>
+      <div class="sub">Please enter your details to sign in.</div>
+      <form id="loginForm">
+        <div id="loginError" class="err" hidden></div>
+        <div class="fld"><label for="username">Username / Email</label>
+          <input type="text" id="username" autocomplete="username" placeholder="Enter your username or email" required></div>
+        <div class="fld"><label for="password">Password</label>
+          <input type="password" id="password" autocomplete="current-password" placeholder="Enter your password" required></div>
+        <div class="row">
+          <label class="remember"><input type="checkbox" id="remember"> Remember me</label>
+          <span class="forgot" id="forgot">Forgot Password?</span>
+        </div>
+        <button type="submit" class="btn btn-primary">Sign In</button>
+      </form>
+      <div id="forgotNote" class="note" hidden>Please contact your system administrator to reset your password.</div>
+      <p class="hint">Demo access — <b>admin</b>/admin123 &middot; <b>finance</b>/finance123 &middot; <b>viewer</b>/viewer123</p>
+    </div>
   </div>
-</div>
-<div id="modalRoot"></div>
-<div id="toastRoot"></div>
-<script src="/static/app.js"></script>
+
+<script>
+const backdrop = document.getElementById('loginBackdrop');
+function openLogin() { backdrop.classList.add('show'); setTimeout(() => document.getElementById('username').focus(), 50); }
+function closeLogin() { backdrop.classList.remove('show'); }
+document.getElementById('navSignIn').onclick = openLogin;
+document.getElementById('heroCta').onclick = openLogin;
+document.getElementById('loginClose').onclick = closeLogin;
+backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) closeLogin(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLogin(); });
+document.getElementById('forgot').onclick = () => { document.getElementById('forgotNote').hidden = false; };
+
+// If already signed in, turn the CTAs into "Enter Console".
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(me => {
+  if (!me) return;
+  const cta = document.getElementById('heroCta'), nav = document.getElementById('navSignIn');
+  cta.textContent = 'Enter Console →'; cta.onclick = () => location.href = '/app';
+  nav.textContent = 'Enter Console'; nav.onclick = () => location.href = '/app';
+  document.getElementById('heroMeta').textContent = 'Signed in as ' + (me.full_name || me.username) + ' · ' + me.role;
+}).catch(() => {});
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('loginError'); err.hidden = true;
+  const res = await fetch('/api/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      username: document.getElementById('username').value,
+      password: document.getElementById('password').value,
+      remember: document.getElementById('remember').checked,
+    }),
+  });
+  if (res.ok) { window.location.href = '/app'; return; }
+  const data = await res.json().catch(() => ({}));
+  err.textContent = data.error || 'Login failed'; err.hidden = false;
+});
+
+// open the popup automatically if redirected here with ?login=1
+if (new URLSearchParams(location.search).get('login') === '1') openLogin();
+</script>
 </body>
 </html>

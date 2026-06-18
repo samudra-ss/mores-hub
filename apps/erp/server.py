@@ -173,13 +173,22 @@ def on_value_error(e):
 
 @app.get("/")
 def index():
-    if not session.get("user_id"):
-        return redirect("/login")
+    # Public landing page (login is a popup; "Enter Console" -> /app).
     return send_from_directory(STATIC_DIR, "index.html")
+
+
+@app.get("/app")
+def console():
+    if not session.get("user_id"):
+        return redirect("/")
+    return send_from_directory(STATIC_DIR, "app.html")
 
 
 @app.get("/login")
 def login_page():
+    # Standalone full-page login; the landing popup is the primary entry.
+    if session.get("user_id"):
+        return redirect("/app")
     return send_from_directory(STATIC_DIR, "login.html")
 
 

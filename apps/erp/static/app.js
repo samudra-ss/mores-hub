@@ -34,7 +34,7 @@ async function api(path, opts = {}) {
     delete opts.json;
   }
   const res = await fetch(path, opts);
-  if (res.status === 401) { window.location.href = "/login"; throw new Error("Session expired"); }
+  if (res.status === 401) { window.location.href = "/?login=1"; throw new Error("Session expired"); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || ("Request failed (" + res.status + ")"));
   return data;
@@ -162,15 +162,13 @@ async function boot() {
   $("#userBox").innerHTML = `<b>${esc(state.me.full_name || state.me.username)}</b>
     <span class="muted">${esc(ROLE_LABELS[state.me.role] || state.me.role)}</span>`;
   if (!canWrite()) { const a = $('#nav a[data-route="bank"]'); if (a) a.style.display = "none"; }
-  const cs = $("#companySelect");
-  cs.innerHTML = companyOptions(state.companyId, { includeAll: true });
-  cs.onchange = () => { state.companyId = cs.value; localStorage.setItem("erp.company", cs.value); render(); };
+  renderCompanyChoice();
   const ys = $("#yearSelect");
   const years = [];
   for (let y = 2024; y <= new Date().getFullYear() + 1; y++) years.push(y);
   ys.innerHTML = years.map(y => `<option ${y === state.year ? "selected" : ""}>${y}</option>`).join("");
   ys.onchange = () => { state.year = parseInt(ys.value, 10); localStorage.setItem("erp.year", ys.value); render(); };
-  $("#logoutBtn").onclick = async () => { await api("/api/logout", { method: "POST" }); window.location.href = "/login"; };
+  $("#logoutBtn").onclick = async () => { await api("/api/logout", { method: "POST" }); window.location.href = "/"; };
   const themeBtn = $("#themeBtn");
   const applyThemeIcon = () => { themeBtn.innerHTML = document.documentElement.dataset.theme === "dark" ? "&#9728;" : "&#127769;"; };
   applyThemeIcon();
@@ -182,6 +180,23 @@ async function boot() {
   };
   window.addEventListener("hashchange", render);
   render();
+}
+
+// Topbar company picker as choice buttons (not a dropdown).
+function renderCompanyChoice() {
+  const box = $("#companyChoice");
+  if (!box) return;
+  const seg = (label, val, title) => `<button class="seg ${String(state.companyId) === String(val) ? "active" : ""}" data-company="${val}" title="${esc(title || label)}">${esc(label)}</button>`;
+  const holding = state.me.companies.find(c => c.is_holding);
+  box.innerHTML = seg("All", "all", "Consolidated (all companies)")
+    + (holding ? seg("Holding", holding.id, holding.name) : "")
+    + state.me.companies.filter(c => !c.is_holding).map(c => seg(c.code, c.id, c.name)).join("");
+  $$("#companyChoice .seg").forEach(b => b.onclick = () => {
+    state.companyId = b.dataset.company;
+    localStorage.setItem("erp.company", b.dataset.company);
+    renderCompanyChoice();
+    render();
+  });
 }
 
 const routes = {
@@ -215,6 +230,11 @@ async function pageDashboard(el) {
   const bvaPct = k.budget_used_pct;
   const holding = state.me.companies.find(c => c.is_holding);
   const seg = (label, val) => `<button class="seg ${String(state.companyId) === String(val) ? "active" : ""}" data-scope="${val}">${label}</button>`;
+  // Office Expense = rent (6200) + utilities (6300) + office & admin (6600)
+  const officeRows = d.expense_breakdown.filter(r => ["6200", "6300", "6600"].includes(r.code));
+  const officeActual = round2(officeRows.reduce((a, r) => a + r.actual, 0));
+  const officeBudget = round2(officeRows.reduce((a, r) => a + r.budget, 0));
+  const officeUsed = officeBudget ? Math.round(100 * officeActual / officeBudget) : null;
   el.innerHTML = `
     <div class="page-head"><h2>Dashboard — ${state.year}</h2>
       <div class="seg-group" id="dashScope">
@@ -244,7 +264,14 @@ async function pageDashboard(el) {
           { name: "Profit", color: C_PROFIT, values: monthly.map(m => m.profit), type: "line" },
         ])}</div>
       <div class="card"><h3>Expense Breakdown — Realization vs Budget</h3>
-        <div style="max-height:300px;overflow:auto"><table class="tbl">
+        ${chartDonut(d.expense_breakdown.slice(0, 8).map((r, i) => ({
+          label: r.code + " " + r.name, value: r.actual, color: PALETTE[i % PALETTE.length] })))}
+        <div class="office-total mt">
+          <span><b>Office Expense</b> <span class="muted">(rent · utilities · admin)</span></span>
+          <span>Realization <b>${fmt(officeActual)}</b> · Budget <b>${fmt(officeBudget)}</b>
+            ${officeUsed == null ? "" : `· <span class="${officeUsed > 100 ? "neg" : "pos"}">${officeUsed}% used</span>`}</span>
+        </div>
+        <div style="max-height:240px;overflow:auto" class="mt"><table class="tbl">
           <thead><tr><th>Account</th><th class="num">Realization</th><th class="num">Budget</th><th class="num">Used</th></tr></thead>
           <tbody>${d.expense_breakdown.map(r => {
             const used = r.budget ? Math.round(100 * r.actual / r.budget) : null;
@@ -291,7 +318,7 @@ async function pageDashboard(el) {
   $$("#dashScope .seg").forEach(b => b.onclick = () => {
     state.companyId = b.dataset.scope;
     localStorage.setItem("erp.company", b.dataset.scope);
-    const cs = $("#companySelect"); if (cs) cs.value = b.dataset.scope;  // keep topbar in sync
+    renderCompanyChoice();  // keep topbar choice in sync
     render();
   });
   $$("#content tr[data-proj]").forEach(tr => tr.onclick = () =>
@@ -1878,7 +1905,7 @@ function companyEditor(c, all, reload) {
       if (c) await api("/api/companies/" + c.id, { method: "PUT", json: Object.assign(body, { is_active: $("#coActive").checked }) });
       else await api("/api/companies", { json: Object.assign(body, { code: $("#coCode").value, apply_standard_coa: $("#coStd").checked }) });
       toast("Company saved — re-login may be needed to refresh access");
-      closeModal(); state.me = await api("/api/me"); $("#companySelect").innerHTML = companyOptions(state.companyId, { includeAll: true });
+      closeModal(); state.me = await api("/api/me"); renderCompanyChoice();
       reload();
     } catch (e) { toast(e.message, true); }
   };

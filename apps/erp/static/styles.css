@@ -93,9 +93,17 @@ table { border-collapse: collapse; width: 100%; }
 
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .topbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   background: var(--card); border-bottom: 1px solid var(--border);
   padding: 10px 22px; position: sticky; top: 0; z-index: 20;
+}
+.topbar-left { flex-wrap: wrap; }
+#companyChoice { margin-top: 2px; }
+#companyChoice .seg { padding: 4px 9px; font-size: 12px; }
+.office-total {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap; padding: 9px 12px; border-radius: 8px;
+  background: var(--accent-soft); font-size: 13px;
 }
 .topbar-left { display: flex; gap: 16px; }
 .topbar-field { display: flex; flex-direction: column; font-size: 11px; color: var(--muted); gap: 2px; }
