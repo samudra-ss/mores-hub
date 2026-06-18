@@ -11,6 +11,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import bank_import
 import database
 import excel_io
+import pdf_export
 import reports
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -789,6 +790,68 @@ def export_cash_flow():
 
 def _xlsx(buf, name):
     return send_file(buf, mimetype=XLSX, as_attachment=True, download_name=name)
+
+
+def _pdf(buf, name):
+    return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=name)
+
+
+# --- PDF financial statements ---------------------------------------------
+
+@app.get("/api/export/pdf/pnl")
+@login_required
+def export_pnl_pdf():
+    ids, label = scope_from_request()
+    date_from, date_to = date_range_from_request()
+    pnl = reports.profit_and_loss(db(), ids, date_from, date_to)
+    return _pdf(pdf_export.export_pnl_pdf(pnl, label, "Period %s to %s" % (date_from, date_to)),
+                "profit_loss_%s_to_%s.pdf" % (date_from, date_to))
+
+
+@app.get("/api/export/pdf/balance-sheet")
+@login_required
+def export_bs_pdf():
+    ids, label = scope_from_request()
+    as_of = as_of_from_request()
+    bs = reports.balance_sheet(db(), ids, as_of)
+    return _pdf(pdf_export.export_balance_sheet_pdf(bs, label, "As of %s" % as_of),
+                "balance_sheet_%s.pdf" % as_of)
+
+
+@app.get("/api/export/pdf/trial-balance")
+@login_required
+def export_tb_pdf():
+    ids, label = scope_from_request()
+    date_from, date_to = date_range_from_request()
+    tb = reports.trial_balance(db(), ids, date_from, date_to)
+    return _pdf(pdf_export.export_trial_balance_pdf(tb, label, "Period %s to %s" % (date_from, date_to)),
+                "trial_balance_%s_to_%s.pdf" % (date_from, date_to))
+
+
+@app.get("/api/export/pdf/cash-flow")
+@login_required
+def export_cf_pdf():
+    ids, label = scope_from_request()
+    cf = reports.cash_flow(db(), ids, year_param())
+    return _pdf(pdf_export.export_cash_flow_pdf(cf, label), "cash_flow_%d.pdf" % cf["year"])
+
+
+@app.get("/api/export/pdf/budget-vs-actual")
+@login_required
+def export_bva_pdf():
+    project_id = request.args.get("project_id")
+    if project_id:
+        company_id = int(request.args.get("company_id"))
+        check_company_access(company_id)
+        prow = project_in_company(int(project_id), company_id)
+        bva = reports.project_budget_vs_actual(db(), company_id, int(project_id), year_param())
+        return _pdf(pdf_export.export_budget_vs_actual_pdf(
+            bva, _company_name(company_id), "%s - %s" % (prow["code"], prow["name"])),
+            "budget_vs_realization_project_%d.pdf" % bva["year"])
+    ids, label = scope_from_request()
+    bva = reports.budget_vs_actual(db(), ids, year_param())
+    return _pdf(pdf_export.export_budget_vs_actual_pdf(bva, label),
+                "budget_vs_realization_%d.pdf" % bva["year"])
 
 
 @app.get("/api/export/trial-balance")

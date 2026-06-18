@@ -379,6 +379,14 @@ async function pageProjectHV(el) {
       </div>
       <div id="phChart"><div class="empty">Loading…</div></div>
       <div id="phNotes"></div>
+    </div>
+    <div class="card mt"><h3>Compare Two Projects</h3>
+      <div class="filters">
+        <label>Project A <select id="cmpA">${active.map((r, i) => `<option value="${r.project_id}" ${i === 0 ? "selected" : ""}>${esc(r.code)} — ${esc(r.name)}</option>`).join("")}</select></label>
+        <label>vs</label>
+        <label>Project B <select id="cmpB">${active.map((r, i) => `<option value="${r.project_id}" ${i === 1 ? "selected" : ""}>${esc(r.code)} — ${esc(r.name)}</option>`).join("")}</select></label>
+      </div>
+      <div id="cmpBody"></div>
     </div>`;
 
   const bullets = items => `<ul style="margin:10px 0 0;padding-left:20px;line-height:1.9">${items.map(t => `<li>${t}</li>`).join("")}</ul>`;
@@ -478,6 +486,58 @@ async function pageProjectHV(el) {
   $("#phProj").onchange = renderAnalysis;
   $("#phMode").onchange = renderAnalysis;
   await renderAnalysis();
+
+  async function renderCompare() {
+    const aId = $("#cmpA").value, bId = $("#cmpB").value;
+    const box = $("#cmpBody");
+    const A = rows.find(r => String(r.project_id) === aId), B = rows.find(r => String(r.project_id) === bId);
+    if (!A || !B) { box.innerHTML = `<div class="empty">Add at least two active projects to compare.</div>`; return; }
+    if (aId === bId) { box.innerHTML = `<div class="empty">Pick two different projects.</div>`; return; }
+    box.innerHTML = `<div class="empty">Loading…</div>`;
+    const [ma, mb] = await Promise.all([
+      api(`/api/projects/${aId}/monthly?year=${state.year}`),
+      api(`/api/projects/${bId}/monthly?year=${state.year}`),
+    ]);
+    const achA = A.health.ach || 0, achB = B.health.ach || 0;
+    const metric = (label, a, b, fmtFn, higherBetter = true) => {
+      const diff = a - b;
+      const leader = a === b ? "—" : ((diff > 0) === higherBetter ? A.code : B.code);
+      return `<tr><td>${label}</td><td class="num">${fmtFn(a)}</td><td class="num">${fmtFn(b)}</td>
+        <td class="num">${diff === 0 ? "—" : (diff > 0 ? "+" : "−") + fmtFn(Math.abs(diff))}</td>
+        <td><b>${leader}</b></td></tr>`;
+    };
+    const aWins = (A.profit > B.profit) + (A.margin_pct > B.margin_pct) + (achA > achB);
+    const leader = aWins >= 2 ? A : B;
+    box.innerHTML = `
+      ${chartBars(["Revenue", "Expense", "Profit", "Budget Gain"], [
+        { name: A.code, color: C_REV, values: [A.revenue, A.expense, A.profit, A.health.budgetProfit] },
+        { name: B.code, color: C_EXP, values: [B.revenue, B.expense, B.profit, B.health.budgetProfit] },
+      ])}
+      <h3 class="mt">Monthly Profit — ${esc(A.code)} vs ${esc(B.code)} (${state.year})</h3>
+      ${chartBars(MONTH_NAMES, [
+        { name: A.code, color: C_REV, values: ma.map(m => m.profit), type: "line" },
+        { name: B.code, color: C_EXP, values: mb.map(m => m.profit), type: "line" },
+      ])}
+      <table class="tbl mt"><thead><tr><th>Metric</th>
+        <th class="num">${esc(A.code)}</th><th class="num">${esc(B.code)}</th>
+        <th class="num">A − B</th><th>Leader</th></tr></thead>
+      <tbody>
+        ${metric("Revenue", A.revenue, B.revenue, fmt)}
+        ${metric("Expense (lower wins)", A.expense, B.expense, fmt, false)}
+        ${metric("Profit / Gain", A.profit, B.profit, fmt)}
+        ${metric("Margin %", A.margin_pct, B.margin_pct, v => v + "%")}
+        ${metric("Budget achievement %", achA, achB, v => v + "%")}
+      </tbody></table>
+      <p class="mt"><b>${esc(leader.code)} — ${esc(leader.name)}</b> is the stronger project overall
+        (leads on ${Math.max(aWins, 3 - aWins)} of 3: profit, margin, budget achievement).
+        Profit gap <b>${fmt(Math.abs(A.profit - B.profit))}</b>, margin gap
+        <b>${Math.abs(A.margin_pct - B.margin_pct).toFixed(1)} pts</b>.</p>`;
+  }
+  if ($("#cmpA")) {
+    $("#cmpA").onchange = renderCompare;
+    $("#cmpB").onchange = renderCompare;
+    await renderCompare();
+  }
 }
 
 /* ------------------------------------------------------------------ journals */
@@ -1412,7 +1472,8 @@ async function pageReports(el) {
     <label>From date <input type="date" id="rdFrom" value="${state.year}-01-01"></label>
     <label>To date <input type="date" id="rdTo" value="${state.year}-12-31"></label>
     <button class="btn btn-primary" id="rGo">Apply</button>
-    <a class="btn" id="rExp">&#x2913; Export Excel</a>`;
+    <a class="btn" id="rExp">&#x2913; Export Excel</a>
+    <a class="btn" id="rExpPdf">&#x1F4C4; Export PDF</a>`;
 
   function renderCfDetail(d) {
     const list = (title, rows) => `<h3>${title}</h3><table class="tbl">
@@ -1463,6 +1524,7 @@ async function pageReports(el) {
         $("#rScope").textContent = d.scope;
         $("#rPeriod").textContent = periodLabel(d);
         $("#rExp").href = `/api/export/pnl?${scopeQS()}&${rangeQS()}`;
+        $("#rExpPdf").href = `/api/export/pdf/pnl?${scopeQS()}&${rangeQS()}`;
         const row = r => `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td class="num">${fmt(r.balance)}</td></tr>`;
         $("#rTable").innerHTML = `<table class="tbl"><thead><tr><th style="width:80px">Code</th><th>Account</th><th class="num">Amount</th></tr></thead><tbody>
           <tr class="section"><td colspan="3">Revenue</td></tr>${d.revenue.map(row).join("")}
@@ -1479,12 +1541,14 @@ async function pageReports(el) {
         <label>As of date <input type="date" id="rdAsOf" value="${state.year}-12-31"></label>
         <button class="btn btn-primary" id="rGo">Apply</button>
         <a class="btn" id="rExp">&#x2913; Export Excel</a>
+        <a class="btn" id="rExpPdf">&#x1F4C4; Export PDF</a>
         <span class="muted" id="rPeriod"></span></div><div id="rTable"></div>`;
       const run = async () => {
         const d = await api(`/api/reports/balance-sheet?${scopeQS()}&as_of=${$("#rdAsOf").value}`);
         $("#rScope").textContent = d.scope;
         $("#rPeriod").textContent = `As of ${d.as_of}`;
         $("#rExp").href = `/api/export/balance-sheet?${scopeQS()}&as_of=${$("#rdAsOf").value}`;
+        $("#rExpPdf").href = `/api/export/pdf/balance-sheet?${scopeQS()}&as_of=${$("#rdAsOf").value}`;
         const sect = (title, rows, total) => `<tr class="section"><td colspan="3">${title}</td></tr>` +
           rows.map(r => `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td class="num">${fmt(r.balance)}</td></tr>`).join("") +
           `<tr class="total"><td></td><td>Total ${title}</td><td class="num">${fmt(total)}</td></tr>`;
@@ -1505,6 +1569,7 @@ async function pageReports(el) {
         $("#rScope").textContent = d.scope;
         $("#rPeriod").textContent = periodLabel(d);
         $("#rExp").href = `/api/export/trial-balance?${scopeQS()}&${rangeQS()}`;
+        $("#rExpPdf").href = `/api/export/pdf/trial-balance?${scopeQS()}&${rangeQS()}`;
         $("#rTable").innerHTML = `<table class="tbl"><thead><tr><th>Code</th><th>Account</th><th>Type</th>
           <th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
           <tbody>${d.rows.map(r => `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${r.type}</td>
@@ -1519,6 +1584,7 @@ async function pageReports(el) {
       body.innerHTML = `<div class="filters">
           <label>Company <select id="cfCompany">${companyOptions(cfDefault, { includeAll: true })}</select></label>
           <a class="btn" id="cfExp">&#x2913; Export Excel</a>
+          <a class="btn" id="cfExpPdf">&#x1F4C4; Export PDF</a>
           <span class="muted">Cash &amp; bank accounts (11xx) — year ${state.year}</span></div>
         <div id="cfDetail"></div><div id="cfCompare"></div>`;
       const runCf = async () => {
@@ -1526,6 +1592,7 @@ async function pageReports(el) {
         const d = await api(`/api/reports/cash-flow?company_id=${cid}&year=${state.year}`);
         $("#rScope").textContent = d.scope;
         $("#cfExp").href = `/api/export/cash-flow?company_id=${cid}&year=${state.year}`;
+        $("#cfExpPdf").href = `/api/export/pdf/cash-flow?company_id=${cid}&year=${state.year}`;
         renderCfDetail(d);
       };
       $("#cfCompany").onchange = runCf;
@@ -1547,6 +1614,7 @@ async function pageReports(el) {
       const d = await api(`/api/reports/budget-vs-actual?${scopeQS()}`);
       $("#rScope").textContent = d.scope;
       body.innerHTML = `<div class="filters"><a class="btn" href="/api/export/budget-vs-actual?${scopeQS()}">&#x2913; Export Excel</a>
+        <a class="btn" href="/api/export/pdf/budget-vs-actual?${scopeQS()}">&#x1F4C4; Export PDF</a>
         <span class="muted">Realization = posted actuals (Realisasi)</span></div>
         <table class="tbl"><thead><tr><th>Code</th><th>Account</th><th>Type</th>
         <th class="num">Budget</th><th class="num">Realization</th><th class="num">Variance</th><th class="num">Used</th></tr></thead>
