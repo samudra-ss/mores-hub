@@ -243,41 +243,86 @@ async function pageDashboard(el) {
           { name: "Expense", color: C_EXP, values: monthly.map(m => m.expense) },
           { name: "Profit", color: C_PROFIT, values: monthly.map(m => m.profit), type: "line" },
         ])}</div>
-      <div class="card"><h3>Expense Breakdown</h3>
-        ${chartDonut(d.expense_breakdown.map((r, i) => ({ label: r.code + " " + r.name, value: r.balance, color: PALETTE[i % PALETTE.length] })))}
+      <div class="card"><h3>Expense Breakdown — Realization vs Budget</h3>
+        <div style="max-height:300px;overflow:auto"><table class="tbl">
+          <thead><tr><th>Account</th><th class="num">Realization</th><th class="num">Budget</th><th class="num">Used</th></tr></thead>
+          <tbody>${d.expense_breakdown.map(r => {
+            const used = r.budget ? Math.round(100 * r.actual / r.budget) : null;
+            return `<tr><td>${esc(r.code)} ${esc(r.name)}</td>
+              <td class="num">${fmt(r.actual)}</td>
+              <td class="num muted">${fmt(r.budget)}</td>
+              <td class="num ${used != null && used > 100 ? "neg" : ""}">${used == null ? "—" : used + "%"}</td></tr>`;
+          }).join("") || `<tr><td colspan="4" class="empty">No expenses</td></tr>`}</tbody></table></div>
       </div>
+    </div>
+    <div class="card mt"><h3>Monthly Cash Flow (${state.year})</h3>
+      ${chartBars(MONTH_NAMES, [
+        { name: "Cash In", color: C_REV, values: d.cash_flow.monthly.map(m => m.cash_in) },
+        { name: "Cash Out", color: C_EXP, values: d.cash_flow.monthly.map(m => m.cash_out) },
+        { name: "Ending Balance", color: "var(--text)", values: d.cash_flow.monthly.map(m => m.ending), type: "line" },
+      ])}
+      <div class="muted mt">Opening ${fmtShort(d.cash_flow.opening_balance)} · In ${fmtShort(d.cash_flow.total_in)}
+        · Out ${fmtShort(d.cash_flow.total_out)} · Net ${fmtShort(d.cash_flow.net_change)}
+        · Closing <b>${fmtShort(d.cash_flow.closing_balance)}</b></div>
     </div>
     <div class="grid two-col mt">
-      <div class="card"><h3>Project Performance (top)</h3>
-        <table class="tbl"><thead><tr><th>Project</th><th>Company</th><th class="num">Revenue</th><th class="num">Profit</th><th class="num">Margin</th></tr></thead>
-        <tbody>${d.projects.map(p => `<tr><td>${esc(p.code)} — ${esc(p.name)}</td><td>${esc(p.company)}</td>
-          <td class="num">${fmt(p.revenue)}</td>
-          <td class="num ${p.profit >= 0 ? "pos" : "neg"}">${fmt(p.profit)}</td>
-          <td class="num">${p.margin_pct}%</td></tr>`).join("") || `<tr><td colspan="5" class="empty">No project activity</td></tr>`}</tbody></table>
+      <div class="card"><h3>Project Performance — click a project for budget vs realization</h3>
+        <table class="tbl"><thead><tr><th>Project</th><th>Company</th>
+          <th class="num">Revenue</th><th class="num">Budget Rev</th>
+          <th class="num">Profit</th><th class="num">Budget Gain</th><th class="num">Margin</th></tr></thead>
+        <tbody>${d.projects.map(p => {
+          const budgetGain = round2((p.budget_revenue || 0) - (p.budget_expense || 0));
+          return `<tr class="clickable" data-proj="${p.project_id}" data-company="${esc(p.company)}" data-name="${esc(p.code)} — ${esc(p.name)}">
+            <td><b>${esc(p.code)}</b> ${esc(p.name)}</td><td>${esc(p.company)}</td>
+            <td class="num">${fmt(p.revenue)}</td><td class="num muted">${fmt(p.budget_revenue)}</td>
+            <td class="num ${p.profit >= 0 ? "pos" : "neg"}">${fmt(p.profit)}</td>
+            <td class="num muted">${fmt(budgetGain)}</td>
+            <td class="num">${p.margin_pct}%</td></tr>`;
+        }).join("") || `<tr><td colspan="7" class="empty">No project activity</td></tr>`}</tbody></table>
       </div>
-      <div class="card"><h3>${d.per_company.length > 1 ? "Per Company (" + state.year + ")" : "Recent Journal Entries"}</h3>
-        ${d.per_company.length > 1
-          ? `<table class="tbl"><thead><tr><th>Company</th><th class="num">Revenue</th><th class="num">Expense</th><th class="num">Profit</th></tr></thead>
-             <tbody>${d.per_company.map(c => `<tr><td>${esc(c.code)} — ${esc(c.name)}${c.is_holding ? ' <span class="pill completed">holding</span>' : ""}</td>
-               <td class="num">${fmt(c.revenue)}</td><td class="num">${fmt(c.expense)}</td>
-               <td class="num ${c.profit >= 0 ? "pos" : "neg"}">${fmt(c.profit)}</td></tr>`).join("")}</tbody></table>`
-          : recentJournalsTable(d.recent_journals)}
+      <div class="card"><h3>Per Company (${state.year})</h3>
+        <table class="tbl"><thead><tr><th>Company</th><th class="num">Revenue</th><th class="num">Expense</th><th class="num">Profit</th></tr></thead>
+        <tbody>${d.per_company.map(c => `<tr><td>${esc(c.code)} — ${esc(c.name)}${c.is_holding ? ' <span class="pill completed">holding</span>' : ""}</td>
+          <td class="num">${fmt(c.revenue)}</td><td class="num">${fmt(c.expense)}</td>
+          <td class="num ${c.profit >= 0 ? "pos" : "neg"}">${fmt(c.profit)}</td></tr>`).join("") ||
+          `<tr><td colspan="4" class="empty">No activity</td></tr>`}</tbody></table>
       </div>
-    </div>
-    ${d.per_company.length > 1 ? `<div class="card mt"><h3>Recent Journal Entries</h3>${recentJournalsTable(d.recent_journals)}</div>` : ""}`;
+    </div>`;
   $$("#dashScope .seg").forEach(b => b.onclick = () => {
     state.companyId = b.dataset.scope;
     localStorage.setItem("erp.company", b.dataset.scope);
     const cs = $("#companySelect"); if (cs) cs.value = b.dataset.scope;  // keep topbar in sync
     render();
   });
+  $$("#content tr[data-proj]").forEach(tr => tr.onclick = () =>
+    dashProjectDetail(tr.dataset.proj, tr.dataset.company, tr.dataset.name));
 }
 
-function recentJournalsTable(rows) {
-  return `<table class="tbl"><thead><tr><th>Date</th><th>Entry</th><th>Description</th><th class="num">Amount</th><th></th></tr></thead>
-    <tbody>${rows.map(j => `<tr><td>${esc(j.date)}</td><td>${esc(j.entry_no)}<br><span class="muted">${esc(j.company)}</span></td>
-      <td>${esc(j.description)}</td><td class="num">${fmt(j.amount)}</td>
-      <td><span class="pill ${j.status}">${j.status}</span></td></tr>`).join("") || `<tr><td colspan="5" class="empty">No entries</td></tr>`}</tbody></table>`;
+const round2 = n => Math.round((n || 0) * 100) / 100;
+
+async function dashProjectDetail(projectId, companyCode, name) {
+  const company = state.me.companies.find(c => c.code === companyCode);
+  if (!company) { toast("Company not accessible", true); return; }
+  const d = await api(`/api/reports/project-budget-vs-actual?company_id=${company.id}&project_id=${projectId}&year=${state.year}`);
+  // Revenue + COGS accounts only, Budget vs Realization
+  const rows = d.rows.filter(r => r.type === "revenue" || r.code.startsWith("5100") || r.code.startsWith("5000"));
+  const chart = rows.length ? chartBars(rows.map(r => r.code), [
+    { name: "Budget", color: "#9ca3af", values: rows.map(r => r.budget) },
+    { name: "Realization", color: C_REV, values: rows.map(r => r.actual) },
+  ], { height: 230 }) : `<div class="empty">No revenue/COGS budget or realization for this project.</div>`;
+  openModal(`
+    <div class="muted" style="margin-top:-4px">${esc(companyCode)} · Budget vs Realization (Revenue &amp; COGS) — ${state.year}</div>
+    ${chart}
+    <table class="tbl mt"><thead><tr><th>Code</th><th>Account</th><th>Type</th>
+      <th class="num">Budget</th><th class="num">Realization</th><th class="num">Variance</th><th class="num">Used</th></tr></thead>
+      <tbody>${rows.map(r => {
+        const bad = r.type === "expense" ? r.variance > 0 : r.variance < 0;
+        return `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${r.type}</td>
+          <td class="num">${fmt(r.budget)}</td><td class="num">${fmt(r.actual)}</td>
+          <td class="num ${bad ? "neg" : "pos"}">${fmt(r.variance)}</td>
+          <td class="num">${r.used_pct == null ? "—" : r.used_pct + "%"}</td></tr>`;
+      }).join("") || `<tr><td colspan="7" class="empty">No revenue/COGS lines</td></tr>`}</tbody></table>`,
+    { title: name });
 }
 
 /* ------------------------------------------------------------------ project HV */

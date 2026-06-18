@@ -1326,5 +1326,11 @@ def update_user(uid):
 if __name__ == "__main__":
     database.init_db()
     port = int(os.environ.get("PORT", 8000))
-    print("MORES ERP running at http://127.0.0.1:%d  (login: admin / admin123)" % port)
-    app.run(host="127.0.0.1", port=port, debug=False)
+    # HOST=0.0.0.0 makes the app reachable from other devices on the network.
+    # Default stays localhost-only for safety.
+    host = os.environ.get("HOST", "127.0.0.1")
+    shown = "127.0.0.1" if host in ("127.0.0.1", "localhost") else host
+    print("MORES HV running at http://%s:%d  (login: admin / admin123)" % (shown, port))
+    if host == "0.0.0.0":
+        print("Reachable on your network — change the demo passwords before sharing.")
+    app.run(host=host, port=port, debug=False)

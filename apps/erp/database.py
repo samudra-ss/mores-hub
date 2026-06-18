@@ -55,13 +55,13 @@ STANDARD_COA = [
     ("7200", "Interest Expense", "expense", None, 0),
 ]
 
-# Extra accounts that exist ONLY in the holding company: the "C-AKUN" cost group.
-HOLDING_COA = [
-    ("C-AKUN", "C-AKUN (Holding Cost Accounts)", "expense", None, 0),
-    ("C-1", "C-1 BDKR", "expense", "C-AKUN", 0),
-    ("C-2", "C-2 FRK", "expense", "C-AKUN", 0),
-    ("C-NB", "C-NB", "expense", "C-AKUN", 0),
-    ("C-SKWN", "C-SKWN", "expense", "C-AKUN", 0),
+# Extra cost accounts that exist only in MDA (Consulting): the "C-AKUN" group (7300).
+MDA_EXTRA_COA = [
+    ("7300", "C-AKUN", "expense", None, 0),
+    ("7300-01", "C-1 BDKR", "expense", "7300", 0),
+    ("7300-02", "C-2 FRK", "expense", "7300", 0),
+    ("7300-03", "C-NB", "expense", "7300", 0),
+    ("7300-04", "C-SKWN", "expense", "7300", 0),
 ]
 
 # Operating profile per entity: primary revenue account + how direct cost (COGS)
@@ -226,10 +226,10 @@ def apply_standard_coa(conn, company_id):
     return added
 
 
-def apply_holding_coa(conn, company_id):
-    """Insert the holding-only C-AKUN cost accounts. Returns number added."""
+def apply_mda_extra_coa(conn, company_id):
+    """Insert the MDA-only C-AKUN (7300) cost accounts. Returns number added."""
     added = 0
-    for code, name, typ, parent, ic in HOLDING_COA:
+    for code, name, typ, parent, ic in MDA_EXTRA_COA:
         cur = conn.execute(
             "INSERT OR IGNORE INTO accounts (company_id, code, name, type, parent_code, is_intercompany)"
             " VALUES (?,?,?,?,?,?)",
@@ -332,7 +332,7 @@ def seed(conn):
     companies = {r["code"]: r["id"] for r in conn.execute("SELECT id, code FROM companies").fetchall()}
     for code, cid in companies.items():
         apply_standard_coa(conn, cid)
-    apply_holding_coa(conn, companies["HOLD"])
+    apply_mda_extra_coa(conn, companies["MDA"])
 
     # --- projects -----------------------------------------------------------
     projects = {}  # (company_code, project_code) -> id
@@ -418,17 +418,17 @@ def seed(conn):
                        [("6600", None, adm, 0), ("1120", None, 0, adm)])
             seq += 1
 
-            # holding-only C-AKUN cost spending
-            if ccode == "HOLD":
-                cакun = [("C-1", 60_000_000), ("C-2", 45_000_000),
-                         ("C-NB", 35_000_000), ("C-SKWN", 30_000_000)]
+            # MDA (Consulting) C-AKUN cost spending (7300 group)
+            if ccode == "MDA":
+                cакun = [("7300-01", 60_000_000), ("7300-02", 45_000_000),
+                         ("7300-03", 35_000_000), ("7300-04", 30_000_000)]
                 lines, total = [], 0.0
                 for code, amt in cакun:
                     a = round(amt * growth * rng.uniform(0.8, 1.2), 2)
                     lines.append((code, None, a, 0))
                     total = round(total + a, 2)
                 lines.append(("1120", None, 0, total))
-                _add_entry(conn, cid, seq, d(10), "Holding cost accounts (C-AKUN)", lines)
+                _add_entry(conn, cid, seq, d(10), "C-AKUN cost accounts", lines)
                 seq += 1
 
     # --- budgets for 2026 (company-level + project-level) --------------------

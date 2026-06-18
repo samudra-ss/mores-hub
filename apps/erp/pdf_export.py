@@ -13,6 +13,22 @@ BOTTOM = MARGIN + 24.0
 NAVY = (0.122, 0.184, 0.255)   # header fill
 GREY = (0.42, 0.45, 0.49)
 RED = (0.74, 0.21, 0.18)
+TEAL = (0.0, 0.635, 0.714)     # cash in  (#00a2b6)
+ORANGE = (0.973, 0.580, 0.024)  # cash out (#f89406)
+
+
+def _short(n):
+    a = abs(n or 0)
+    sign = "-" if (n or 0) < 0 else ""
+    if a >= 1e12:
+        return "%s%.1fT" % (sign, a / 1e12)
+    if a >= 1e9:
+        return "%s%.1fB" % (sign, a / 1e9)
+    if a >= 1e6:
+        return "%s%.0fM" % (sign, a / 1e6)
+    if a >= 1e3:
+        return "%s%.0fK" % (sign, a / 1e3)
+    return "%s%.0f" % (sign, a)
 
 # Helvetica glyph widths (per 1000 em) for ASCII 32..126
 _HELV_W = [
@@ -94,6 +110,55 @@ class PdfDoc:
     def rect_fill(self, x, y, w, h, color):
         self.cur.append("%.3f %.3f %.3f rg %.2f %.2f %.2f %.2f re f 0 0 0 rg"
                         % (color[0], color[1], color[2], x, y, w, h))
+
+    def cline(self, x1, y1, x2, y2, color, w=1.0):
+        """Coloured stroked line."""
+        self.cur.append("%.3f %.3f %.3f RG %.2f w %.2f %.2f m %.2f %.2f l S 0 0 0 RG 1 w"
+                        % (color[0], color[1], color[2], w, x1, y1, x2, y2))
+
+    def cashflow_chart(self, cf, months):
+        """Native vector bar+line chart: cash in / cash out bars + ending-balance line."""
+        self.ensure(225)
+        chart_x = MARGIN + 34
+        chart_w = PAGE_W - MARGIN - chart_x
+        top = self.y
+        chart_h = 165.0
+        base = top - chart_h
+        vals = []
+        for m in cf["monthly"]:
+            vals += [m["cash_in"], m["cash_out"], m["ending"]]
+        maxv = max(vals + [1.0]) * 1.08
+
+        def yv(v):
+            return base + (v / maxv) * chart_h
+
+        for i in range(5):  # gridlines + y-axis labels
+            gy = base + (i / 4.0) * chart_h
+            self.line(chart_x, gy, chart_x + chart_w, gy, 0.4, 0.88)
+            self.rtext(chart_x - 5, gy - 3, _short(maxv * i / 4.0), 6.5, False, GREY)
+        gw = chart_w / 12.0
+        bw = gw * 0.30
+        for i, m in enumerate(cf["monthly"]):
+            gx = chart_x + i * gw
+            self.rect_fill(gx + gw * 0.12, base, bw, yv(m["cash_in"]) - base, TEAL)
+            self.rect_fill(gx + gw * 0.12 + bw + 2, base, bw, yv(m["cash_out"]) - base, ORANGE)
+            self.text(gx + gw * 0.22, base - 10, months[i], 6.5, False, GREY)
+        prev = None  # ending-balance line
+        for i, m in enumerate(cf["monthly"]):
+            cx = chart_x + i * gw + gw / 2.0
+            cy = yv(m["ending"])
+            if prev:
+                self.cline(prev[0], prev[1], cx, cy, NAVY, 1.3)
+            prev = (cx, cy)
+        # legend
+        ly = base - 22
+        self.rect_fill(chart_x, ly, 9, 7, TEAL)
+        self.text(chart_x + 13, ly, "Cash In", 7.5, False, GREY)
+        self.rect_fill(chart_x + 70, ly, 9, 7, ORANGE)
+        self.text(chart_x + 83, ly, "Cash Out", 7.5, False, GREY)
+        self.cline(chart_x + 150, ly + 3, chart_x + 165, ly + 3, NAVY, 1.3)
+        self.text(chart_x + 169, ly, "Ending Balance", 7.5, False, GREY)
+        self.y = ly - 18
 
     def fit(self, s, maxw, size):
         s = _san(s)
@@ -257,6 +322,7 @@ def export_cash_flow_pdf(cf, scope):
               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     d = PdfDoc()
     d.header("Cash Flow Statement", "%s   |   Year %s" % (scope, cf["year"]))
+    d.cashflow_chart(cf, months)  # monthly cash-flow chart (cash in/out + ending balance)
     mx = MARGIN
     in_x, out_x, net_x, end_x = 200, 320, 430, PAGE_W - MARGIN
     d.col_header([("MONTH", mx, "l"), ("CASH IN", in_x, "r"), ("CASH OUT", out_x, "r"),

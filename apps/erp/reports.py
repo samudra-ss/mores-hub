@@ -413,25 +413,30 @@ def dashboard(conn, company_ids, year):
     ar = round(sum(b["balance"] for b in balances if b["code"] == "1200"), 2)
     ap = round(sum(b["balance"] for b in balances if b["code"] == "2100"), 2)
 
-    expense_breakdown = sorted(
-        [r for r in pnl["expense"]], key=lambda r: -r["balance"])[:8]
-    # Office Expense YTD = Office & Administration (6600); add rent/utilities as office running cost
+    # Expense breakdown with budget (Realization vs Budget) for every expense line,
+    # so the full Office Expense and its budget are visible.
+    bva_exp = {r["code"]: r for r in bva["rows"] if r["type"] == "expense"}
+    actual_by_code = {r["code"]: r["balance"] for r in pnl["expense"]}
+    exp_codes = set(bva_exp) | set(actual_by_code)
+    expense_breakdown = []
+    for code in exp_codes:
+        row = bva_exp.get(code)
+        name = row["name"] if row else next(
+            (r["name"] for r in pnl["expense"] if r["code"] == code), code)
+        expense_breakdown.append({
+            "code": code, "name": name,
+            "actual": round(actual_by_code.get(code, row["actual"] if row else 0), 2),
+            "budget": round(row["budget"] if row else 0, 2),
+        })
+    expense_breakdown.sort(key=lambda r: -r["actual"])
+
+    # Office Expense YTD = Office & Administration (6600) + rent (6200) + utilities (6300)
     office_expense = round(sum(r["balance"] for r in pnl["expense"]
                               if r["code"] in ("6600", "6200", "6300")), 2)
     proj = project_performance(conn, company_ids, year)
+    cf = cash_flow(conn, company_ids, year)
 
     ph, ids = _company_filter(company_ids)
-    recent = conn.execute(
-        """
-        SELECT je.id, je.entry_no, je.date, je.description, je.status, c.code AS company,
-               (SELECT ROUND(SUM(debit),2) FROM journal_lines WHERE entry_id = je.id) AS amount
-        FROM journal_entries je JOIN companies c ON c.id = je.company_id
-        WHERE je.company_id IN (%s)
-        ORDER BY je.date DESC, je.id DESC LIMIT 8
-        """ % ph,
-        ids,
-    ).fetchall()
-
     # per-company summary (useful on consolidated/holding view)
     per_company = conn.execute(
         """
@@ -476,6 +481,10 @@ def dashboard(conn, company_ids, year):
         "monthly": monthly,
         "expense_breakdown": expense_breakdown,
         "projects": proj[:8],
-        "recent_journals": [dict(r) for r in recent],
+        "cash_flow": {
+            "monthly": cf["monthly"], "opening_balance": cf["opening_balance"],
+            "total_in": cf["total_in"], "total_out": cf["total_out"],
+            "net_change": cf["net_change"], "closing_balance": cf["closing_balance"],
+        },
         "per_company": sorted(comp.values(), key=lambda c: -c["revenue"]),
     }
