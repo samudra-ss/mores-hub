@@ -1,0 +1,39 @@
+node_modules/
+dist/
+build/
+.next/
+*.log
+.env
+.env.local
+.env.*.local
+!.env.example
+.DS_Store
+coverage/
+.flutter-plugins
+.flutter-plugins-dependencies
+.dart_tool/
+.pub-cache/
+.pub/
+ios/Pods/
+android/.gradle/
+android/local.properties
+android/app/build/
+*.iml
+.idea/
+.vscode/
+*.sqlite
+prisma/migrations/dev.db*
+
+# Python (ERP app — apps/erp)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ERP local secrets & data (regenerable; must not be shared)
+.secret_key
+*.db
+
+# Claude Code local tooling config
+.claude/

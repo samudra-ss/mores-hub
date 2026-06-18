@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mores-HV — Login</title>
+<style>
+:root {
+  --bg: #0a0a0c;
+  --panel: #141417;
+  --panel-2: #0f0f12;
+  --field: #1b1b1f;
+  --field-border: #2b2b31;
+  --text: #f4f4f6;
+  --muted: #8b8b94;
+  --violet: #8b5cf6;
+  --violet-light: #a78bfa;
+  --violet-dark: #7c46e8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+  background:
+    radial-gradient(900px 500px at 80% -10%, rgba(139,92,246,.10), transparent 60%),
+    var(--bg);
+  color: var(--text); min-height: 100vh;
+  display: flex; align-items: center; justify-content: center; padding: 26px;
+}
+.card {
+  width: min(960px, 100%); min-height: 470px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  background: var(--panel); border: 1px solid #1f1f24; border-radius: 16px;
+  overflow: hidden; box-shadow: 0 40px 110px rgba(0,0,0,.6);
+}
+/* ---------------- left: architecture image ---------------- */
+.photo {
+  position: relative; overflow: hidden; background: #111;
+  /* To use your own photo: drop a file at static/login-bg.jpg and uncomment: */
+  /* background-image: url('/static/login-bg.jpg'); background-size: cover; background-position: center; */
+}
+.photo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.photo::after {  /* subtle dark vignette so it reads grayscale + moody */
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(10,10,12,.15), rgba(10,10,12,.45));
+}
+/* ---------------- right: form ---------------- */
+.form-side {
+  background: var(--panel); padding: 44px 46px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.brand { margin-bottom: 26px; }
+.brand h1 { font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
+.brand p { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+.welcome h2 { font-size: 24px; font-weight: 700; letter-spacing: -.4px; }
+.welcome p { color: var(--muted); font-size: 13px; margin: 6px 0 24px; }
+label.fld { display: block; font-size: 12px; font-weight: 600; color: #c7c7cf; margin: 0 0 7px; }
+.field { margin-bottom: 16px; }
+.field input[type=text], .field input[type=password] {
+  width: 100%; padding: 12px 14px; font-size: 14px; color: var(--text);
+  background: var(--field); border: 1px solid var(--field-border); border-radius: 9px;
+  outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.field input::placeholder { color: #6a6a72; }
+.field input:focus { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(139,92,246,.22); }
+.row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 4px 0 22px; font-size: 13px;
+}
+.remember { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; user-select: none; }
+.remember input { width: 15px; height: 15px; accent-color: var(--violet); cursor: pointer; }
+.forgot { color: var(--violet-light); text-decoration: none; cursor: pointer; }
+.forgot:hover { text-decoration: underline; }
+button[type=submit] {
+  width: 100%; padding: 13px; cursor: pointer; font: inherit; font-weight: 600; font-size: 14.5px;
+  color: #fff; border: none; border-radius: 9px;
+  background: linear-gradient(180deg, var(--violet-light) 0%, var(--violet) 55%, var(--violet-dark) 100%);
+  box-shadow: 0 10px 26px rgba(139,92,246,.32); transition: filter .15s, transform .1s;
+}
+button[type=submit]:hover { filter: brightness(1.06); }
+button[type=submit]:active { transform: translateY(1px); }
+.login-error {
+  background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: #ff9d9d;
+  padding: 10px 13px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
+}
+.note { color: var(--muted); font-size: 12px; margin-top: 14px; }
+.hint { color: #5d5d66; font-size: 11.5px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #222228; line-height: 1.8; }
+.hint b { color: #9a9aa4; }
+@media (max-width: 720px) {
+  .card { grid-template-columns: 1fr; min-height: auto; }
+  .photo { min-height: 170px; }
+  .form-side { padding: 30px 26px; }
+}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="photo">
+      <!-- Grayscale modernist-architecture illustration ("Precision in Architecture").
+           Replace with a real photo by setting .photo background-image (see CSS). -->
+      <svg viewBox="0 0 400 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#6f7174"/><stop offset="1" stop-color="#9a9ca0"/>
+          </linearGradient>
+          <linearGradient id="concrete" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#43454a"/><stop offset="1" stop-color="#5a5d63"/>
+          </linearGradient>
+          <linearGradient id="concrete2" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#34363b"/><stop offset="1" stop-color="#494c52"/>
+          </linearGradient>
+        </defs>
+        <rect width="400" height="480" fill="url(#sky)"/>
+        <!-- distant block -->
+        <rect x="20" y="150" width="120" height="330" fill="#5e6166"/>
+        <g fill="#74787e" opacity=".7">
+          <rect x="34" y="170" width="20" height="14"/><rect x="62" y="170" width="20" height="14"/><rect x="90" y="170" width="20" height="14"/>
+          <rect x="34" y="196" width="20" height="14"/><rect x="62" y="196" width="20" height="14"/><rect x="90" y="196" width="20" height="14"/>
+          <rect x="34" y="222" width="20" height="14"/><rect x="62" y="222" width="20" height="14"/><rect x="90" y="222" width="20" height="14"/>
+        </g>
+        <!-- main brutalist tower -->
+        <rect x="120" y="80" width="210" height="400" fill="url(#concrete)"/>
+        <rect x="120" y="80" width="14" height="400" fill="#3b3d42"/>
+        <!-- horizontal slab floors -->
+        <g fill="#2f3136">
+          <rect x="134" y="120" width="196" height="6"/>
+          <rect x="134" y="178" width="196" height="6"/>
+          <rect x="134" y="236" width="196" height="6"/>
+          <rect x="134" y="294" width="196" height="6"/>
+          <rect x="134" y="352" width="196" height="6"/>
+          <rect x="134" y="410" width="196" height="6"/>
+        </g>
+        <!-- recessed window bands -->
+        <g fill="#22242a">
+          <rect x="146" y="132" width="172" height="36"/>
+          <rect x="146" y="190" width="172" height="36"/>
+          <rect x="146" y="248" width="172" height="36"/>
+          <rect x="146" y="306" width="172" height="36"/>
+          <rect x="146" y="364" width="172" height="36"/>
+        </g>
+        <!-- window mullions (vertical) -->
+        <g stroke="#54575d" stroke-width="2">
+          <line x1="178" y1="132" x2="178" y2="400"/>
+          <line x1="210" y1="132" x2="210" y2="400"/>
+          <line x1="242" y1="132" x2="242" y2="400"/>
+          <line x1="274" y1="132" x2="274" y2="400"/>
+          <line x1="306" y1="132" x2="306" y2="400"/>
+        </g>
+        <!-- faint glass reflections -->
+        <g fill="#3a3d44" opacity=".6">
+          <rect x="148" y="134" width="28" height="32"/><rect x="244" y="250" width="28" height="32"/>
+          <rect x="180" y="308" width="28" height="32"/><rect x="276" y="192" width="28" height="32"/>
+        </g>
+        <!-- foreground planter + palms -->
+        <rect x="300" y="430" width="80" height="50" fill="#3c3e43"/>
+        <g stroke="#2b2d31" stroke-width="4" fill="none">
+          <path d="M330 430 C328 410 326 392 330 372"/>
+          <path d="M352 430 C354 408 356 392 350 374"/>
+        </g>
+        <g fill="#34363b">
+          <path d="M330 374 q-22 -8 -34 4 q20 -2 34 6 z"/>
+          <path d="M330 372 q22 -10 36 2 q-22 -2 -36 8 z"/>
+          <path d="M330 370 q-10 -22 4 -34 q-2 20 -4 34 z"/>
+          <path d="M350 376 q20 -10 34 0 q-20 0 -34 8 z"/>
+          <path d="M350 374 q-18 -10 -32 -2 q18 0 32 8 z"/>
+          <path d="M350 372 q8 -22 -6 -32 q2 18 6 32 z"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="form-side">
+      <div class="brand">
+        <h1>Mores-HV</h1>
+        <p>Precision in Architecture.</p>
+      </div>
+      <div class="welcome">
+        <h2>Welcome Back</h2>
+        <p>Please enter your details to sign in.</p>
+      </div>
+      <form id="loginForm">
+        <div id="loginError" class="login-error" hidden></div>
+        <div class="field">
+          <label class="fld" for="username">Username/Email</label>
+          <input type="text" id="username" autocomplete="username" placeholder="Enter your username or email" required autofocus>
+        </div>
+        <div class="field">
+          <label class="fld" for="password">Password</label>
+          <input type="password" id="password" autocomplete="current-password" placeholder="Enter your password" required>
+        </div>
+        <div class="row">
+          <label class="remember"><input type="checkbox" id="remember"> Remember me</label>
+          <a class="forgot" id="forgot">Forgot Password?</a>
+        </div>
+        <button type="submit">Sign In</button>
+      </form>
+      <div id="forgotNote" class="note" hidden>Please contact your system administrator to reset your password.</div>
+      <p class="hint">Demo access — <b>admin</b>/admin123 &middot; <b>finance</b>/finance123 &middot; <b>viewer</b>/viewer123</p>
+    </div>
+  </div>
+
+<script>
+document.getElementById('forgot').addEventListener('click', () => {
+  document.getElementById('forgotNote').hidden = false;
+});
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('loginError');
+  err.hidden = true;
+  const res = await fetch('/api/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      username: document.getElementById('username').value,
+      password: document.getElementById('password').value,
+      remember: document.getElementById('remember').checked,
+    }),
+  });
+  if (res.ok) { window.location.href = '/'; return; }
+  const data = await res.json().catch(() => ({}));
+  err.textContent = data.error || 'Login failed';
+  err.hidden = false;
+});
+</script>
+</body>
+</html>

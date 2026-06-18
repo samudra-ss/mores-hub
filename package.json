@@ -1,0 +1,14 @@
+{
+  "name": "mores-hub",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/admin",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace apps/api run start:dev",
+    "dev:admin": "npm --workspace apps/admin run dev"
+  }
+}

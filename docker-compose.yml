@@ -1,0 +1,23 @@
+# Local dev infra. Production: provision in Indonesia (id-jakarta) for UU PDP residency.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: moreshub
+      POSTGRES_PASSWORD: moreshub_dev
+      POSTGRES_DB: moreshub
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  postgres-data:
+  redis-data:

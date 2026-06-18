@@ -1,0 +1,321 @@
+// MORES-HUB data model
+// Design principle: balances are NEVER stored. They are derived from LedgerEntry
+// (double-entry). Every monetary mutation is paired (debit + credit) and atomic.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  googleSub     String    @unique // Google "sub" claim
+  email         String    @unique
+  name          String
+  avatarUrl     String?
+  pinHash       String?   // Argon2id hash of 6-digit PIN (mobile)
+  pinFailures   Int       @default(0)
+  pinLockedAt   DateTime?
+  kycTier       KycTier   @default(UNVERIFIED)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  ownedWallets    Wallet[]        @relation("WalletOwner")
+  walletAccess    WalletAccess[]
+  topupOrders     TopupOrder[]
+  cards           Card[]
+  adminProfile    Admin?
+
+  @@index([email])
+}
+
+enum KycTier {
+  UNVERIFIED  // signup only — cannot top up
+  BASIC       // email verified — limit IDR 2M/day
+  VERIFIED    // KTP verified — limit IDR 20M/day
+  ENHANCED    // EDD complete — limit IDR 200M/day
+}
+
+// ---------------------------------------------------------------------------
+// Wallets — multi-wallet, owner + access list (#7 from product spec)
+// ---------------------------------------------------------------------------
+
+model Wallet {
+  id            String         @id @default(cuid())
+  ownerId       String
+  owner         User           @relation("WalletOwner", fields: [ownerId], references: [id])
+  name          String
+  type          WalletType     @default(PERSONAL)
+  currency      String         @default("IDR")
+  isFrozen      Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  access        WalletAccess[]
+  ledgerEntries LedgerEntry[]
+  topupOrders   TopupOrder[]
+  cards         Card[]
+  qrCodes       QrCode[]
+
+  @@index([ownerId])
+}
+
+enum WalletType {
+  PERSONAL
+  SHARED
+  MERCHANT     // accepts QRIS as a payee
+  SYSTEM       // platform-internal (top-up source, fees collected, etc.)
+}
+
+model WalletAccess {
+  id        String      @id @default(cuid())
+  walletId  String
+  wallet    Wallet      @relation(fields: [walletId], references: [id])
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  role      AccessRole
+  grantedAt DateTime    @default(now())
+
+  @@unique([walletId, userId])
+  @@index([userId])
+}
+
+enum AccessRole {
+  OWNER
+  MEMBER  // can view + spend
+  VIEWER  // view-only
+}
+
+// ---------------------------------------------------------------------------
+// Ledger — double-entry. NO balance column anywhere.
+// ---------------------------------------------------------------------------
+
+model Transaction {
+  id            String         @id @default(cuid())
+  type          TxnType
+  status        TxnStatus      @default(PENDING)
+  amount        BigInt         // IDR minor unit (we use whole IDR — Indonesia has no sen)
+  currency      String         @default("IDR")
+  description   String?
+  category      String?        // for expense reports
+  externalRef   String?        @unique // e.g. provider payment ID, idempotency key
+  createdAt     DateTime       @default(now())
+  completedAt   DateTime?
+
+  entries       LedgerEntry[]
+  topupOrder    TopupOrder?
+
+  @@index([createdAt])
+  @@index([type, status])
+}
+
+enum TxnType {
+  TOPUP
+  TRANSFER
+  QRIS_PAYMENT
+  CARD_AUTH
+  CARD_CAPTURE
+  REFUND
+  FEE
+  ADMIN_ADJUSTMENT
+}
+
+enum TxnStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+model LedgerEntry {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  walletId      String
+  wallet        Wallet      @relation(fields: [walletId], references: [id])
+  direction     EntryDirection
+  amount        BigInt      // always positive; direction conveys sign
+  createdAt     DateTime    @default(now())
+
+  @@index([walletId, createdAt])
+  @@index([transactionId])
+}
+
+enum EntryDirection {
+  DEBIT   // money in to this wallet
+  CREDIT  // money out of this wallet
+}
+
+// ---------------------------------------------------------------------------
+// Top-up — bank VA via aggregator (mock for now). #5 from product spec.
+// ---------------------------------------------------------------------------
+
+model TopupOrder {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  walletId      String
+  wallet        Wallet       @relation(fields: [walletId], references: [id])
+  amount        BigInt
+  bank          IdBank
+  vaNumber      String       @unique
+  status        TopupStatus  @default(AWAITING_PAYMENT)
+  expiresAt     DateTime
+  paidAt        DateTime?
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  providerRef   String?      // mock provider's payment id
+  createdAt     DateTime     @default(now())
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum TopupStatus {
+  AWAITING_PAYMENT
+  PAID
+  EXPIRED
+  FAILED
+}
+
+enum IdBank {
+  BCA
+  BNI
+  BRI
+  MANDIRI
+  PERMATA
+  CIMB
+  BSI
+  DANAMON
+}
+
+// ---------------------------------------------------------------------------
+// QRIS — merchant aggregator pattern. #8 from product spec.
+// ---------------------------------------------------------------------------
+
+model QrCode {
+  id           String     @id @default(cuid())
+  walletId     String
+  wallet       Wallet     @relation(fields: [walletId], references: [id])
+  type         QrType
+  amount       BigInt?    // null for static
+  payload      String     // EMVCo TLV encoded
+  imageDataUrl String     // PNG data URL of the QR
+  expiresAt    DateTime?
+  createdAt    DateTime   @default(now())
+}
+
+enum QrType {
+  STATIC_MPM   // Merchant Presented Mode, reusable
+  DYNAMIC_MPM  // single-use, fixed amount
+}
+
+// ---------------------------------------------------------------------------
+// Cards — virtual prepaid (mock). Real issuance via BIN sponsor.
+// ---------------------------------------------------------------------------
+
+model Card {
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id])
+  walletId      String
+  wallet        Wallet     @relation(fields: [walletId], references: [id])
+  brand         CardBrand
+  last4         String
+  panToken      String     @unique // never store PAN; tokenized by issuer
+  expMonth      Int
+  expYear       Int
+  status        CardStatus @default(ACTIVE)
+  spendingLimit BigInt?    // optional per-card daily cap
+  createdAt     DateTime   @default(now())
+}
+
+enum CardBrand {
+  VISA
+  MASTERCARD
+  GPN          // Gerbang Pembayaran Nasional (domestic)
+}
+
+enum CardStatus {
+  ACTIVE
+  FROZEN
+  CANCELED
+}
+
+// ---------------------------------------------------------------------------
+// Admin Vault + Audit
+// ---------------------------------------------------------------------------
+
+model Admin {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  role        AdminRole
+  totpSecret  String   // base32, set during enrollment
+  createdAt   DateTime @default(now())
+}
+
+enum AdminRole {
+  SUPPORT       // read-only
+  OPERATIONS    // can freeze/unfreeze, refund up to threshold
+  TREASURY      // can adjust ledger (with dual approval)
+  SUPERADMIN    // root — break-glass only
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?  // null for system actions
+  action       String   // e.g. "wallet.freeze", "ledger.adjust"
+  target       String?  // resource id
+  payload      Json     // sanitized request body
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  // Hash chain — each row's hash includes prev hash, so tampering is detectable
+  prevHash     String?
+  rowHash      String
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+}
+
+model SuspiciousActivity {
+  id            String   @id @default(cuid())
+  userId        String?
+  walletId      String?
+  reason        String   // e.g. "LTKT_threshold", "velocity_anomaly"
+  amount        BigInt?
+  meta          Json
+  reportedToPpatk Boolean @default(false)
+  reportedAt    DateTime?
+  createdAt     DateTime @default(now())
+}
+
+model DualApproval {
+  id            String   @id @default(cuid())
+  action        String
+  payload       Json
+  requestedBy   String
+  approvals     String[] // admin user ids who have approved
+  requiredCount Int      @default(2)
+  status        ApprovalStatus @default(PENDING)
+  createdAt     DateTime @default(now())
+  resolvedAt    DateTime?
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+  EXPIRED
+}
