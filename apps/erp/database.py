@@ -1,11 +1,44 @@
-"""MORES HV - database layer: schema, standard COA template, seed data."""
+"""MORES HV - database layer: schema, standard COA template, seed data.
+
+Supports MULTIPLE named databases, each a self-contained SQLite file under
+databases/. The live group data is "MORES-GROUP"; "TEST-SERVER" is a sandbox.
+"""
 import os
 import random
+import re
+import shutil
 import sqlite3
 
 from werkzeug.security import generate_password_hash
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "erp.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATABASES_DIR = os.path.join(BASE_DIR, "databases")
+LEGACY_DB_PATH = os.path.join(BASE_DIR, "erp.db")  # pre-multi-db single file
+DEFAULT_DB = "MORES-GROUP"
+SANDBOX_DB = "TEST-SERVER"
+DB_PATH = LEGACY_DB_PATH  # kept for backward-compat references
+
+
+def _safe_name(name):
+    """Sanitise a database name to a safe display/file token."""
+    name = re.sub(r"[^A-Za-z0-9 _-]", "", str(name or "")).strip()
+    return name[:40]
+
+
+def db_file(name):
+    return os.path.join(DATABASES_DIR, _safe_name(name).replace(" ", "_") + ".db")
+
+
+def list_databases():
+    """Names of existing databases (default first), derived from the files."""
+    if not os.path.isdir(DATABASES_DIR):
+        return []
+    names = []
+    for fn in os.listdir(DATABASES_DIR):
+        if fn.endswith(".db"):
+            names.append(fn[:-3].replace("_", " "))
+    names.sort(key=lambda n: (n != DEFAULT_DB, n.lower()))
+    return names
 
 ACCOUNT_TYPES = ("asset", "liability", "equity", "revenue", "expense")
 
@@ -15,6 +48,7 @@ STANDARD_COA = [
     ("1100", "Cash & Bank", "asset", "1000", 0),
     ("1110", "Cash on Hand", "asset", "1100", 0),
     ("1120", "Bank Accounts", "asset", "1100", 0),
+    ("1130", "Petty Cash Monit", "asset", "1100", 0),
     ("1200", "Accounts Receivable", "asset", "1000", 0),
     ("1300", "Inventory", "asset", "1000", 0),
     ("1400", "Prepaid Expenses", "asset", "1000", 0),
@@ -206,8 +240,10 @@ CREATE INDEX IF NOT EXISTS idx_budgets_lookup ON budgets(company_id, year);
 """
 
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
+def get_db(name=None):
+    """Open the named database (defaults to MORES-GROUP)."""
+    path = db_file(name) if name else db_file(DEFAULT_DB)
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
@@ -553,21 +589,79 @@ def seed_investments(conn):
     return len(demo)
 
 
-def init_db(force=False):
-    """Create schema and seed if database is new. Returns True if seeded."""
-    if force and os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
-    is_new = not os.path.exists(DB_PATH)
-    conn = get_db()
+def _init_one(name, do_seed):
+    """Create schema (and optionally seed) for a single named database."""
+    conn = get_db(name)
     conn.executescript(SCHEMA)
-    if is_new:
+    if do_seed:
         seed(conn)
     seed_investments(conn)
+    conn.commit()
     conn.close()
+
+
+def create_database(name, seed_demo=True):
+    """Create a brand-new database. Returns the cleaned name. Raises ValueError."""
+    clean = _safe_name(name)
+    if not clean:
+        raise ValueError("Database name is required")
+    if clean in list_databases():
+        raise ValueError("A database named '%s' already exists" % clean)
+    os.makedirs(DATABASES_DIR, exist_ok=True)
+    _init_one(clean, seed_demo)
+    return clean
+
+
+def delete_database(name):
+    """Delete a database file. Refuses to remove the default group database."""
+    clean = _safe_name(name)
+    if clean == DEFAULT_DB:
+        raise ValueError("The %s database cannot be deleted" % DEFAULT_DB)
+    path = db_file(clean)
+    if not os.path.exists(path):
+        raise ValueError("Database '%s' not found" % clean)
+    os.remove(path)
+    return clean
+
+
+def init_db(force=False):
+    """Set up the databases directory, migrate the legacy single file into
+    MORES-GROUP (preserving all data), and ensure the TEST-SERVER sandbox."""
+    os.makedirs(DATABASES_DIR, exist_ok=True)
+    group_path = db_file(DEFAULT_DB)
+
+    # one-time migration: move the old erp.db -> databases/MORES-GROUP.db
+    if os.path.exists(LEGACY_DB_PATH) and not os.path.exists(group_path):
+        shutil.move(LEGACY_DB_PATH, group_path)
+
+    # ensure the group database exists & is schema-current (seed only if brand new)
+    is_new = not os.path.exists(group_path)
+    _init_one(DEFAULT_DB, do_seed=is_new)
+
+    # top up the COA so existing companies gain any newly-added standard accounts
+    # (e.g. 1130 Petty Cash Monit) without touching journals
+    conn = get_db(DEFAULT_DB)
+    for r in conn.execute("SELECT id FROM companies").fetchall():
+        apply_standard_coa(conn, r["id"])
+    conn.commit()
+    conn.close()
+
+    # ensure the sandbox exists (fresh demo data)
+    if not os.path.exists(db_file(SANDBOX_DB)):
+        _init_one(SANDBOX_DB, do_seed=True)
     return is_new
 
 
 if __name__ == "__main__":
     import sys
-    seeded = init_db(force="--force" in sys.argv)
-    print("Database ready at", DB_PATH, "(seeded)" if seeded else "(existing)")
+    if "--force" in sys.argv:
+        # reseed a specific db: python database.py --force [NAME]
+        target = next((a for a in sys.argv[1:] if not a.startswith("-")), DEFAULT_DB)
+        p = db_file(target)
+        if os.path.exists(p):
+            os.remove(p)
+        create_database(target)
+        print("Reseeded database:", target)
+    else:
+        seeded = init_db()
+        print("Databases ready in", DATABASES_DIR, "->", list_databases())

@@ -113,6 +113,12 @@ table { border-collapse: collapse; width: 100%; }
   background: var(--accent-soft); color: var(--accent-dark); padding: 4px 12px;
   border-radius: 99px; font-size: 12px; font-weight: 600;
 }
+.db-badge {
+  background: #e7f2e7; color: var(--green); padding: 4px 11px; border-radius: 99px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .3px;
+  border: 1px solid transparent;
+}
+.db-badge.sandbox { background: #fdf1e2; color: #c87a08; border-color: #f0c98a; }
 .content { padding: 22px; max-width: 1280px; width: 100%; margin: 0 auto; }
 
 /* controls */
@@ -233,6 +239,21 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #aee2e9; border-c
 
 /* charts */
 .chart-wrap svg { width: 100%; height: auto; display: block; }
+/* chart entrance animations */
+.ch-bar { transform-box: fill-box; transform-origin: bottom; animation: chBar .6s cubic-bezier(.22,.85,.25,1) both; }
+@keyframes chBar { from { transform: scaleY(0); opacity: .35; } to { transform: scaleY(1); opacity: 1; } }
+/* pathLength="1" on the polyline makes the dash normalised, so the line is never clipped */
+.ch-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: chLine 1.1s ease-out .12s forwards; }
+@keyframes chLine { to { stroke-dashoffset: 0; } }
+.ch-dot { opacity: 0; animation: chFade .4s ease-out both; }
+@keyframes chFade { to { opacity: 1; } }
+.ch-donut { transform-box: view-box; transform-origin: center; animation: chDonut .65s cubic-bezier(.22,.85,.25,1) both; }
+@keyframes chDonut { from { opacity: 0; transform: rotate(-14deg) scale(.9); } to { opacity: 1; transform: none; } }
+.ch-slice { opacity: 0; animation: chFade .5s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .ch-bar, .ch-line, .ch-dot, .ch-donut, .ch-slice { animation: none !important; opacity: 1 !important;
+    transform: none !important; stroke-dashoffset: 0 !important; }
+}
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 

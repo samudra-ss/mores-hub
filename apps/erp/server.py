@@ -36,9 +36,17 @@ XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 # DB / auth plumbing
 # --------------------------------------------------------------------------
 
+def active_db_name():
+    """The database the current session is working in (defaults to the group)."""
+    name = session.get("active_db") or database.DEFAULT_DB
+    if name not in database.list_databases():
+        name = database.DEFAULT_DB
+    return name
+
+
 def db():
     if "db" not in g:
-        g.db = database.get_db()
+        g.db = database.get_db(active_db_name())
     return g.db
 
 
@@ -204,6 +212,8 @@ def static_files(path):
 @app.post("/api/login")
 def api_login():
     data = request.get_json(silent=True) or {}
+    session["active_db"] = database.DEFAULT_DB  # always sign in to the group database
+    g.pop("db", None)
     user = db().execute(
         "SELECT * FROM users WHERE username=? AND is_active=1",
         (data.get("username", "").strip(),)).fetchone()
@@ -232,6 +242,8 @@ def api_me():
         "id": g.user["id"], "username": g.user["username"],
         "full_name": g.user["full_name"], "role": g.user["role"],
         "companies": companies,
+        "active_db": active_db_name(),
+        "databases": database.list_databases() if g.user["role"] == "admin" else [],
     })
 
 
@@ -1076,6 +1088,31 @@ def parse_bank_pdf():
     return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
 
 
+@app.post("/api/bank/parse-wallet")
+@role_required("admin", "finance")
+def parse_wallet():
+    company_id = int(request.form.get("company_id"))
+    check_company_access(company_id)
+    f = request.files.get("file")
+    if f is None or not f.filename:
+        raise ValueError("No file uploaded")
+    if not f.filename.lower().endswith((".xlsx", ".xlsm")):
+        raise ValueError("Please upload the wallet/card transaction .xlsx file")
+    txs, warnings, meta = bank_import.parse_wallet_xlsx(f.read())
+    _flag_duplicates(company_id, txs)
+    # resolve each suggested category account-code to an account id in this company
+    codes = {t.get("suggested_code") for t in txs if t.get("suggested_code")}
+    id_by_code = {}
+    if codes:
+        rows = db().execute(
+            "SELECT id, code FROM accounts WHERE company_id=? AND code IN (%s)"
+            % ",".join("?" * len(codes)), [company_id] + list(codes)).fetchall()
+        id_by_code = {r["code"]: r["id"] for r in rows}
+    for t in txs:
+        t["suggested_account_id"] = id_by_code.get(t.get("suggested_code"))
+    return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
+
+
 # --------------------------------------------------------------------------
 # Investments (strategic / scholarship initiatives)
 # --------------------------------------------------------------------------
@@ -1283,6 +1320,62 @@ def _attach_custom_values(rows, entity):
 def _company_name(cid):
     row = db().execute("SELECT name FROM companies WHERE id=?", (cid,)).fetchone()
     return row["name"] if row else "?"
+
+
+# --------------------------------------------------------------------------
+# Databases (admin) — separate data stores (MORES-GROUP, TEST-SERVER, ...)
+# --------------------------------------------------------------------------
+
+@app.get("/api/databases")
+@role_required("admin")
+def list_databases_api():
+    active = active_db_name()
+    return jsonify({
+        "active": active,
+        "default": database.DEFAULT_DB,
+        "databases": [{"name": n, "active": n == active,
+                       "deletable": n != database.DEFAULT_DB} for n in database.list_databases()],
+    })
+
+
+@app.post("/api/databases")
+@role_required("admin")
+def create_database_api():
+    d = request.get_json(force=True)
+    name = database.create_database(d.get("name", ""), seed_demo=bool(d.get("seed_demo", True)))
+    return jsonify({"name": name}), 201
+
+
+@app.delete("/api/databases/<name>")
+@role_required("admin")
+def delete_database_api(name):
+    if name == active_db_name():
+        raise ValueError("Switch to another database before deleting this one")
+    database.delete_database(name)
+    return jsonify({"ok": True})
+
+
+@app.post("/api/databases/switch")
+@role_required("admin")
+def switch_database_api():
+    d = request.get_json(force=True)
+    name = d.get("name", "")
+    if name not in database.list_databases():
+        raise ValueError("Database '%s' not found" % name)
+    # the same person must exist in the target database (match by username)
+    target = database.get_db(name)
+    try:
+        row = target.execute(
+            "SELECT id FROM users WHERE username=? AND is_active=1 AND role='admin'",
+            (g.user["username"],)).fetchone()
+    finally:
+        target.close()
+    if not row:
+        raise ValueError("Your admin account does not exist in '%s'" % name)
+    session["active_db"] = name
+    session["user_id"] = row["id"]
+    g.pop("db", None)
+    return jsonify({"ok": True, "active": name})
 
 
 # --------------------------------------------------------------------------

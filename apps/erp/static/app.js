@@ -89,14 +89,14 @@ function chartBars(labels, series, opts = {}) {
     s.values.forEach((v, i) => {
       const x = padL + i * gw + gw * 0.14 + si * bw;
       const y0 = y(Math.max(0, v)), h = Math.abs(y(v) - y(0));
-      out += `<rect x="${x}" y="${y0}" width="${bw - 2}" height="${Math.max(h, .5)}" rx="2" fill="${s.color}"><title>${esc(s.name)} ${esc(labels[i])}: ${fmt(v)}</title></rect>`;
+      out += `<rect class="ch-bar" style="animation-delay:${(i * 0.03 + si * 0.012).toFixed(3)}s" x="${x}" y="${y0}" width="${bw - 2}" height="${Math.max(h, .5)}" rx="2" fill="${s.color}"><title>${esc(s.name)} ${esc(labels[i])}: ${fmt(v)}</title></rect>`;
     });
   });
   series.filter(s => s.type === "line").forEach(s => {
     const pts = s.values.map((v, i) => `${padL + i * gw + gw / 2},${y(v)}`).join(" ");
-    out += `<polyline points="${pts}" fill="none" style="stroke:${s.color}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    out += `<polyline class="ch-line" pathLength="1" points="${pts}" fill="none" style="stroke:${s.color}" stroke-width="2.4" stroke-linejoin="round"/>`;
     s.values.forEach((v, i) => {
-      out += `<circle cx="${padL + i * gw + gw / 2}" cy="${y(v)}" r="3" style="fill:${s.color}"><title>${esc(s.name)} ${esc(labels[i])}: ${fmt(v)}</title></circle>`;
+      out += `<circle class="ch-dot" style="animation-delay:${(0.25 + i * 0.04).toFixed(3)}s" cx="${padL + i * gw + gw / 2}" cy="${y(v)}" r="3" fill="${s.color}"><title>${esc(s.name)} ${esc(labels[i])}: ${fmt(v)}</title></circle>`;
     });
   });
   out += "</svg>";
@@ -109,18 +109,18 @@ function chartDonut(items, opts = {}) {
   const size = opts.size || 190, cx = size / 2, cy = size / 2, r = size / 2 - 6, ir = r * 0.62;
   const total = items.reduce((a, b) => a + Math.max(0, b.value), 0);
   if (!total) return `<div class="empty">No data</div>`;
-  let angle = -Math.PI / 2, out = `<svg viewBox="0 0 ${size} ${size}" style="max-width:${size}px;margin:0 auto">`;
-  items.forEach(it => {
+  let angle = -Math.PI / 2, out = `<svg viewBox="0 0 ${size} ${size}" style="max-width:${size}px;margin:0 auto"><g class="ch-donut">`;
+  items.forEach((it, i) => {
     const frac = Math.max(0, it.value) / total;
     if (frac <= 0) return;
     const a2 = angle + frac * Math.PI * 2;
     const large = frac > 0.5 ? 1 : 0;
     const p = (a, rad) => `${cx + rad * Math.cos(a)},${cy + rad * Math.sin(a)}`;
-    out += `<path d="M ${p(angle, r)} A ${r} ${r} 0 ${large} 1 ${p(a2, r)} L ${p(a2, ir)} A ${ir} ${ir} 0 ${large} 0 ${p(angle, ir)} Z"
+    out += `<path class="ch-slice" style="animation-delay:${(i * 0.05).toFixed(3)}s" d="M ${p(angle, r)} A ${r} ${r} 0 ${large} 1 ${p(a2, r)} L ${p(a2, ir)} A ${ir} ${ir} 0 ${large} 0 ${p(angle, ir)} Z"
       fill="${it.color}"><title>${esc(it.label)}: ${fmt(it.value)} (${(frac * 100).toFixed(1)}%)</title></path>`;
     angle = a2;
   });
-  out += `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="13" font-weight="700" style="fill:var(--text)">${fmtShort(total)}</text></svg>`;
+  out += `</g><text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="13" font-weight="700" style="fill:var(--text)">${fmtShort(total)}</text></svg>`;
   const legend = `<div class="legend" style="flex-direction:column;gap:5px">${items.map(it =>
     `<span><span class="dot" style="background:${it.color}"></span>${esc(it.label)} — <b>${fmtShort(it.value)}</b></span>`).join("")}</div>`;
   return `<div class="chart-wrap" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">${out}${legend}</div>`;
@@ -163,6 +163,7 @@ async function boot() {
     <span class="muted">${esc(ROLE_LABELS[state.me.role] || state.me.role)}</span>`;
   if (!canWrite()) { const a = $('#nav a[data-route="bank"]'); if (a) a.style.display = "none"; }
   renderCompanyChoice();
+  updateDbBadge();
   const ys = $("#yearSelect");
   const years = [];
   for (let y = 2024; y <= new Date().getFullYear() + 1; y++) years.push(y);
@@ -870,6 +871,7 @@ async function pageBank(el) {
         <button data-m="paste" class="active">Paste receipt(s)</button>
         <button data-m="csv">CSV file — mutasi rekening</button>
         <button data-m="pdf">PDF e-statement (BCA)</button>
+        <button data-m="wallet">Wallet / Card Excel (petty cash)</button>
       </div>
       <div id="bkPasteBox">
         <p class="muted" style="margin-top:-2px">Copy one or more transfer confirmations from KlikBCA / myBCA and paste them below.
@@ -902,12 +904,23 @@ async function pageBank(el) {
           <span class="muted" id="bkPdfInfo"></span>
         </div>
       </div>
+      <div id="bkWalletBox" hidden>
+        <p class="muted" style="margin-top:-2px">Upload the <b>wallet / card transaction Excel</b> (Transaction Type, Reference ID, Amount,
+        Category, Description…). Spending (negative amounts) is <b>deducted from the Petty Cash account</b> you pick below —
+        credit Petty Cash, debit the cost account (suggested from the Category). Internal top-ups / transfers between your own
+        wallets are detected and left <b>unticked</b>. Re-uploading the same file is safe — booked rows (by Reference ID) are flagged duplicates.</p>
+        <div class="filters">
+          <label>Excel file <input type="file" id="bkWalletFile" accept=".xlsx,.xlsm"></label>
+          <button class="btn btn-primary" id="bkWalletParse">Upload &amp; parse</button>
+          <span class="muted" id="bkWalletInfo"></span>
+        </div>
+      </div>
     </div>
     <div class="card mt" id="bkStage2" hidden>
       <h3>2. Assign accounts &amp; book entries</h3>
       <p class="muted" style="margin-top:-6px">Each transfer is booked as: <b>debit</b> the account you choose below (cost/expense by default) and <b>credit</b> the bank account. Duplicates (same No Referensi already booked) are unticked automatically.</p>
       <div class="filters">
-        <label>Credit (bank) account <select id="bkBank" style="min-width:240px"></select></label>
+        <label id="bkBankLabel">Cash / Bank account (the cash side) <select id="bkBank" style="min-width:240px"></select></label>
         <label>Book as <select id="bkStatus"><option value="draft">Draft</option><option value="posted" selected>Posted</option></select></label>
       </div>
       <div style="overflow-x:auto"><table class="tbl" id="bkTable"></table></div>
@@ -918,7 +931,7 @@ async function pageBank(el) {
       <div id="bkResults" class="mt"></div>
     </div>`;
 
-  let txs = [], accounts = [], projects = [];
+  let txs = [], accounts = [], projects = [], mode = "paste";
 
   async function loadCompanyData() {
     [accounts, projects] = await Promise.all([
@@ -927,8 +940,9 @@ async function pageBank(el) {
     ]);
     accounts = accounts.filter(a => a.is_active);
     const banks = accounts.filter(a => a.type === "asset" && a.code.startsWith("11"));
+    const cashDefault = mode === "wallet" ? "1130" : "1120";  // wallet -> Petty Cash Monit
     $("#bkBank").innerHTML = banks.map(a =>
-      `<option value="${a.id}" ${a.code === "1120" ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("");
+      `<option value="${a.id}" ${a.code === cashDefault ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("");
   }
 
   function debitOptions(sel, direction) {
@@ -953,18 +967,20 @@ async function pageBank(el) {
       <th class="num">Amount<br><span style="font-weight:400;text-transform:none">(Jumlah Transfer / Nominal)</span></th>
       <th>No Referensi<br><span style="font-weight:400;text-transform:none">(Reference Number)</span></th><th>Status</th>
       <th style="min-width:230px">Contra account<br><span style="font-weight:400;text-transform:none">(cost for OUT / revenue for IN)</span></th><th>Project</th></tr></thead>
-      <tbody>${txs.map((t, i) => `<tr data-i="${i}" ${t.duplicate ? 'style="opacity:.55"' : ""}>
-        <td><input type="checkbox" class="bk-sel" ${t.ok && !t.duplicate && t.amount && t.date ? "checked" : ""}></td>
+      <tbody>${txs.map((t, i) => `<tr data-i="${i}" ${t.duplicate || t.internal ? 'style="opacity:.55"' : ""}>
+        <td><input type="checkbox" class="bk-sel" ${t.ok && !t.duplicate && !t.internal && t.amount && t.date ? "checked" : ""}></td>
         <td>${esc(t.date || "?")}<br><span class="muted">${esc(t.time)}</span></td>
         <td><span class="pill ${t.direction === "in" ? "posted" : "draft"}">${t.direction === "in" ? "IN" : "OUT"}</span></td>
         <td><input class="bk-desc" style="width:100%;min-width:220px" value="${esc(t.description)}">
           ${t.va_number ? `<span class="muted">VA ${esc(t.va_number)}</span>` : ""}
+          ${t.category ? `<span class="muted">${esc(t.category.toLowerCase().replace(/_/g, " "))}</span>` : ""}
           ${t.balance ? `<span class="muted">saldo ${fmt(t.balance)}</span>` : ""}</td>
         <td class="num"><b>${fmt(t.amount)}</b></td>
         <td><b style="font-size:12px">${esc(t.reference || "—")}</b></td>
         <td><span class="pill ${t.ok ? "posted" : "draft"}">${esc(t.status || "?")}</span>
-          ${t.duplicate ? '<br><span class="pill inactive">already booked</span>' : ""}</td>
-        <td><select class="bk-acc">${debitOptions("", t.direction)}</select></td>
+          ${t.duplicate ? '<br><span class="pill inactive">already booked</span>' : ""}
+          ${t.internal ? '<br><span class="pill inactive">internal</span>' : ""}</td>
+        <td><select class="bk-acc">${debitOptions(t.suggested_account_id || "", t.direction)}</select></td>
         <td><select class="bk-prj">${projectOpts("")}</select></td>
       </tr>`).join("")}</tbody>`;
   }
@@ -972,9 +988,17 @@ async function pageBank(el) {
   $("#bkCompany").onchange = async () => { await loadCompanyData(); if (txs.length) renderTable(); };
   $$("#bkModes button").forEach(b => b.onclick = () => {
     $$("#bkModes button").forEach(x => x.classList.toggle("active", x === b));
-    $("#bkPasteBox").hidden = b.dataset.m !== "paste";
-    $("#bkCsvBox").hidden = b.dataset.m !== "csv";
-    $("#bkPdfBox").hidden = b.dataset.m !== "pdf";
+    mode = b.dataset.m;
+    $("#bkPasteBox").hidden = mode !== "paste";
+    $("#bkCsvBox").hidden = mode !== "csv";
+    $("#bkPdfBox").hidden = mode !== "pdf";
+    $("#bkWalletBox").hidden = mode !== "wallet";
+    // default the cash side: Petty Cash Monit for wallet, Bank for the rest
+    const wantCode = mode === "wallet" ? "1130" : "1120";
+    const opt = Array.from($("#bkBank").options).find(o => o.textContent.trim().startsWith(wantCode));
+    if (opt) $("#bkBank").value = opt.value;
+    $("#bkBankLabel").firstChild.textContent = mode === "wallet"
+      ? "Petty Cash account (deducted from this) " : "Cash / Bank account (the cash side) ";
   });
   const showParsed = (res, infoEl) => {
     txs = res.transactions;
@@ -1009,6 +1033,7 @@ async function pageBank(el) {
   };
   $("#bkCsvParse").onclick = () => uploadParse($("#bkCsvFile"), "/api/bank/parse-csv", $("#bkCsvInfo"));
   $("#bkPdfParse").onclick = () => uploadParse($("#bkPdfFile"), "/api/bank/parse-pdf", $("#bkPdfInfo"));
+  $("#bkWalletParse").onclick = () => uploadParse($("#bkWalletFile"), "/api/bank/parse-wallet", $("#bkWalletInfo"));
   $("#bkBook").onclick = async () => {
     const bankAcc = parseInt($("#bkBank").value, 10);
     const status = $("#bkStatus").value;
@@ -1023,9 +1048,9 @@ async function pageBank(el) {
       const contra = {
         account_id: parseInt($(".bk-acc", tr).value, 10),
         project_id: parseInt($(".bk-prj", tr).value, 10) || null,
-        description: "BCA " + (t.tx_type || "transfer"),
+        description: t.tx_type || "transaction",
       };
-      const bankLine = { account_id: bankAcc, description: "Bank — ref " + t.reference };
+      const bankLine = { account_id: bankAcc, description: (mode === "wallet" ? "Petty cash — ref " : "Bank — ref ") + t.reference };
       const lines = t.direction === "in"
         ? [Object.assign({}, bankLine, { debit: t.amount, credit: 0 }),
            Object.assign({}, contra, { debit: 0, credit: t.amount })]
@@ -1705,7 +1730,7 @@ async function pageReports(el) {
 /* ------------------------------------------------------------------ settings */
 async function pageSettings(el) {
   const tabs = [["coa", "Chart of Accounts"], ["fields", "Custom Fields"], ["companies", "Companies"]];
-  if (isAdmin()) tabs.push(["users", "Users"]);
+  if (isAdmin()) tabs.push(["users", "Users"], ["databases", "Databases"]);
   el.innerHTML = `
     <div class="page-head"><h2>Settings</h2></div>
     <div class="tabs" id="sTabs">${tabs.map(([k, l], i) =>
@@ -1724,8 +1749,67 @@ async function pageSettings(el) {
     else if (tab === "fields") await settingsFields(body);
     else if (tab === "companies") await settingsCompanies(body);
     else if (tab === "users") await settingsUsers(body);
+    else if (tab === "databases") await settingsDatabases(body);
   }
   await show();
+}
+
+async function settingsDatabases(body) {
+  const load = async () => {
+    const d = await api("/api/databases");
+    body.innerHTML = `<div class="card">
+      <div class="page-head"><h3 style="margin:0">Databases <span class="muted">(separate data stores)</span></h3>
+        <button class="btn btn-sm btn-primary" id="dbNew">+ Create Database</button></div>
+      <p class="muted" style="margin-top:-6px">Each database is a fully separate set of companies, accounts and journals.
+        <b>${esc(d.default)}</b> is your live group data; <b>TEST-SERVER</b> is a sandbox. Switching only affects your own session.</p>
+      <table class="tbl"><thead><tr><th>Database</th><th>Status</th><th style="min-width:230px"></th></tr></thead>
+        <tbody>${d.databases.map(db => `<tr>
+          <td><b>${esc(db.name)}</b>${db.name === d.default ? ' <span class="pill completed">group</span>' : ""}</td>
+          <td>${db.active ? '<span class="pill active">active (you)</span>' : '<span class="pill inactive">idle</span>'}</td>
+          <td>
+            ${db.active ? '<span class="muted">current</span>' : `<button class="btn btn-sm" data-switch="${esc(db.name)}">Switch to this</button>`}
+            ${db.deletable ? `<button class="btn btn-sm btn-danger" data-del="${esc(db.name)}">Delete</button>` : ""}
+          </td></tr>`).join("")}</tbody></table>
+    </div>`;
+    $$("#sBody [data-switch]").forEach(b => b.onclick = async () => {
+      if (!confirm(`Switch your session to "${b.dataset.switch}"? You'll be working in that data store until you switch back or log out.`)) return;
+      try {
+        await api("/api/databases/switch", { json: { name: b.dataset.switch } });
+        toast(`Now working in ${b.dataset.switch}`);
+        state.me = await api("/api/me"); state.companyId = "all"; localStorage.setItem("erp.company", "all");
+        renderCompanyChoice(); updateDbBadge(); location.hash = "#/dashboard"; render();
+      } catch (e) { toast(e.message, true); }
+    });
+    $$("#sBody [data-del]").forEach(b => b.onclick = async () => {
+      if (!confirm(`Permanently delete the "${b.dataset.del}" database and ALL its data? This cannot be undone.`)) return;
+      try { await api("/api/databases/" + encodeURIComponent(b.dataset.del), { method: "DELETE" }); toast("Database deleted"); load(); }
+      catch (e) { toast(e.message, true); }
+    });
+    $("#dbNew").onclick = () => {
+      openModal(`<div class="form-col" style="display:flex;flex-direction:column;gap:12px">
+        <label>Database name <input id="dbName" placeholder="e.g. 2027-BUDGET or CLIENT-X"></label>
+        <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="dbSeed" checked style="width:auto"> Fill with demo data (uncheck for an empty database)</label>
+        <div class="form-actions"><button class="btn btn-primary" id="dbCreate">Create</button></div></div>`,
+        { title: "Create Database", small: true });
+      $("#dbCreate").onclick = async () => {
+        try {
+          const r = await api("/api/databases", { json: { name: $("#dbName").value, seed_demo: $("#dbSeed").checked } });
+          toast(`Database "${r.name}" created`); closeModal(); load();
+        } catch (e) { toast(e.message, true); }
+      };
+    };
+  };
+  await load();
+}
+
+function updateDbBadge() {
+  const badge = $("#dbBadge");
+  if (!badge) return;
+  const active = state.me.active_db;
+  const isSandbox = active && active !== "MORES-GROUP";
+  badge.textContent = active || "";
+  badge.hidden = !active;
+  badge.className = "db-badge" + (isSandbox ? " sandbox" : "");
 }
 
 async function settingsCoa(body) {

@@ -365,3 +365,117 @@ def parse_bca_estatement_pdf(data):
     if not records:
         warnings.append("No transactions found in the PDF.")
     return records, warnings, meta
+
+
+# ---------------------------------------------------------------------------
+# Wallet / card platform Excel export (petty cash) — Brick-style columns
+# ---------------------------------------------------------------------------
+# Columns: Transaction Type, Reference ID, Status, Category, Transaction Datetime,
+# Settled At, Amount, Total Fee, Currency, Description, Account Name,
+# Recipient Account Number, Recipient Holder Name, Card Name, Card Holder,
+# Payment Tag, Notes, GL Code, GL Name.
+# Negative Amount = money out of the petty cash; positive = money in.
+
+# transaction types that just move money between your own wallets/cards
+WALLET_INTERNAL = {"INTERNAL_TRANSFER", "CARD_ADD_BALANCE", "CARD_REFUND_BALANCE"}
+# suggested cost account per spending Category (codes in the standard COA)
+WALLET_CATEGORY_ACCOUNT = {
+    "FOOD_AND_BEVERAGE": "6900",
+    "TRANSPORTATION": "6900",
+    "EXPEDITION_EXPENSES": "6900",
+    "OFFICE_SUPPLIES": "6600",
+    "SOFTWARE": "6300",
+    "TELECOMMUNICATION": "6300",
+    "MISCELLANEOUS": "6900",
+}
+
+
+def _norm_cat(s):
+    return re.sub(r"\s+", "_", str(s or "").strip().upper())
+
+
+def parse_wallet_xlsx(data):
+    """Parse a wallet/card transaction Excel export (petty-cash spending).
+    Returns (records, warnings, meta). Money-out rows are booked as a deduction
+    from the petty-cash account; internal wallet moves are flagged not-bookable.
+    """
+    import io as _io
+    from openpyxl import load_workbook
+
+    wb = load_workbook(_io.BytesIO(data) if isinstance(data, (bytes, bytearray)) else data, data_only=True)
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return [], ["The spreadsheet is empty."], {}
+    header = [str(c).strip() if c is not None else "" for c in rows[0]]
+    idx = {h.lower(): i for i, h in enumerate(header)}
+
+    def col(*names):
+        for n in names:
+            if n.lower() in idx:
+                return idx[n.lower()]
+        return None
+
+    c_type = col("Transaction Type")
+    c_ref = col("Reference ID", "Reference")
+    c_status = col("Status")
+    c_cat = col("Category")
+    c_dt = col("Transaction Datetime", "Settled At", "Date")
+    c_amt = col("Amount")
+    c_desc = col("Description")
+    c_acct = col("Account Name")
+    c_card = col("Card Name")
+    c_notes = col("Notes")
+    c_recip = col("Recipient Holder Name")
+    if c_amt is None or c_dt is None:
+        return [], ["Could not find the Amount / Transaction Datetime columns — is this the wallet export?"], {}
+
+    records, warnings = [], []
+    for n, row in enumerate(rows[1:], start=2):
+        if not row or row[c_amt] in (None, "", "-"):
+            continue
+        status = str(row[c_status]).strip().upper() if c_status is not None else "SUCCESS"
+        if status and status not in ("SUCCESS", "SETTLED", "COMPLETED"):
+            continue
+        try:
+            amount = float(row[c_amt])
+        except (TypeError, ValueError):
+            continue
+        if amount == 0:
+            continue
+        raw_dt = str(row[c_dt] or "")
+        date = raw_dt[:10] if re.match(r"\d{4}-\d{2}-\d{2}", raw_dt) else parse_date(raw_dt)
+        if not date:
+            warnings.append("Row %d: unreadable date '%s'" % (n, raw_dt[:20]))
+            continue
+        ttype = str(row[c_type]).strip().upper() if c_type is not None else ""
+        direction = "out" if amount < 0 else "in"
+        category = _norm_cat(row[c_cat]) if c_cat is not None else ""
+        desc = str(row[c_desc] or "").strip() if c_desc is not None else ""
+        note = str(row[c_notes] or "").strip() if c_notes is not None and row[c_notes] not in (None, "-") else ""
+        card = str(row[c_card] or "").strip() if c_card is not None and row[c_card] not in (None, "-") else ""
+        recip = str(row[c_recip] or "").strip() if c_recip is not None and row[c_recip] not in (None, "-") else ""
+        full_desc = " — ".join([x for x in (desc, note, recip) if x and x != "-"]) or ttype or "Wallet transaction"
+        ref = str(row[c_ref] or "").strip() if c_ref is not None else ""
+        internal = ttype in WALLET_INTERNAL
+        suggested = None
+        if direction == "out" and not internal:
+            suggested = WALLET_CATEGORY_ACCOUNT.get(category, "6900")
+        records.append({
+            "date": date, "time": raw_dt[11:19] if len(raw_dt) > 11 else "",
+            "tx_type": ttype.replace("_", " ").title(),
+            "from_account": str(row[c_acct] or "").strip() if c_acct is not None else "",
+            "va_number": card, "name": recip, "merchant": recip,
+            "amount": round(abs(amount), 2), "transfer_type": "",
+            "reference": ref or ("WLT-" + hashlib.sha1(
+                ("%s|%s|%s|%d" % (date, full_desc, amount, n)).encode()).hexdigest()[:12].upper()),
+            "status": status.title(), "note": note, "ok": True,
+            "description": full_desc, "direction": direction,
+            "category": category, "internal": internal, "suggested_code": suggested,
+            "balance": 0.0,
+        })
+    if not records:
+        warnings.append("No usable transactions found in the spreadsheet.")
+    meta = {"account": str(rows[1][c_acct]) if c_acct is not None and len(rows) > 1 else "",
+            "rows": len(records)}
+    return records, warnings, meta
