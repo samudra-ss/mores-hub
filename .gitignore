@@ -31,9 +31,10 @@ __pycache__/
 .venv/
 venv/
 
-# ERP local secrets & data (regenerable; must not be shared)
+# ERP local secrets & data (must not be shared) — live databases live in data/
 .secret_key
 *.db
+data/*.db
 
 # Claude Code local tooling config
 .claude/

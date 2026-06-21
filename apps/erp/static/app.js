@@ -126,8 +126,9 @@ function chartDonut(items, opts = {}) {
   return `<div class="chart-wrap" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">${out}${legend}</div>`;
 }
 
-const PALETTE = ["#00a2b6", "#f89406", "#1f2937", "#2f96b4", "#51a351", "#9ca3af", "#bd362f", "#7fcdd6"];
-const C_REV = "#00a2b6", C_EXP = "#f89406", C_PROFIT = "#51a351";
+// Mores design palette — teal family + calm neutrals (one teal accent, restrained)
+const PALETTE = ["#00a2b6", "#0a7d8c", "#7fcdd8", "#13a6b8", "#5b6b80", "#1f9d57", "#c87a08", "#9aa6b1"];
+const C_REV = "#00a2b6", C_EXP = "#9aa6b1", C_PROFIT = "#1f9d57";
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const ROLE_LABELS = { admin: "Admin", finance: "Accountant", viewer: "Viewer/Auditor" };
 const ROLE_DESC = {
@@ -1807,7 +1808,7 @@ function updateDbBadge() {
   if (!badge) return;
   const active = state.me.active_db;
   const isSandbox = active && active !== "MORES-GROUP";
-  badge.textContent = active || "";
+  badge.textContent = active ? "LIVE · " + active : "";
   badge.hidden = !active;
   badge.className = "db-badge" + (isSandbox ? " sandbox" : "");
 }

@@ -3,193 +3,110 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mores-HV — Login</title>
+<title>MORES HV — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0a0a0c;
-  --panel: #141417;
-  --panel-2: #0f0f12;
-  --field: #1b1b1f;
-  --field-border: #2b2b31;
-  --text: #f4f4f6;
-  --muted: #8b8b94;
-  --violet: #8b5cf6;
-  --violet-light: #a78bfa;
-  --violet-dark: #7c46e8;
+  --bg: #0a0d0f; --panel: #15191e; --field: #0f1318; --field-border: #262d35;
+  --text: #f4f6f8; --muted: #93a0ab; --teal: #00a2b6; --teal-bright: #00bcd2; --teal-link: #33c2d2;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
-  background:
-    radial-gradient(900px 500px at 80% -10%, rgba(139,92,246,.10), transparent 60%),
-    var(--bg);
-  color: var(--text); min-height: 100vh;
+  font-family: "Hanken Grotesk", system-ui, sans-serif; min-height: 100vh;
   display: flex; align-items: center; justify-content: center; padding: 26px;
+  background:
+    radial-gradient(900px 500px at 85% 0%, rgba(0,162,182,.12), transparent 55%),
+    linear-gradient(180deg, #0b0e10 0%, #0a0d0f 100%);
+  color: var(--text); -webkit-font-smoothing: antialiased;
 }
 .card {
-  width: min(960px, 100%); min-height: 470px;
-  display: grid; grid-template-columns: 1fr 1fr; gap: 0;
-  background: var(--panel); border: 1px solid #1f1f24; border-radius: 16px;
-  overflow: hidden; box-shadow: 0 40px 110px rgba(0,0,0,.6);
+  width: min(960px, 100%); min-height: 520px; display: grid; grid-template-columns: 1fr 1fr;
+  background: var(--panel); border: 1px solid #20262d; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 40px 100px rgba(0,0,0,.55);
 }
-/* ---------------- left: architecture image ---------------- */
-.photo {
-  position: relative; overflow: hidden; background: #111;
-  /* To use your own photo: drop a file at static/login-bg.jpg and uncomment: */
-  /* background-image: url('/static/login-bg.jpg'); background-size: cover; background-position: center; */
-}
-.photo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.photo::after {  /* subtle dark vignette so it reads grayscale + moody */
-  content: ""; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(10,10,12,.15), rgba(10,10,12,.45));
-}
-/* ---------------- right: form ---------------- */
-.form-side {
-  background: var(--panel); padding: 44px 46px;
-  display: flex; flex-direction: column; justify-content: center;
-}
-.brand { margin-bottom: 26px; }
-.brand h1 { font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
-.brand p { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
-.welcome h2 { font-size: 24px; font-weight: 700; letter-spacing: -.4px; }
-.welcome p { color: var(--muted); font-size: 13px; margin: 6px 0 24px; }
-label.fld { display: block; font-size: 12px; font-weight: 600; color: #c7c7cf; margin: 0 0 7px; }
-.field { margin-bottom: 16px; }
-.field input[type=text], .field input[type=password] {
-  width: 100%; padding: 12px 14px; font-size: 14px; color: var(--text);
-  background: var(--field); border: 1px solid var(--field-border); border-radius: 9px;
-  outline: none; transition: border-color .15s, box-shadow .15s;
-}
-.field input::placeholder { color: #6a6a72; }
-.field input:focus { border-color: var(--violet); box-shadow: 0 0 0 3px rgba(139,92,246,.22); }
-.row {
-  display: flex; align-items: center; justify-content: space-between;
-  margin: 4px 0 22px; font-size: 13px;
-}
-.remember { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; user-select: none; }
-.remember input { width: 15px; height: 15px; accent-color: var(--violet); cursor: pointer; }
-.forgot { color: var(--violet-light); text-decoration: none; cursor: pointer; }
-.forgot:hover { text-decoration: underline; }
-button[type=submit] {
-  width: 100%; padding: 13px; cursor: pointer; font: inherit; font-weight: 600; font-size: 14.5px;
-  color: #fff; border: none; border-radius: 9px;
-  background: linear-gradient(180deg, var(--violet-light) 0%, var(--violet) 55%, var(--violet-dark) 100%);
-  box-shadow: 0 10px 26px rgba(139,92,246,.32); transition: filter .15s, transform .1s;
-}
-button[type=submit]:hover { filter: brightness(1.06); }
-button[type=submit]:active { transform: translateY(1px); }
-.login-error {
-  background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: #ff9d9d;
-  padding: 10px 13px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
-}
-.note { color: var(--muted); font-size: 12px; margin-top: 14px; }
-.hint { color: #5d5d66; font-size: 11.5px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #222228; line-height: 1.8; }
-.hint b { color: #9a9aa4; }
-@media (max-width: 720px) {
-  .card { grid-template-columns: 1fr; min-height: auto; }
-  .photo { min-height: 170px; }
-  .form-side { padding: 30px 26px; }
-}
+/* left brand panel */
+.brandside { position: relative; overflow: hidden; background: #0c0f12; }
+.brandside svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.brandside .glow1 { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(0,140,160,.34), rgba(8,11,13,.82)); mix-blend-mode: multiply; }
+.brandside .glow2 { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(0,162,182,.10), rgba(10,13,15,.45) 78%); }
+.brandside .foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 32px; z-index: 3; }
+.brandside .foot img { height: 26px; width: auto; display: block; margin-bottom: 12px; }
+.brandside .foot .cuan { font-family: "Chakra Petch", sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7fd3dd; }
+/* right form */
+.formside { background: var(--panel); padding: 46px 46px; display: flex; flex-direction: column; justify-content: center; }
+.kicker { margin-bottom: 24px; }
+.kicker .brand { font-family: "Chakra Petch", sans-serif; font-size: 18px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #f4f6f8; }
+.kicker .brand span { color: var(--teal-bright); }
+.kicker .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+.formside h2 { font-size: 25px; font-weight: 700; letter-spacing: -.4px; color: #f4f6f8; }
+.formside .lead { color: var(--muted); font-size: 13px; margin: 6px 0 24px; }
+.fld { margin-bottom: 16px; }
+.fld label { display: block; font-size: 12px; font-weight: 600; color: #c2c8cd; margin: 0 0 7px; }
+.fld input { width: 100%; padding: 12px 14px; font-size: 14px; color: var(--text); font-family: inherit; background: var(--field); border: 1px solid var(--field-border); border-radius: 9px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.fld input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.20); }
+.row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 22px; font-size: 13px; }
+.remember { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; }
+.remember input { width: 15px; height: 15px; accent-color: var(--teal); cursor: pointer; }
+.forgot { color: var(--teal-link); cursor: pointer; }
+.forgot:hover { color: #4fd3e3; }
+button[type=submit] { width: 100%; padding: 13px; cursor: pointer; font-family: inherit; font-weight: 600; font-size: 14.5px; color: #fff; border: none; border-radius: 9px; background: var(--teal); box-shadow: 0 10px 26px rgba(0,162,182,.30); transition: filter .15s; }
+button[type=submit]:hover { filter: brightness(1.07); }
+.err { background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: #ff9d9d; padding: 10px 13px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.note { color: var(--muted); font-size: 12px; margin-top: 12px; }
+.hint { color: #5d6168; font-size: 11.5px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid #20262d; line-height: 1.8; }
+.hint b { color: #9aa6af; }
+@media (max-width: 760px) { .card { grid-template-columns: 1fr; } .brandside { min-height: 180px; } }
 </style>
 </head>
 <body>
   <div class="card">
-    <div class="photo">
-      <!-- Grayscale modernist-architecture illustration ("Precision in Architecture").
-           Replace with a real photo by setting .photo background-image (see CSS). -->
-      <svg viewBox="0 0 400 480" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <div class="brandside">
+      <svg viewBox="0 0 400 520" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#6f7174"/><stop offset="1" stop-color="#9a9ca0"/>
-          </linearGradient>
-          <linearGradient id="concrete" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stop-color="#43454a"/><stop offset="1" stop-color="#5a5d63"/>
-          </linearGradient>
-          <linearGradient id="concrete2" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stop-color="#34363b"/><stop offset="1" stop-color="#494c52"/>
-          </linearGradient>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2127"/><stop offset="1" stop-color="#0c0f12"/></linearGradient>
+          <linearGradient id="con" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1c242b"/><stop offset="1" stop-color="#28323a"/></linearGradient>
         </defs>
-        <rect width="400" height="480" fill="url(#sky)"/>
-        <!-- distant block -->
-        <rect x="20" y="150" width="120" height="330" fill="#5e6166"/>
-        <g fill="#74787e" opacity=".7">
-          <rect x="34" y="170" width="20" height="14"/><rect x="62" y="170" width="20" height="14"/><rect x="90" y="170" width="20" height="14"/>
-          <rect x="34" y="196" width="20" height="14"/><rect x="62" y="196" width="20" height="14"/><rect x="90" y="196" width="20" height="14"/>
-          <rect x="34" y="222" width="20" height="14"/><rect x="62" y="222" width="20" height="14"/><rect x="90" y="222" width="20" height="14"/>
+        <rect width="400" height="520" fill="url(#sky)"/>
+        <rect x="20" y="170" width="120" height="350" fill="#161d23"/>
+        <g fill="#202a31" opacity=".8">
+          <rect x="34" y="190" width="20" height="14"/><rect x="62" y="190" width="20" height="14"/><rect x="90" y="190" width="20" height="14"/>
+          <rect x="34" y="216" width="20" height="14"/><rect x="62" y="216" width="20" height="14"/><rect x="90" y="216" width="20" height="14"/>
+          <rect x="34" y="242" width="20" height="14"/><rect x="62" y="242" width="20" height="14"/><rect x="90" y="242" width="20" height="14"/>
         </g>
-        <!-- main brutalist tower -->
-        <rect x="120" y="80" width="210" height="400" fill="url(#concrete)"/>
-        <rect x="120" y="80" width="14" height="400" fill="#3b3d42"/>
-        <!-- horizontal slab floors -->
-        <g fill="#2f3136">
-          <rect x="134" y="120" width="196" height="6"/>
-          <rect x="134" y="178" width="196" height="6"/>
-          <rect x="134" y="236" width="196" height="6"/>
-          <rect x="134" y="294" width="196" height="6"/>
-          <rect x="134" y="352" width="196" height="6"/>
-          <rect x="134" y="410" width="196" height="6"/>
-        </g>
-        <!-- recessed window bands -->
-        <g fill="#22242a">
-          <rect x="146" y="132" width="172" height="36"/>
-          <rect x="146" y="190" width="172" height="36"/>
-          <rect x="146" y="248" width="172" height="36"/>
-          <rect x="146" y="306" width="172" height="36"/>
-          <rect x="146" y="364" width="172" height="36"/>
-        </g>
-        <!-- window mullions (vertical) -->
-        <g stroke="#54575d" stroke-width="2">
-          <line x1="178" y1="132" x2="178" y2="400"/>
-          <line x1="210" y1="132" x2="210" y2="400"/>
-          <line x1="242" y1="132" x2="242" y2="400"/>
-          <line x1="274" y1="132" x2="274" y2="400"/>
-          <line x1="306" y1="132" x2="306" y2="400"/>
-        </g>
-        <!-- faint glass reflections -->
-        <g fill="#3a3d44" opacity=".6">
-          <rect x="148" y="134" width="28" height="32"/><rect x="244" y="250" width="28" height="32"/>
-          <rect x="180" y="308" width="28" height="32"/><rect x="276" y="192" width="28" height="32"/>
-        </g>
-        <!-- foreground planter + palms -->
-        <rect x="300" y="430" width="80" height="50" fill="#3c3e43"/>
-        <g stroke="#2b2d31" stroke-width="4" fill="none">
-          <path d="M330 430 C328 410 326 392 330 372"/>
-          <path d="M352 430 C354 408 356 392 350 374"/>
-        </g>
-        <g fill="#34363b">
-          <path d="M330 374 q-22 -8 -34 4 q20 -2 34 6 z"/>
-          <path d="M330 372 q22 -10 36 2 q-22 -2 -36 8 z"/>
-          <path d="M330 370 q-10 -22 4 -34 q-2 20 -4 34 z"/>
-          <path d="M350 376 q20 -10 34 0 q-20 0 -34 8 z"/>
-          <path d="M350 374 q-18 -10 -32 -2 q18 0 32 8 z"/>
-          <path d="M350 372 q8 -22 -6 -32 q2 18 6 32 z"/>
-        </g>
+        <rect x="120" y="90" width="210" height="430" fill="url(#con)"/>
+        <rect x="120" y="90" width="14" height="430" fill="#161d23"/>
+        <g fill="#11171c"><rect x="134" y="130" width="196" height="6"/><rect x="134" y="190" width="196" height="6"/><rect x="134" y="250" width="196" height="6"/><rect x="134" y="310" width="196" height="6"/><rect x="134" y="370" width="196" height="6"/><rect x="134" y="430" width="196" height="6"/></g>
+        <g fill="#0c1115"><rect x="146" y="142" width="172" height="38"/><rect x="146" y="202" width="172" height="38"/><rect x="146" y="262" width="172" height="38"/><rect x="146" y="322" width="172" height="38"/><rect x="146" y="382" width="172" height="38"/></g>
+        <g stroke="#2a343c" stroke-width="2"><line x1="178" y1="142" x2="178" y2="420"/><line x1="210" y1="142" x2="210" y2="420"/><line x1="242" y1="142" x2="242" y2="420"/><line x1="274" y1="142" x2="274" y2="420"/><line x1="306" y1="142" x2="306" y2="420"/></g>
+        <g fill="#00a2b6" opacity=".55"><rect x="148" y="144" width="28" height="34"/><rect x="244" y="264" width="28" height="34"/><rect x="180" y="324" width="28" height="34"/><rect x="276" y="204" width="28" height="34"/></g>
       </svg>
+      <div class="glow1"></div><div class="glow2"></div>
+      <div class="foot">
+        <img src="/static/assets/mores-logo-ondark.png" alt="Mores Strategics">
+        <div class="cuan">More More Cuan</div>
+      </div>
     </div>
 
-    <div class="form-side">
-      <div class="brand">
-        <h1>Mores-HV</h1>
-        <p>Precision in Architecture.</p>
+    <div class="formside">
+      <div class="kicker">
+        <div class="brand">Mores-HV <span>Console</span></div>
+        <div class="sub">Helicopter View · Group Finance</div>
       </div>
-      <div class="welcome">
-        <h2>Welcome Back</h2>
-        <p>Please enter your details to sign in.</p>
-      </div>
+      <h2>Welcome back</h2>
+      <p class="lead">Please enter your details to sign in.</p>
       <form id="loginForm">
-        <div id="loginError" class="login-error" hidden></div>
-        <div class="field">
-          <label class="fld" for="username">Username/Email</label>
-          <input type="text" id="username" autocomplete="username" placeholder="Enter your username or email" required autofocus>
-        </div>
-        <div class="field">
-          <label class="fld" for="password">Password</label>
-          <input type="password" id="password" autocomplete="current-password" placeholder="Enter your password" required>
-        </div>
+        <div id="loginError" class="err" hidden></div>
+        <div class="fld"><label for="username">Username / Email</label>
+          <input type="text" id="username" autocomplete="username" placeholder="Enter your username or email" required autofocus></div>
+        <div class="fld"><label for="password">Password</label>
+          <input type="password" id="password" autocomplete="current-password" placeholder="Enter your password" required></div>
         <div class="row">
           <label class="remember"><input type="checkbox" id="remember"> Remember me</label>
-          <a class="forgot" id="forgot">Forgot Password?</a>
+          <span class="forgot" id="forgot">Forgot Password?</span>
         </div>
         <button type="submit">Sign In</button>
       </form>
@@ -197,18 +114,13 @@ button[type=submit]:active { transform: translateY(1px); }
       <p class="hint">Demo access — <b>admin</b>/admin123 &middot; <b>finance</b>/finance123 &middot; <b>viewer</b>/viewer123</p>
     </div>
   </div>
-
 <script>
-document.getElementById('forgot').addEventListener('click', () => {
-  document.getElementById('forgotNote').hidden = false;
-});
+document.getElementById('forgot').addEventListener('click', () => { document.getElementById('forgotNote').hidden = false; });
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const err = document.getElementById('loginError');
-  err.hidden = true;
+  const err = document.getElementById('loginError'); err.hidden = true;
   const res = await fetch('/api/login', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       username: document.getElementById('username').value,
       password: document.getElementById('password').value,
@@ -217,8 +129,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   });
   if (res.ok) { window.location.href = '/app'; return; }
   const data = await res.json().catch(() => ({}));
-  err.textContent = data.error || 'Login failed';
-  err.hidden = false;
+  err.textContent = data.error || 'Login failed'; err.hidden = false;
 });
 </script>
 </body>

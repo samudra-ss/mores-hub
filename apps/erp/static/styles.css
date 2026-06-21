@@ -1,32 +1,42 @@
-/* MORES ERP styles — Mores Strategics palette (teal #00a2b6 / ink / #eff1f3) */
+/* MORES HV styles — Mores Strategics design system (teal #00a2b6 on ink / light) */
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 :root {
-  --sidebar-bg: #0a0d0f;
-  --sidebar-text: #aab4ba;
+  --font-ui: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-brand: "Chakra Petch", "Hanken Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --sidebar-bg: #ffffff;
+  --sidebar-text: #5b6166;
+  --sidebar-border: #e6e8eb;
+  --sidebar-active-fg: #ffffff;
   --accent: #00a2b6;
   --accent-dark: #00879a;
+  --accent-bright: #00a2b6;
   --accent-soft: #e1f4f7;
-  --green: #51a351;
+  --green: #1f9d57;
   --red: #bd362f;
-  --amber: #f89406;
+  --amber: #c87a08;
   --bg: #eff1f3;
   --card: #ffffff;
-  --border: #e5e7eb;
-  --text: #030303;
-  --muted: #6b7280;
+  --border: #e6e8eb;
+  --text: #0c1013;
+  --muted: #6b7480;
   --radius: 10px;
-  --shadow: 0 1px 3px rgba(3, 3, 3, .07), 0 4px 14px rgba(3, 3, 3, .05);
+  --shadow: 0 1px 3px rgba(12, 16, 19, .08), 0 4px 14px rgba(12, 16, 19, .05);
 }
 html[data-theme="dark"] {
   --sidebar-bg: #07090b;
-  --sidebar-text: #9aa6b1;
-  --accent-soft: rgba(0, 162, 182, .18);
-  --green: #6fbf6f;
+  --sidebar-text: #93a0ab;
+  --sidebar-border: #1a2027;
+  --sidebar-active-fg: #06181b;
+  --accent-bright: #00bcd2;
+  --accent-soft: rgba(0, 188, 210, .16);
+  --green: #5fd08c;
   --red: #e57373;
   --bg: #0c0f12;
   --card: #15191e;
   --border: #262d35;
   --text: #e8ecf0;
-  --muted: #9aa6b1;
+  --muted: #93a0ab;
   --shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 4px 14px rgba(0, 0, 0, .35);
 }
 html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea {
@@ -55,8 +65,19 @@ html[data-theme="dark"] .budget-grid input:hover, html[data-theme="dark"] .budge
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; }
 body {
-  font-family: Inter, Graphik, "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg); color: var(--text); font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+/* financial figures use tabular mono so columns align */
+.kpi-value, .tbl td.num, .tbl th.num, .num, .budget-grid input,
+.je-balance, .row-total { font-variant-numeric: tabular-nums; }
+.kpi-value { font-family: var(--font-mono); letter-spacing: -.01em; }
+/* small uppercase labels use mono, per the design system */
+.kpi-label, .tbl thead th, .topbar-field > span, .topbar-field,
+.seg-group, .kpi-sub { font-family: var(--font-mono); }
+.kpi-label, .tbl thead th {
+  text-transform: uppercase; letter-spacing: .08em; font-size: 10px; font-weight: 600;
 }
 h1, h2, h3 { margin: 0 0 .5em; }
 a { color: var(--accent); text-decoration: none; }
@@ -65,31 +86,40 @@ table { border-collapse: collapse; width: 100%; }
 /* layout */
 .app { display: flex; min-height: 100vh; }
 .sidebar {
-  width: 218px; flex-shrink: 0; background: var(--sidebar-bg); color: var(--sidebar-text);
+  width: 224px; flex-shrink: 0; background: var(--sidebar-bg); color: var(--sidebar-text);
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+  border-right: 1px solid var(--sidebar-border);
 }
-.brand {
-  display: flex; align-items: center; gap: 10px; padding: 18px 16px;
-  color: #fff; font-weight: 700; font-size: 16px; letter-spacing: 2px;
-}
-.brand b { color: var(--accent); }
-.brand-sub {
-  display: block; font-size: 8.5px; font-weight: 600; letter-spacing: 3px;
-  text-transform: uppercase; color: #5e686e; margin-top: 2px;
-}
+.brand { display: flex; flex-direction: column; gap: 12px; padding: 22px 20px 16px; }
+/* real Mores logo, swapped by theme */
 .brand-logo {
-  width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
-  color: #fff; display: inline-flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 17px;
+  height: 30px; width: 100%; max-width: 150px;
+  background: url('/static/assets/mores-logo-onlight.png') left center / contain no-repeat;
 }
-.sidebar nav { display: flex; flex-direction: column; padding: 8px; gap: 2px; flex: 1; }
+html[data-theme="dark"] .brand-logo { background-image: url('/static/assets/mores-logo-ondark.png'); }
+.brand-row {
+  display: flex; align-items: center; gap: 10px;
+  padding-top: 12px; border-top: 1px solid var(--sidebar-border);
+}
+.brand-sub {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 600; letter-spacing: .22em;
+  text-transform: uppercase; color: var(--muted);
+}
+.brand-chip {
+  margin-left: auto; font-family: var(--font-mono); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .08em; color: var(--sidebar-active-fg); background: var(--accent-bright);
+  padding: 2px 7px; border-radius: 4px;
+}
+.sidebar nav { display: flex; flex-direction: column; padding: 8px; gap: 1px; flex: 1; }
 .sidebar nav a {
   color: var(--sidebar-text); padding: 10px 12px; border-radius: 8px; font-size: 13.5px;
 }
-.sidebar nav a:hover { background: rgba(255,255,255,.07); color: #fff; }
-.sidebar nav a.active { background: var(--accent); color: #fff; }
-.sidebar-foot { padding: 14px 16px; font-size: 12.5px; border-top: 1px solid rgba(255,255,255,.08); }
-.sidebar-foot b { color: #fff; display: block; }
+.sidebar nav a:hover { background: var(--bg); color: var(--text); }
+html[data-theme="dark"] .sidebar nav a:hover { background: rgba(255,255,255,.06); color: #fff; }
+.sidebar nav a.active { background: var(--accent); color: #fff; font-weight: 600; }
+html[data-theme="dark"] .sidebar nav a.active { background: var(--accent-bright); color: #06181b; }
+.sidebar-foot { padding: 14px 18px; font-size: 12.5px; border-top: 1px solid var(--sidebar-border); }
+.sidebar-foot b { color: var(--text); display: block; }
 
 .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .topbar {
@@ -115,10 +145,12 @@ table { border-collapse: collapse; width: 100%; }
 }
 .db-badge {
   background: #e7f2e7; color: var(--green); padding: 4px 11px; border-radius: 99px;
-  font-size: 11.5px; font-weight: 700; letter-spacing: .3px;
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
   border: 1px solid transparent;
 }
+html[data-theme="dark"] .db-badge { background: rgba(31,157,87,.16); color: #5fd08c; }
 .db-badge.sandbox { background: #fdf1e2; color: #c87a08; border-color: #f0c98a; }
+html[data-theme="dark"] .db-badge.sandbox { background: rgba(200,122,8,.18); color: #e0a85c; }
 .content { padding: 22px; max-width: 1280px; width: 100%; margin: 0 auto; }
 
 /* controls */
@@ -142,17 +174,17 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #aee2e9; border-c
 .btn[disabled] { opacity: .5; cursor: not-allowed; }
 
 /* cards & grids */
-.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
-.card h3 { font-size: 14px; color: var(--muted); font-weight: 600; margin-bottom: 12px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 2px rgba(12,16,19,.04); padding: 18px; }
+.card h3 { font-size: 13.5px; color: var(--text); font-weight: 600; margin-bottom: 12px; }
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
 .page-head h2 { margin: 0; font-size: 20px; }
 .page-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .grid { display: grid; gap: 16px; }
 .kpis { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 16px; }
-.kpi { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
-.kpi .kpi-label { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-.kpi .kpi-value { font-size: 19px; font-weight: 700; margin-top: 4px; white-space: nowrap; }
-.kpi .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.kpi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 15px 17px; }
+.kpi .kpi-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .11em; font-weight: 600; }
+.kpi .kpi-value { font-family: var(--font-mono); font-size: 22px; font-weight: 600; margin-top: 8px; white-space: nowrap; letter-spacing: -.01em; }
+.kpi .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 5px; }
 .kpi.green .kpi-value { color: var(--green); }
 .kpi.red .kpi-value { color: var(--red); }
 .two-col { grid-template-columns: 3fr 2fr; }

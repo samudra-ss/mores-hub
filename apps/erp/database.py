@@ -12,8 +12,14 @@ import sqlite3
 from werkzeug.security import generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATABASES_DIR = os.path.join(BASE_DIR, "databases")
-LEGACY_DB_PATH = os.path.join(BASE_DIR, "erp.db")  # pre-multi-db single file
+# All data lives in ONE dedicated folder, separate from the code, so it is easy
+# to back up. Override with MORES_HV_DATA_DIR (e.g. a OneDrive/Drive-synced path).
+# Default: <repo-root>/data  (the repo is inside OneDrive, so it auto-syncs).
+DATA_DIR = os.environ.get("MORES_HV_DATA_DIR") or os.path.abspath(
+    os.path.join(BASE_DIR, os.pardir, os.pardir, "data"))
+DATABASES_DIR = DATA_DIR
+LEGACY_DATABASES_DIR = os.path.join(BASE_DIR, "databases")  # previous multi-db location
+LEGACY_DB_PATH = os.path.join(BASE_DIR, "erp.db")           # original single file
 DEFAULT_DB = "MORES-GROUP"
 SANDBOX_DB = "TEST-SERVER"
 DB_PATH = LEGACY_DB_PATH  # kept for backward-compat references
@@ -625,12 +631,22 @@ def delete_database(name):
 
 
 def init_db(force=False):
-    """Set up the databases directory, migrate the legacy single file into
-    MORES-GROUP (preserving all data), and ensure the TEST-SERVER sandbox."""
+    """Set up the data directory, migrate any older database locations into it
+    (preserving all data), and ensure the TEST-SERVER sandbox."""
     os.makedirs(DATABASES_DIR, exist_ok=True)
     group_path = db_file(DEFAULT_DB)
 
-    # one-time migration: move the old erp.db -> databases/MORES-GROUP.db
+    # migration 1: move every *.db from the previous apps/erp/databases/ folder
+    # into the new dedicated data folder (skip files that already exist there)
+    if os.path.normpath(LEGACY_DATABASES_DIR) != os.path.normpath(DATABASES_DIR) \
+            and os.path.isdir(LEGACY_DATABASES_DIR):
+        for fn in os.listdir(LEGACY_DATABASES_DIR):
+            if fn.endswith(".db"):
+                dest = os.path.join(DATABASES_DIR, fn)
+                if not os.path.exists(dest):
+                    shutil.move(os.path.join(LEGACY_DATABASES_DIR, fn), dest)
+
+    # migration 2: original single erp.db -> MORES-GROUP.db
     if os.path.exists(LEGACY_DB_PATH) and not os.path.exists(group_path):
         shutil.move(LEGACY_DB_PATH, group_path)
 
