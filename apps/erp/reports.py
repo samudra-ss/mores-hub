@@ -80,6 +80,100 @@ def trial_balance(conn, company_ids, date_from, date_to):
     return {"rows": rows, "total_debit": total_debit, "total_credit": total_credit}
 
 
+# entry source -> human label (kept in sync with the frontend SOURCE_LABELS)
+SOURCE_LABELS = {
+    "manual": "Manual entry",
+    "bca_bank": "BCA bank receipt",
+    "bca_csv": "BCA mutasi CSV",
+    "bca_pdf": "BCA e-statement PDF",
+    "monit_wallet": "Monit wallet / petty cash",
+    "excel": "Excel import",
+}
+
+
+def trial_balance_detailed(conn, company_ids, date_from, date_to):
+    """Trial balance where each account carries its individual posted journal
+    lines, including the source of each entry (manual / BCA bank / Monit …)."""
+    tb = trial_balance(conn, company_ids, date_from, date_to)
+    ph, ids = _company_filter(company_ids)
+    where = ["je.status = 'posted'", "je.company_id IN (%s)" % ph]
+    params = list(ids)
+    if date_from:
+        where.append("je.date >= ?")
+        params.append(date_from)
+    if date_to:
+        where.append("je.date <= ?")
+        params.append(date_to)
+    if _consolidated(company_ids):
+        where.append("a.is_intercompany = 0")
+    rows = conn.execute(
+        """
+        SELECT a.code AS acc_code, je.date AS date, je.entry_no AS entry_no,
+               je.description AS description, je.reference AS reference,
+               COALESCE(je.source, 'manual') AS source, c.code AS company_code,
+               jl.debit AS debit, jl.credit AS credit, jl.description AS line_desc
+        FROM journal_lines jl
+        JOIN journal_entries je ON je.id = jl.entry_id
+        JOIN accounts a ON a.id = jl.account_id
+        JOIN companies c ON c.id = je.company_id
+        WHERE %s
+        ORDER BY a.code, je.date, je.entry_no
+        """ % " AND ".join(where),
+        params,
+    ).fetchall()
+    by_code = {}
+    for r in rows:
+        d = dict(r)
+        d["source_label"] = SOURCE_LABELS.get(d["source"], d["source"])
+        by_code.setdefault(d["acc_code"], []).append(d)
+    detailed = [dict(acc, entries=by_code.get(acc["code"], [])) for acc in tb["rows"]]
+    return {"rows": detailed, "total_debit": tb["total_debit"],
+            "total_credit": tb["total_credit"]}
+
+
+def account_ledger(conn, company_ids, code, date_from, date_to):
+    """Every posted journal line for one account code in the period, with the
+    source of each entry — backs the click-through ledger popup."""
+    ph, ids = _company_filter(company_ids)
+    where = ["je.status = 'posted'", "je.company_id IN (%s)" % ph, "a.code = ?"]
+    params = list(ids) + [code]
+    if date_from:
+        where.append("je.date >= ?")
+        params.append(date_from)
+    if date_to:
+        where.append("je.date <= ?")
+        params.append(date_to)
+    if _consolidated(company_ids):
+        where.append("a.is_intercompany = 0")
+    rows = conn.execute(
+        """
+        SELECT je.date AS date, je.entry_no AS entry_no, je.description AS description,
+               je.reference AS reference, COALESCE(je.source, 'manual') AS source,
+               c.code AS company_code, a.name AS account_name, a.type AS type,
+               jl.debit AS debit, jl.credit AS credit, jl.description AS line_desc
+        FROM journal_lines jl
+        JOIN journal_entries je ON je.id = jl.entry_id
+        JOIN accounts a ON a.id = jl.account_id
+        JOIN companies c ON c.id = je.company_id
+        WHERE %s
+        ORDER BY je.date, je.entry_no
+        """ % " AND ".join(where),
+        params,
+    ).fetchall()
+    entries, name, typ = [], code, ""
+    total_d = total_c = 0.0
+    for r in rows:
+        d = dict(r)
+        name = d.pop("account_name") or name
+        typ = d.pop("type") or typ
+        d["source_label"] = SOURCE_LABELS.get(d["source"], d["source"])
+        total_d += d["debit"] or 0
+        total_c += d["credit"] or 0
+        entries.append(d)
+    return {"code": code, "name": name, "type": typ, "entries": entries,
+            "total_debit": round(total_d, 2), "total_credit": round(total_c, 2)}
+
+
 def profit_and_loss(conn, company_ids, date_from, date_to):
     rows = account_balances(conn, company_ids, date_from, date_to,
                             only_types=["revenue", "expense"])
@@ -444,9 +538,10 @@ def dashboard(conn, company_ids, year):
         })
     expense_breakdown.sort(key=lambda r: -r["actual"])
 
-    # Office Expense YTD = Office & Administration (6600) + rent (6200) + utilities (6300)
+    # Office Expense YTD = rent (6200) + utilities (6300) + the Office &
+    # Administration group (66xx, which now includes Bank Admin Fees 6610)
     office_expense = round(sum(r["balance"] for r in pnl["expense"]
-                              if r["code"] in ("6600", "6200", "6300")), 2)
+                              if r["code"] in ("6200", "6300") or r["code"].startswith("66")), 2)
     proj = project_performance(conn, company_ids, year)
     cf = cash_flow(conn, company_ids, year)
 

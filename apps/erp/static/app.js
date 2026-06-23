@@ -26,6 +26,86 @@ function fmtShort(n) {
   return sign + a.toFixed(0);
 }
 
+// IDR-prefixed money formatters (dashboard shows all figures as Rp)
+function fmtRp(n) { return (n == null || isNaN(n)) ? "-" : "Rp " + fmt(n); }
+// dashboard short money: 3 decimals (Indonesian comma) for M/B/T -> "Rp 3,231 B"
+function fmtShortRp(n) {
+  if (n == null || isNaN(n)) return "-";
+  const a = Math.abs(n), sign = n < 0 ? "-" : "";
+  const tiers = [[1e12, "T"], [1e9, "B"], [1e6, "M"], [1e3, "K"], [1, ""]];
+  let ti = tiers.findIndex(([d]) => a >= d);
+  if (ti < 0) ti = tiers.length - 1;
+  const dpFor = u => (u === "M" || u === "B" || u === "T") ? 3 : 0;
+  let [div, unit] = tiers[ti], dp = dpFor(unit);
+  // if rounding pushes the mantissa up to 1000, step up a tier (avoids "1000 M")
+  if (ti > 0 && Number((a / div).toFixed(dp)) >= 1000) {
+    [div, unit] = tiers[--ti]; dp = dpFor(unit);
+  }
+  const s = (a / div).toFixed(dp).replace(".", ",");
+  return "Rp " + sign + s + (unit ? " " + unit : "");
+}
+
+// escape a value for use inside a CSS attribute selector
+function cssEsc(s) { return String(s).replace(/["\\\]]/g, "\\$&"); }
+
+// entry-source pill colour (label text comes from the server's source_label)
+const SOURCE_CLASS = {
+  manual: "inactive", bca_bank: "active", bca_csv: "active",
+  bca_pdf: "active", monit_wallet: "completed", excel: "draft",
+};
+
+function renderTbDetailed(d, consolidated) {
+  const srcPill = e => `<span class="pill ${SOURCE_CLASS[e.source] || "inactive"}">${esc(e.source_label || e.source)}</span>`;
+  const body = d.rows.map(acc => {
+    const head = `<tr class="tb-acc section" data-code="${esc(acc.code)}" style="cursor:pointer">
+      <td><span class="caret">&#9656;</span> ${esc(acc.code)}</td><td>${esc(acc.name)}</td><td>${esc(acc.type)}</td>
+      <td class="num">${fmt(acc.debit)}</td><td class="num">${fmt(acc.credit)}</td><td class="num">${fmt(acc.balance)}</td></tr>`;
+    const entries = (acc.entries || []).map(e => `<tr class="tb-entry" data-acc="${esc(acc.code)}" hidden>
+      <td class="muted" style="padding-left:24px">${esc(e.date)}</td>
+      <td><b>${esc(e.entry_no)}</b> — ${esc(e.description || e.line_desc || "")} ${srcPill(e)}${consolidated ? ` <span class="muted">${esc(e.company_code)}</span>` : ""}${e.reference ? ` <span class="muted">ref ${esc(e.reference)}</span>` : ""}</td>
+      <td></td><td class="num">${e.debit ? fmt(e.debit) : ""}</td><td class="num">${e.credit ? fmt(e.credit) : ""}</td><td></td></tr>`).join("");
+    return head + (entries || `<tr class="tb-entry" data-acc="${esc(acc.code)}" hidden><td></td><td class="muted" colspan="5">No posted entries in this period</td></tr>`);
+  }).join("");
+  return `<table class="tbl"><thead><tr><th>Code / Date</th><th>Account / Entry</th><th>Type</th>
+    <th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+    <tbody>${body}
+    <tr class="total"><td colspan="3">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
+      <td class="num">${fmt(d.total_credit)}</td><td></td></tr></tbody></table>
+    <p class="muted mt">Click an account to expand its journal entries. The coloured tag is each entry&rsquo;s
+      source (manual, BCA bank, Monit wallet, &hellip;).</p>`;
+}
+
+// click-through popup: every posted journal entry that hit one account
+async function openAccountLedger(code, fallbackName) {
+  const from = ($("#rdFrom") && $("#rdFrom").value) || `${state.year}-01-01`;
+  const to = ($("#rdTo") && $("#rdTo").value) || `${state.year}-12-31`;
+  openModal(`<div id="alBody"><div class="empty">Loading…</div></div>`, { title: "Account " + code });
+  try {
+    const d = await api(`/api/reports/account-ledger?${scopeQS()}&date_from=${from}&date_to=${to}&code=${encodeURIComponent(code)}`);
+    const consolidated = state.companyId === "all";
+    const rows = d.entries.map(e => `<tr>
+      <td class="muted" style="white-space:nowrap">${esc(e.date)}</td>
+      <td><b>${esc(e.entry_no)}</b>${consolidated ? ` <span class="muted">${esc(e.company_code)}</span>` : ""}</td>
+      <td>${esc(e.description || e.line_desc || "")}${e.reference ? ` <span class="muted">ref ${esc(e.reference)}</span>` : ""}</td>
+      <td><span class="pill ${SOURCE_CLASS[e.source] || "inactive"}">${esc(e.source_label || e.source)}</span></td>
+      <td class="num">${e.debit ? fmt(e.debit) : ""}</td>
+      <td class="num">${e.credit ? fmt(e.credit) : ""}</td></tr>`).join("")
+      || `<tr><td colspan="6" class="empty">No posted entries in this period</td></tr>`;
+    $("#alBody").innerHTML = `
+      <div class="ledger-head">
+        <div><b>${esc(d.code)} — ${esc(d.name || fallbackName)}</b>
+          ${d.type ? ` <span class="pill">${esc(d.type)}</span>` : ""}</div>
+        <div class="muted">${esc(d.scope)} · ${esc(d.date_from)} → ${esc(d.date_to)} · ${d.entries.length} entr${d.entries.length === 1 ? "y" : "ies"}</div>
+      </div>
+      <div class="ledger-scroll"><table class="tbl">
+        <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th>Source</th>
+          <th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+        <tbody>${rows}
+        <tr class="total"><td colspan="4">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
+          <td class="num">${fmt(d.total_credit)}</td></tr></tbody></table></div>`;
+  } catch (e) { $("#alBody").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
 async function api(path, opts = {}) {
   if (opts.json !== undefined) {
     opts.method = opts.method || "POST";
@@ -85,11 +165,17 @@ function chartBars(labels, series, opts = {}) {
   labels.forEach((lb, i) => {
     out += `<text x="${padL + i * gw + gw / 2}" y="${H - 8}" text-anchor="middle" font-size="10" style="fill:var(--muted)">${esc(lb)}</text>`;
   });
+  const vfmt = opts.valueFmt || fmtShort;
   bars.forEach((s, si) => {
     s.values.forEach((v, i) => {
       const x = padL + i * gw + gw * 0.14 + si * bw;
       const y0 = y(Math.max(0, v)), h = Math.abs(y(v) - y(0));
       out += `<rect class="ch-bar" style="animation-delay:${(i * 0.03 + si * 0.012).toFixed(3)}s" x="${x}" y="${y0}" width="${bw - 2}" height="${Math.max(h, .5)}" rx="2" fill="${s.color}"><title>${esc(s.name)} ${esc(labels[i])}: ${fmt(v)}</title></rect>`;
+      if (opts.valueLabels && v) {
+        const cx = x + (bw - 2) / 2;
+        const ty = v >= 0 ? y(v) - 5 : y(v) + 12;
+        out += `<text x="${cx}" y="${ty}" text-anchor="middle" font-size="${opts.valueFont || 10}" font-weight="600" style="fill:var(--text)">${esc(vfmt(v))}</text>`;
+      }
     });
   });
   series.filter(s => s.type === "line").forEach(s => {
@@ -137,11 +223,63 @@ const ROLE_DESC = {
   viewer: "read-only access to reports",
 };
 
+/* ------------------------------------------------------------------ i18n */
+// English is the source language; Indonesian translations are looked up by the
+// English string. Anything unmapped falls back to English.
+const TR = {
+  // navigation
+  "Dashboard": "Dasbor", "Project HV": "Proyek HV", "Journal Entries": "Jurnal",
+  "Bank Import": "Impor Bank", "Budgets": "Anggaran", "Investments": "Investasi",
+  "Projects": "Proyek", "Reports": "Laporan", "Settings": "Pengaturan",
+  // topbar
+  "Company": "Perusahaan", "Year": "Tahun", "Logout": "Keluar",
+  "all figures in IDR (Rp)": "semua angka dalam IDR (Rp)",
+  // dashboard
+  "Consolidated": "Konsolidasi", "All": "Semua",
+  "Revenue YTD": "Pendapatan YTD", "Expenses YTD": "Beban YTD", "Net Profit": "Laba Bersih",
+  "Working Capital · Today": "Modal Kerja · Hari Ini", "Office Expense": "Biaya Kantor",
+  "Cash & Bank": "Kas & Bank", "Receivables": "Piutang", "Payables": "Utang",
+  "Budget Used": "Anggaran Terpakai",
+  "Monthly Revenue vs Expense — IDR": "Pendapatan vs Beban Bulanan — IDR",
+  "Expense Breakdown — Realization vs Budget": "Rincian Beban — Realisasi vs Anggaran",
+  // report / page titles + tabs
+  "Financial Reports": "Laporan Keuangan", "Profit & Loss": "Laba Rugi",
+  "Cash Flow": "Arus Kas", "Balance Sheet": "Neraca", "Trial Balance": "Neraca Saldo",
+  "Budget vs Realization": "Anggaran vs Realisasi",
+  "Investment Analysis": "Analisis Investasi", "Bank Import — BCA": "Impor Bank — BCA",
+  "Gain vs Budget": "Laba vs Anggaran", "Performance": "Kinerja",
+  // common buttons
+  "Apply": "Terapkan", "Export Excel": "Ekspor Excel", "Export PDF": "Ekspor PDF",
+};
+function t(s) { return state.lang === "id" ? (TR[s] || s) : s; }
+
+// nav routes -> [icon glyph, English label]
+const NAV_ITEMS = [
+  ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
+  ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Bank Import"],
+  ["budgets", "◎", "Budgets"], ["investments", "✦", "Investments"],
+  ["projects", "△", "Projects"], ["reports", "▤", "Reports"],
+  ["settings", "⚙", "Settings"],
+];
+function relabelChrome() {
+  $$("#nav a").forEach(a => {
+    const item = NAV_ITEMS.find(n => n[0] === a.dataset.route);
+    if (item) a.innerHTML = `${item[1]} <span class="nav-t">${esc(t(item[2]))}</span>`;
+  });
+  const set = (sel, s) => { const el = $(sel); if (el) el.textContent = s; };
+  set("#lblCompany", t("Company"));
+  set("#lblYear", t("Year"));
+  set("#logoutBtn", t("Logout"));
+  const lb = $("#langBtn"); if (lb) lb.textContent = state.lang === "id" ? "EN" : "ID";
+  document.documentElement.lang = state.lang;
+}
+
 /* ------------------------------------------------------------------ state */
 const state = {
   me: null,
   companyId: localStorage.getItem("erp.company") || "all",
   year: parseInt(localStorage.getItem("erp.year") || "2026", 10),
+  lang: localStorage.getItem("erp.lang") || "en",
 };
 const canWrite = () => state.me && state.me.role !== "viewer";
 const isAdmin = () => state.me && state.me.role === "admin";
@@ -180,6 +318,15 @@ async function boot() {
     localStorage.setItem("erp.theme", next);
     applyThemeIcon();
   };
+  const langBtn = $("#langBtn");
+  if (langBtn) langBtn.onclick = () => {
+    state.lang = state.lang === "id" ? "en" : "id";
+    localStorage.setItem("erp.lang", state.lang);
+    relabelChrome();
+    renderCompanyChoice();
+    render();
+  };
+  relabelChrome();
   window.addEventListener("hashchange", render);
   render();
 }
@@ -190,7 +337,7 @@ function renderCompanyChoice() {
   if (!box) return;
   const seg = (label, val, title) => `<button class="seg ${String(state.companyId) === String(val) ? "active" : ""}" data-company="${val}" title="${esc(title || label)}">${esc(label)}</button>`;
   const holding = state.me.companies.find(c => c.is_holding);
-  box.innerHTML = seg("All", "all", "Consolidated (all companies)")
+  box.innerHTML = seg(t("All"), "all", "Consolidated (all companies)")
     + (holding ? seg("Holding", holding.id, holding.name) : "")
     + state.me.companies.filter(c => !c.is_holding).map(c => seg(c.code, c.id, c.name)).join("");
   $$("#companyChoice .seg").forEach(b => b.onclick = () => {
@@ -226,53 +373,53 @@ async function pageDashboard(el) {
   $("#scopeBadge").textContent = d.scope;
   const k = d.kpis;
   const kpi = (label, value, cls, sub) => `<div class="kpi ${cls || ""}">
-    <div class="kpi-label">${label}</div><div class="kpi-value" title="${fmt(value)}">${fmtShort(value)}</div>
+    <div class="kpi-label">${label}</div><div class="kpi-value" title="${fmtRp(value)}">${fmtShortRp(value)}</div>
     ${sub ? `<div class="kpi-sub">${sub}</div>` : ""}</div>`;
   const monthly = d.monthly;
   const bvaPct = k.budget_used_pct;
   const holding = state.me.companies.find(c => c.is_holding);
   const seg = (label, val) => `<button class="seg ${String(state.companyId) === String(val) ? "active" : ""}" data-scope="${val}">${label}</button>`;
-  // Office Expense = rent (6200) + utilities (6300) + office & admin (6600)
-  const officeRows = d.expense_breakdown.filter(r => ["6200", "6300", "6600"].includes(r.code));
+  // Office Expense = rent (6200) + utilities (6300) + office & admin group (66xx, incl. bank admin fees)
+  const officeRows = d.expense_breakdown.filter(r => ["6200", "6300"].includes(r.code) || String(r.code).startsWith("66"));
   const officeActual = round2(officeRows.reduce((a, r) => a + r.actual, 0));
   const officeBudget = round2(officeRows.reduce((a, r) => a + r.budget, 0));
   const officeUsed = officeBudget ? Math.round(100 * officeActual / officeBudget) : null;
   el.innerHTML = `
-    <div class="page-head"><h2>Dashboard — ${state.year}</h2>
+    <div class="page-head"><h2>${t("Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}</span></h2>
       <div class="seg-group" id="dashScope">
-        ${seg("Consolidated", "all")}
+        ${seg(t("Consolidated"), "all")}
         ${holding ? seg("Holding", holding.id) : ""}
         ${state.me.companies.filter(c => !c.is_holding).map(c => seg(c.code, c.id)).join("")}
       </div></div>
     <div class="grid kpis">
-      ${kpi("Revenue YTD", k.revenue_ytd)}
-      ${kpi("Expenses YTD", k.expense_ytd)}
-      ${kpi("Net Profit", k.net_profit_ytd, k.net_profit_ytd >= 0 ? "green" : "red", `Margin ${k.margin_pct}%`)}
-      ${kpi("Working Capital · Today", k.working_capital, k.working_capital >= 0 ? "green" : "red",
-        `as of ${d.as_of} · CA ${fmtShort(k.current_assets)} − CL ${fmtShort(k.current_liabilities)}`)}
-      ${kpi("Office Expense", k.office_expense, "", "rent · utilities · admin")}
-      ${kpi("Cash & Bank", k.cash_balance)}
-      ${kpi("Receivables", k.accounts_receivable)}
-      ${kpi("Payables", k.accounts_payable)}
+      ${kpi(t("Revenue YTD"), k.revenue_ytd)}
+      ${kpi(t("Expenses YTD"), k.expense_ytd)}
+      ${kpi(t("Net Profit"), k.net_profit_ytd, k.net_profit_ytd >= 0 ? "green" : "red", `Margin ${k.margin_pct}%`)}
+      ${kpi(t("Working Capital · Today"), k.working_capital, k.working_capital >= 0 ? "green" : "red",
+        `as of ${d.as_of} · CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`)}
+      ${kpi(t("Office Expense"), k.office_expense, "", "rent · utilities · admin")}
+      ${kpi(t("Cash & Bank"), k.cash_balance)}
+      ${kpi(t("Receivables"), k.accounts_receivable)}
+      ${kpi(t("Payables"), k.accounts_payable)}
       <div class="kpi ${bvaPct != null && bvaPct > 100 ? "red" : ""}">
-        <div class="kpi-label">Budget Used</div>
+        <div class="kpi-label">${t("Budget Used")}</div>
         <div class="kpi-value">${bvaPct == null ? "n/a" : bvaPct + "%"}</div>
-        <div class="kpi-sub">of ${fmtShort(k.budget_expense)} expense budget</div>
+        <div class="kpi-sub">of ${fmtShortRp(k.budget_expense)} expense budget</div>
       </div>
     </div>
     <div class="grid two-col">
-      <div class="card"><h3>Monthly Revenue vs Expense (${state.year})</h3>
+      <div class="card"><h3>${t("Monthly Revenue vs Expense — IDR")} (${state.year})</h3>
         ${chartBars(MONTH_NAMES, [
           { name: "Revenue", color: C_REV, values: monthly.map(m => m.revenue) },
           { name: "Expense", color: C_EXP, values: monthly.map(m => m.expense) },
           { name: "Profit", color: C_PROFIT, values: monthly.map(m => m.profit), type: "line" },
         ])}</div>
-      <div class="card"><h3>Expense Breakdown — Realization vs Budget</h3>
+      <div class="card"><h3>${t("Expense Breakdown — Realization vs Budget")}</h3>
         ${chartDonut(d.expense_breakdown.slice(0, 8).map((r, i) => ({
           label: r.code + " " + r.name, value: r.actual, color: PALETTE[i % PALETTE.length] })))}
         <div class="office-total mt">
           <span><b>Office Expense</b> <span class="muted">(rent · utilities · admin)</span></span>
-          <span>Realization <b>${fmt(officeActual)}</b> · Budget <b>${fmt(officeBudget)}</b>
+          <span>Realization <b>${fmtRp(officeActual)}</b> · Budget <b>${fmtRp(officeBudget)}</b>
             ${officeUsed == null ? "" : `· <span class="${officeUsed > 100 ? "neg" : "pos"}">${officeUsed}% used</span>`}</span>
         </div>
         <div style="max-height:240px;overflow:auto" class="mt"><table class="tbl">
@@ -400,9 +547,15 @@ async function pageProjectHV(el) {
   const totalGain = rows.reduce((a, r) => a + r.profit, 0);
   const totalTarget = rows.reduce((a, r) => a + r.health.target, 0);
   const ytdLabel = factor < 1 ? ` (YTD ${Math.round(factor * 12)} months)` : "";
+  // portfolio Revenue / COGS / Profit — actual (YTD) vs budget prorated to the
+  // same completed-month window, so a mid-year view compares like with like
+  const sum = f => rows.reduce((a, r) => a + (f(r) || 0), 0);
+  const aRev = sum(r => r.revenue), bRev = sum(r => r.budget_revenue) * factor;
+  const aCogs = sum(r => r.expense), bCogs = sum(r => r.budget_expense) * factor;
+  const aProfit = aRev - aCogs, bProfit = bRev - bCogs;
 
   el.innerHTML = `
-    <div class="page-head"><h2>Project HV — Gain vs Budget ${state.year}</h2>
+    <div class="page-head"><h2>${t("Project HV")} — ${t("Gain vs Budget")} ${state.year}</h2>
       <div class="page-actions">
         <a class="btn" href="/api/export/project-performance?${scopeQS()}">&#x2913; Export Excel</a>
       </div></div>
@@ -416,7 +569,24 @@ async function pageProjectHV(el) {
       <div class="kpi"><div class="kpi-label">Budget Target${ytdLabel}</div><div class="kpi-value">${fmtShort(totalTarget)}</div>
         <div class="kpi-sub">${totalTarget ? Math.round(100 * totalGain / totalTarget) + "% achieved" : ""}</div></div>
     </div>
-    <div class="card"><h3>Actual Gain vs Budget Target${ytdLabel} per Project</h3>
+    <div class="card"><h3>Actual vs Budget — Revenue · COGS · Profit <span class="muted" style="font-weight:500">(IDR, ${state.year}${factor < 1 ? ` · YTD ${Math.round(factor * 12)} months` : ""})</span></h3>
+      ${chartBars(["Revenue", "COGS", "Profit"], [
+        { name: "Actual", color: C_REV, values: [aRev, aCogs, aProfit] },
+        { name: "Budget" + ytdLabel, color: "#9ca3af", values: [bRev, bCogs, bProfit] },
+      ], { height: 300, width: 760, valueLabels: true, valueFont: 12, valueFmt: fmtShort })}
+      <div class="ph-avb-grid">
+        ${[["Revenue", aRev, bRev], ["COGS", aCogs, bCogs], ["Profit", aProfit, bProfit]].map(([lbl, a, b]) => {
+          const v = a - b, used = b ? Math.round(100 * a / b) : null;
+          const good = lbl === "COGS" ? v <= 0 : v >= 0;  // lower COGS is good
+          return `<div class="ph-avb">
+            <div class="ph-avb-t">${lbl}</div>
+            <div class="ph-avb-row"><span>Actual</span><b>${fmtRp(a)}</b></div>
+            <div class="ph-avb-row"><span>Budget</span><span class="muted">${fmtRp(b)}</span></div>
+            <div class="ph-avb-row"><span>Variance</span><b class="${good ? "pos" : "neg"}">${fmtRp(v)}${used == null ? "" : ` · ${used}%`}</b></div>
+          </div>`;
+        }).join("")}
+      </div></div>
+    <div class="card mt"><h3>Actual Gain vs Budget Target${ytdLabel} per Project</h3>
       ${chartBars(active.map(r => r.code), [
         { name: "Actual Profit", color: C_REV, values: active.map(r => r.profit) },
         { name: "Budget Target" + ytdLabel, color: "#9ca3af", values: active.map(r => r.health.target) },
@@ -475,6 +645,11 @@ async function pageProjectHV(el) {
     chartEl.innerHTML = `<div class="empty">Loading…</div>`;
 
     if (!pid) {  /* portfolio level */
+      if (!active.length) {
+        chartEl.innerHTML = `<div class="empty">No project has posted revenue or cost in ${state.year} yet — book project-tagged entries to populate this view.</div>`;
+        notesEl.innerHTML = "";
+        return;
+      }
       if (mode === "budget") {
         chartEl.innerHTML = chartBars(active.map(r => r.code), [
           { name: "Actual Gain", color: C_REV, values: active.map(r => r.profit) },
@@ -619,7 +794,7 @@ async function pageProjectHV(el) {
 /* ------------------------------------------------------------------ journals */
 async function pageJournals(el) {
   el.innerHTML = `
-    <div class="page-head"><h2>Journal Entries</h2>
+    <div class="page-head"><h2>${t("Journal Entries")}</h2>
       <div class="page-actions">
         <a class="btn" href="/api/templates/journals">&#x2913; Template</a>
         ${canWrite() ? `<button class="btn" id="importBtn">&#x2912; Import Excel</button>` : ""}
@@ -858,6 +1033,9 @@ function customFieldInput(f, value) {
 }
 
 /* ------------------------------------------------------------------ bank import */
+// which entry source each bank-import mode books under
+const BANK_SOURCE_BY_MODE = { paste: "bca_bank", csv: "bca_csv", pdf: "bca_pdf", wallet: "monit_wallet" };
+
 async function pageBank(el) {
   if (!canWrite()) {
     el.innerHTML = `<div class="card"><div class="empty">Bank import requires the Admin or Accountant role.</div></div>`;
@@ -865,7 +1043,7 @@ async function pageBank(el) {
   }
   const cid = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
   el.innerHTML = `
-    <div class="page-head"><h2>Bank Import — BCA</h2>
+    <div class="page-head"><h2>${t("Bank Import — BCA")}</h2>
       <div class="page-actions"><label class="muted">Company <select id="bkCompany">${companyOptions(cid)}</select></label></div>
     </div>
     <div class="card">
@@ -1064,6 +1242,7 @@ async function pageBank(el) {
           company_id: parseInt($("#bkCompany").value, 10),
           date: t.date, description: $(".bk-desc", tr).value,
           reference: t.reference, status, lines,
+          source: BANK_SOURCE_BY_MODE[mode] || "bca_bank",
         }});
         okCount++;
         results.push(`<li class="pos">✓ ${esc(t.reference || t.date)} — booked as <b>${esc(res.entry_no)}</b> (${status})</li>`);
@@ -1090,7 +1269,7 @@ async function pageInvestments(el) {
   const roi = invested ? Math.round(100 * (benefit - invested) / invested) : null;
 
   el.innerHTML = `
-    <div class="page-head"><h2>Investment Analysis</h2>
+    <div class="page-head"><h2>${t("Investment Analysis")}</h2>
       <div class="page-actions">
         ${canWrite() ? `<button class="btn btn-primary" id="invNew">+ New Investment</button>` : ""}
       </div></div>
@@ -1259,7 +1438,7 @@ async function investmentDetail(iid, reload) {
 async function pageBudgets(el) {
   const cid = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
   el.innerHTML = `
-    <div class="page-head"><h2>Budgets — ${state.year}</h2>
+    <div class="page-head"><h2>${t("Budgets")} — ${state.year}</h2>
       <div class="page-actions">
         <label class="muted">Company <select id="bCompany">${companyOptions(cid)}</select></label>
         <a class="btn" href="/api/templates/budget?year=${state.year}">&#x2913; Template</a>
@@ -1455,7 +1634,7 @@ async function pageBudgets(el) {
 /* ------------------------------------------------------------------ projects */
 async function pageProjects(el) {
   el.innerHTML = `
-    <div class="page-head"><h2>Projects — Performance ${state.year}</h2>
+    <div class="page-head"><h2>${t("Projects")} — ${t("Performance")} ${state.year}</h2>
       <div class="page-actions">
         <a class="btn" href="/api/export/project-performance?${scopeQS()}">&#x2913; Export Excel</a>
         ${canWrite() ? `<button class="btn btn-primary" id="pNew">+ New Project</button>` : ""}
@@ -1553,13 +1732,13 @@ async function projectEditor(p, reload, defaultCompanyId) {
 /* ------------------------------------------------------------------ reports */
 async function pageReports(el) {
   el.innerHTML = `
-    <div class="page-head"><h2>Financial Reports</h2><div class="muted" id="rScope"></div></div>
+    <div class="page-head"><h2>${t("Financial Reports")}</h2><div class="muted" id="rScope"></div></div>
     <div class="tabs" id="rTabs">
-      <button data-tab="pnl" class="active">Profit &amp; Loss</button>
-      <button data-tab="cf">Cash Flow</button>
-      <button data-tab="bs">Balance Sheet</button>
-      <button data-tab="tb">Trial Balance</button>
-      <button data-tab="bva">Budget vs Realization</button>
+      <button data-tab="pnl" class="active">${t("Profit & Loss")}</button>
+      <button data-tab="cf">${t("Cash Flow")}</button>
+      <button data-tab="bs">${t("Balance Sheet")}</button>
+      <button data-tab="tb">${t("Trial Balance")}</button>
+      <button data-tab="bva">${t("Budget vs Realization")}</button>
     </div>
     <div class="card" id="rBody"></div>`;
   let tab = "pnl";
@@ -1663,21 +1842,39 @@ async function pageReports(el) {
       await run();
     } else if (tab === "tb") {
       body.innerHTML = `<div class="filters">${dateRangeFilters()}
+        <label class="seg-check"><input type="checkbox" id="tbDetail"> Detailed — journal entries &amp; source</label>
         <span class="muted" id="rPeriod"></span></div><div id="rTable"></div>`;
       const run = async () => {
-        const d = await api(`/api/reports/trial-balance?${scopeQS()}&${rangeQS()}`);
+        const detailed = $("#tbDetail").checked;
+        const d = await api(`/api/reports/trial-balance?${scopeQS()}&${rangeQS()}${detailed ? "&detailed=1" : ""}`);
         $("#rScope").textContent = d.scope;
         $("#rPeriod").textContent = periodLabel(d);
         $("#rExp").href = `/api/export/trial-balance?${scopeQS()}&${rangeQS()}`;
         $("#rExpPdf").href = `/api/export/pdf/trial-balance?${scopeQS()}&${rangeQS()}`;
-        $("#rTable").innerHTML = `<table class="tbl"><thead><tr><th>Code</th><th>Account</th><th>Type</th>
-          <th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
-          <tbody>${d.rows.map(r => `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${r.type}</td>
-            <td class="num">${fmt(r.debit)}</td><td class="num">${fmt(r.credit)}</td><td class="num">${fmt(r.balance)}</td></tr>`).join("")}
-          <tr class="total"><td colspan="3">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
-            <td class="num">${fmt(d.total_credit)}</td><td></td></tr></tbody></table>`;
+        if (!detailed) {
+          $("#rTable").innerHTML = `<table class="tbl"><thead><tr><th>Code</th><th>Account</th><th>Type</th>
+            <th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+            <tbody>${d.rows.map(r => `<tr><td>${esc(r.code)}</td>
+              <td><a href="#" class="tb-name" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.name)}</a></td><td>${r.type}</td>
+              <td class="num">${fmt(r.debit)}</td><td class="num">${fmt(r.credit)}</td><td class="num">${fmt(r.balance)}</td></tr>`).join("")}
+            <tr class="total"><td colspan="3">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
+              <td class="num">${fmt(d.total_credit)}</td><td></td></tr></tbody></table>
+            <p class="muted mt">Click an account name to see its detailed journal entries and each entry&rsquo;s source.</p>`;
+          $$("#rTable .tb-name").forEach(a => a.onclick = e => {
+            e.preventDefault(); openAccountLedger(a.dataset.code, a.dataset.name);
+          });
+        } else {
+          $("#rTable").innerHTML = renderTbDetailed(d, state.companyId === "all");
+          $$("#rTable .tb-acc").forEach(rowEl => rowEl.onclick = () => {
+            const code = rowEl.dataset.code;
+            $$(`#rTable tr[data-acc="${cssEsc(code)}"]`).forEach(er => er.hidden = !er.hidden);
+            rowEl.classList.toggle("open");
+            const car = $(".caret", rowEl); if (car) car.textContent = rowEl.classList.contains("open") ? "▾" : "▸";
+          });
+        }
       };
       $("#rGo").onclick = run;
+      $("#tbDetail").onchange = run;
       await run();
     } else if (tab === "cf") {
       const cfDefault = state.companyId !== "all" ? state.companyId : firstCompanyId();
@@ -1735,7 +1932,7 @@ async function pageSettings(el) {
   const tabs = [["coa", "Chart of Accounts"], ["fields", "Custom Fields"], ["companies", "Companies"]];
   if (isAdmin()) tabs.push(["users", "Users"]);
   el.innerHTML = `
-    <div class="page-head"><h2>Settings</h2></div>
+    <div class="page-head"><h2>${t("Settings")}</h2></div>
     <div class="tabs" id="sTabs">${tabs.map(([k, l], i) =>
       `<button data-tab="${k}" class="${i === 0 ? "active" : ""}">${l}</button>`).join("")}</div>
     <div id="sBody"></div>`;
@@ -1905,20 +2102,53 @@ async function settingsFields(body) {
 
 async function settingsCompanies(body) {
   const load = async () => {
-    const rows = await api("/api/companies");
+    const rows = await api("/api/companies" + (isAdmin() ? "?include_inactive=1" : ""));
     const byId = {}; rows.forEach(c => byId[c.id] = c);
     body.innerHTML = `<div class="card">
       <div class="page-head"><h3 style="margin:0">Companies</h3>
         ${isAdmin() ? `<button class="btn btn-sm btn-primary" id="coNew">+ Company</button>` : ""}</div>
       <table class="tbl"><thead><tr><th>Code</th><th>Name</th><th>Currency</th><th></th></tr></thead>
-      <tbody>${rows.map(c => `<tr ${c.is_active ? "" : 'style="opacity:.5"'}>
-        <td><b>${esc(c.code)}</b></td><td>${esc(c.name)}</td>
+      <tbody>${rows.map(c => `<tr ${c.is_active ? "" : 'style="opacity:.6"'}>
+        <td><b>${esc(c.code)}</b></td>
+        <td>${esc(c.name)}${c.is_active ? "" : ' <span class="pill inactive">inactive</span>'}</td>
         <td>${esc(c.currency)}</td>
-        <td>${isAdmin() ? `<button class="btn btn-sm" data-id="${c.id}">Edit</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`;
+        <td>${isAdmin() ? `<button class="btn btn-sm" data-id="${c.id}">Edit</button>
+          ${rows.length > 1 ? `<button class="btn btn-sm btn-danger" data-del="${c.id}">Delete</button>` : ""}` : ""}</td></tr>`).join("")}</tbody></table>
+      <p class="muted mt">Deleting a company permanently removes it together with all of its accounts,
+        projects, journal entries, budgets and investments.</p></div>`;
     $$("#sBody [data-id]").forEach(b => b.onclick = () => companyEditor(byId[b.dataset.id], rows, load));
+    $$("#sBody [data-del]").forEach(b => b.onclick = () => confirmDeleteCompany(byId[b.dataset.del], load));
     if ($("#coNew")) $("#coNew").onclick = () => companyEditor(null, rows, load);
   };
   await load();
+}
+
+function confirmDeleteCompany(c, reload) {
+  openModal(`<div class="confirm-del">
+    <p>Delete company <b>${esc(c.code)} — ${esc(c.name)}</b>?</p>
+    <p class="muted">This permanently removes the company and <b>all of its data</b> —
+      chart of accounts, projects, journal entries, budgets and investments.
+      <b>This cannot be undone.</b></p>
+    <label class="seg-check"><input type="checkbox" id="coDelConfirm"> Yes, I understand this deletes everything for ${esc(c.code)}</label>
+    <div class="form-actions">
+      <button class="btn" id="coDelCancel">Cancel</button>
+      <button class="btn btn-danger" id="coDelYes" disabled>Delete company &amp; all its data</button>
+    </div></div>`, { title: "Delete company", small: true });
+  $("#coDelConfirm").onchange = e => { $("#coDelYes").disabled = !e.target.checked; };
+  $("#coDelCancel").onclick = closeModal;
+  $("#coDelYes").onclick = async () => {
+    try {
+      await api("/api/companies/" + c.id, { method: "DELETE" });
+      toast(`Company ${c.code} deleted`);
+      closeModal();
+      state.me = await api("/api/me");
+      if (String(state.companyId) === String(c.id)) {
+        state.companyId = "all"; localStorage.setItem("erp.company", "all");
+      }
+      renderCompanyChoice();
+      reload();
+    } catch (e) { toast(e.message, true); }
+  };
 }
 
 function companyEditor(c, all, reload) {

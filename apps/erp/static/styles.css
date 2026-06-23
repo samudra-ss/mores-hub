@@ -339,3 +339,37 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #aee2e9; border-c
 .muted { color: var(--muted); }
 .mt { margin-top: 16px; }
 .empty { text-align: center; color: var(--muted); padding: 30px 0; }
+
+/* detailed trial balance toggle + drill-down rows */
+.seg-check { display: inline-flex; align-items: center; gap: 7px; font-size: 13px;
+  color: var(--muted); cursor: pointer; user-select: none; }
+.seg-check input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+.tbl tr.tb-acc { cursor: pointer; }
+.tbl tr.tb-acc:hover { background: var(--accent-soft); }
+.tbl tr.tb-acc .caret { display: inline-block; width: 12px; color: var(--accent); font-size: 11px; }
+.tbl tr.tb-entry td { font-size: 12.5px; }
+.tbl tr.tb-entry .pill { margin-left: 4px; }
+
+/* clickable account name -> ledger popup */
+.tb-name { color: var(--accent-dark); text-decoration: none; cursor: pointer; border-bottom: 1px dotted var(--accent); }
+.tb-name:hover { color: var(--accent); }
+.ledger-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap;
+  gap: 6px; margin: -4px 0 12px; }
+.ledger-head b { font-size: 15px; }
+.ledger-scroll { max-height: 62vh; overflow: auto; }
+
+/* Project HV — Actual vs Budget summary tiles */
+.ph-avb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+.ph-avb { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; background: var(--card-bg, transparent); }
+.ph-avb-t { font-family: var(--font-mono, monospace); font-size: 11px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.ph-avb-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  font-size: 13px; padding: 2px 0; }
+.ph-avb-row span:first-child { color: var(--muted); }
+.ph-avb-row .pos { color: var(--green); }
+.ph-avb-row .neg { color: var(--red); }
+@media (max-width: 720px) { .ph-avb-grid { grid-template-columns: 1fr; } }
+
+/* delete-company confirmation */
+.confirm-del p { margin: 0 0 12px; }
+.confirm-del .seg-check { margin-bottom: 16px; color: var(--text); }

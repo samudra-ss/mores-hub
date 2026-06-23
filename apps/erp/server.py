@@ -31,6 +31,9 @@ app.permanent_session_lifetime = timedelta(days=30)  # "Remember me" duration
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
+# where a journal entry came from (shown in the detailed trial balance)
+ENTRY_SOURCES = {"manual", "bca_bank", "bca_csv", "bca_pdf", "monit_wallet", "excel"}
+
 
 # --------------------------------------------------------------------------
 # DB / auth plumbing
@@ -262,6 +265,11 @@ def api_me():
 @app.get("/api/companies")
 @login_required
 def list_companies():
+    # admins can request the full list (incl. inactive) for management screens
+    if request.args.get("include_inactive") and g.user["role"] == "admin":
+        rows = db().execute(
+            "SELECT * FROM companies ORDER BY is_holding DESC, is_active DESC, code").fetchall()
+        return jsonify([dict(r) for r in rows])
     ids = accessible_company_ids()
     if not ids:
         return jsonify([])
@@ -297,6 +305,20 @@ def update_company(cid):
         (d["name"], 1 if d.get("is_holding") else 0, d.get("parent_id") or None,
          d.get("currency", "IDR"), 1 if d.get("is_active", True) else 0, cid))
     db().commit()
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/companies/<int:cid>")
+@role_required("admin")
+def delete_company(cid):
+    # admins manage every company (like create/update) — incl. inactive ones —
+    # so no accessible-only check here; just guard against emptying the database
+    row = db().execute("SELECT id, code, name FROM companies WHERE id=?", (cid,)).fetchone()
+    if not row:
+        raise ValueError("Company not found")
+    if db().execute("SELECT COUNT(*) FROM companies").fetchone()[0] <= 1:
+        raise ValueError("Cannot delete the only remaining company")
+    database.delete_company_cascade(db(), cid)
     return jsonify({"ok": True})
 
 
@@ -555,11 +577,12 @@ def create_journal():
     n = db().execute("SELECT COUNT(*)+1 FROM journal_entries WHERE company_id=?",
                      (d["company_id"],)).fetchone()[0]
     entry_no = d.get("entry_no") or "JV-%s-%05d" % (d["date"][:7].replace("-", ""), n)
+    source = d.get("source") if d.get("source") in ENTRY_SOURCES else "manual"
     cur = db().execute(
-        "INSERT INTO journal_entries (company_id, entry_no, date, description, reference, status, created_by)"
-        " VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO journal_entries (company_id, entry_no, date, description, reference, status, source, created_by)"
+        " VALUES (?,?,?,?,?,?,?,?)",
         (d["company_id"], entry_no, d["date"], d.get("description", ""),
-         d.get("reference", ""), d.get("status", "draft"), g.user["id"]))
+         d.get("reference", ""), d.get("status", "draft"), source, g.user["id"]))
     for l in lines:
         db().execute(
             "INSERT INTO journal_lines (entry_id, account_id, project_id, description, debit, credit)"
@@ -750,7 +773,23 @@ def report_dashboard():
 def report_tb():
     ids, label = scope_from_request()
     date_from, date_to = date_range_from_request()
-    data = reports.trial_balance(db(), ids, date_from, date_to)
+    if request.args.get("detailed") in ("1", "true", "yes"):
+        data = reports.trial_balance_detailed(db(), ids, date_from, date_to)
+    else:
+        data = reports.trial_balance(db(), ids, date_from, date_to)
+    data.update(scope=label, date_from=date_from, date_to=date_to)
+    return jsonify(data)
+
+
+@app.get("/api/reports/account-ledger")
+@login_required
+def report_account_ledger():
+    ids, label = scope_from_request()
+    date_from, date_to = date_range_from_request()
+    code = (request.args.get("code") or "").strip()
+    if not code:
+        raise ValueError("An account code is required")
+    data = reports.account_ledger(db(), ids, code, date_from, date_to)
     data.update(scope=label, date_from=date_from, date_to=date_to)
     return jsonify(data)
 
@@ -1055,6 +1094,22 @@ def _flag_duplicates(company_id, txs):
         t.setdefault("direction", "out")
 
 
+def _resolve_suggested_accounts(company_id, txs):
+    """Map each transaction's suggested COA code (e.g. 6610 for a 'Biaya TXN'
+    bank charge, or a wallet category) to an account id in this company so the
+    UI can pre-select the contra account."""
+    codes = {t.get("suggested_code") for t in txs if t.get("suggested_code")}
+    id_by_code = {}
+    if codes:
+        rows = db().execute(
+            "SELECT id, code FROM accounts WHERE company_id=? AND code IN (%s)"
+            % ",".join("?" * len(codes)), [company_id] + list(codes)).fetchall()
+        id_by_code = {r["code"]: r["id"] for r in rows}
+    for t in txs:
+        if not t.get("suggested_account_id"):
+            t["suggested_account_id"] = id_by_code.get(t.get("suggested_code"))
+
+
 @app.post("/api/bank/parse-bca")
 @role_required("admin", "finance")
 def parse_bca():
@@ -1063,6 +1118,7 @@ def parse_bca():
     check_company_access(company_id)
     txs, warnings = bank_import.parse_bca_text(d.get("text", ""))
     _flag_duplicates(company_id, txs)
+    _resolve_suggested_accounts(company_id, txs)
     return jsonify({"transactions": txs, "warnings": warnings})
 
 
@@ -1078,6 +1134,7 @@ def parse_bank_csv():
         raise ValueError("Please upload the .csv file exported from the bank")
     txs, warnings, meta = bank_import.parse_bca_csv(f.read())
     _flag_duplicates(company_id, txs)
+    _resolve_suggested_accounts(company_id, txs)
     return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
 
 
@@ -1093,6 +1150,7 @@ def parse_bank_pdf():
         raise ValueError("Please upload the BCA e-statement .pdf file")
     txs, warnings, meta = bank_import.parse_bca_estatement_pdf(f.read())
     _flag_duplicates(company_id, txs)
+    _resolve_suggested_accounts(company_id, txs)
     return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
 
 
@@ -1108,16 +1166,7 @@ def parse_wallet():
         raise ValueError("Please upload the wallet/card transaction .xlsx file")
     txs, warnings, meta = bank_import.parse_wallet_xlsx(f.read())
     _flag_duplicates(company_id, txs)
-    # resolve each suggested category account-code to an account id in this company
-    codes = {t.get("suggested_code") for t in txs if t.get("suggested_code")}
-    id_by_code = {}
-    if codes:
-        rows = db().execute(
-            "SELECT id, code FROM accounts WHERE company_id=? AND code IN (%s)"
-            % ",".join("?" * len(codes)), [company_id] + list(codes)).fetchall()
-        id_by_code = {r["code"]: r["id"] for r in rows}
-    for t in txs:
-        t["suggested_account_id"] = id_by_code.get(t.get("suggested_code"))
+    _resolve_suggested_accounts(company_id, txs)
     return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
 
 

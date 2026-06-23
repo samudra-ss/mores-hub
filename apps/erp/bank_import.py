@@ -57,6 +57,25 @@ _SORTED_LABELS = sorted(LABELS, key=len, reverse=True)
 
 SUCCESS_WORDS = ("berhasil", "sukses", "success", "successful")
 
+# BCA mutasi lines that are bank charges (e.g. "BIAYA TXN", "BIAYA ADM",
+# "BIAYA TRANSAKSI", "ADMIN BANK") should post to Bank Admin Fees, which rolls
+# up into office cost. The pattern is anchored to actual charge phrasings so it
+# does not fire on counterparty names like "PT ADM Jaya" or "TXN settlement".
+BANK_FEE_RE = re.compile(
+    r"(?i)\bbiaya\s*(?:adm(?:in)?|administrasi|txn|trx|transaksi|transfer|rtgs|"
+    r"bulanan|bln|kartu|atm|bank)\b"
+    r"|\badm(?:in)?(?:istrasi)?\s*bank\b"
+    r"|\bbank\s*charge\b|transaction\s+fee|\btxn\s*fee\b")
+BANK_FEE_ACCOUNT = "6610"
+
+
+def suggest_bank_account(description):
+    """Suggested COA code for a bank-statement line, or None. Bank charges such
+    as 'Biaya TXN' / 'BIAYA ADM' map to Bank Admin Fees (6610, office cost)."""
+    if description and BANK_FEE_RE.search(description):
+        return BANK_FEE_ACCOUNT
+    return None
+
 
 def parse_amount(s):
     """'Rp 1,970,100.00' / 'Rp1.970.100,00' / '1970100' -> float."""
@@ -139,6 +158,7 @@ def parse_bca_text(text):
         rec["ok"] = (not rec["status"]) or any(w in rec["status"].lower() for w in SUCCESS_WORDS)
         desc_bits = [b for b in (rec["tx_type"], rec["merchant"], rec["name"]) if b]
         rec["description"] = " — ".join(desc_bits) if desc_bits else "Bank transfer"
+        rec["suggested_code"] = suggest_bank_account(rec["description"])
         if not rec["date"]:
             warnings.append("Receipt ref %s: missing/invalid date (Tanggal)" % (rec["reference"] or "?"))
         if not rec["amount"]:
@@ -234,6 +254,7 @@ def parse_bca_csv(data):
             "amount": amount, "transfer_type": "", "reference": reference,
             "status": "CSV", "note": "", "ok": True,
             "description": desc, "direction": direction, "balance": balance,
+            "suggested_code": suggest_bank_account(desc),
         })
     if not in_table:
         warnings.append("Header row 'Tanggal Transaksi' not found — is this a BCA mutasi-rekening CSV?")
@@ -321,6 +342,7 @@ def parse_bca_estatement_pdf(data):
             "status": "Berhasil", "note": "", "ok": True,
             "description": desc or "Bank transaction",
             "direction": current["direction"], "balance": current["balance"],
+            "suggested_code": suggest_bank_account(desc),
         }
         records.append(rec)
 

@@ -418,8 +418,8 @@ def import_journals(conn, company_id, stream, created_by):
         ).fetchone()[0]
         entry_no = "IMP-%s-%05d" % (g["date"][:7].replace("-", ""), n)
         cur = conn.execute(
-            "INSERT INTO journal_entries (company_id, entry_no, date, description, reference, status, created_by)"
-            " VALUES (?,?,?,?,?,'draft',?)",
+            "INSERT INTO journal_entries (company_id, entry_no, date, description, reference, status, source, created_by)"
+            " VALUES (?,?,?,?,?,'draft','excel',?)",
             (company_id, entry_no, g["date"], g["description"], ref, created_by),
         )
         for l in g["lines"]:

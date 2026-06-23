@@ -90,6 +90,7 @@ STANDARD_COA = [
     ("6400", "Marketing & Promotion", "expense", "6000", 0),
     ("6500", "Depreciation Expense", "expense", "6000", 0),
     ("6600", "Office & Administration", "expense", "6000", 0),
+    ("6610", "Bank Admin Fees (Biaya Admin Bank)", "expense", "6600", 0),
     ("6700", "Professional Fees", "expense", "6000", 0),
     ("6900", "Miscellaneous Expense", "expense", "6000", 0),
     ("7200", "Interest Expense", "expense", None, 0),
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS journal_entries (
     description TEXT NOT NULL DEFAULT '',
     reference TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','posted')),
+    source TEXT NOT NULL DEFAULT 'manual',
     created_by INTEGER REFERENCES users(id),
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE (company_id, entry_no)
@@ -287,13 +289,14 @@ def account_id(conn, company_id, code):
     return row["id"] if row else None
 
 
-def _add_entry(conn, company_id, seq, date, description, lines, status="posted", reference=""):
+def _add_entry(conn, company_id, seq, date, description, lines, status="posted",
+               reference="", source="manual"):
     """lines: list of (account_code, project_id, debit, credit)."""
     entry_no = "JV-%s-%04d" % (date[:7].replace("-", ""), seq)
     cur = conn.execute(
-        "INSERT INTO journal_entries (company_id, entry_no, date, description, reference, status, created_by)"
-        " VALUES (?,?,?,?,?,?,1)",
-        (company_id, entry_no, date, description, reference, status),
+        "INSERT INTO journal_entries (company_id, entry_no, date, description, reference, status, source, created_by)"
+        " VALUES (?,?,?,?,?,?,?,1)",
+        (company_id, entry_no, date, description, reference, status, source),
     )
     entry_id = cur.lastrowid
     for code, project_id, debit, credit in lines:
@@ -634,31 +637,66 @@ def remove_holding(conn):
     if not row:
         return False
     hid = row["id"]
-    # detach any children that still pointed at the holding as their parent
-    conn.execute("UPDATE companies SET parent_id=NULL WHERE parent_id=?", (hid,))
     # keep strategic investments — move them to MDA (or the next available company)
     keep = (conn.execute("SELECT id FROM companies WHERE code='MDA'").fetchone()
             or conn.execute("SELECT id FROM companies WHERE id<>? ORDER BY id LIMIT 1",
                             (hid,)).fetchone())
     if keep:
         conn.execute("UPDATE investments SET company_id=? WHERE company_id=?", (keep["id"], hid))
-    else:
-        conn.execute("DELETE FROM investment_events WHERE investment_id IN "
-                     "(SELECT id FROM investments WHERE company_id=?)", (hid,))
-        conn.execute("DELETE FROM investments WHERE company_id=?", (hid,))
-    # remove the holding's own books (order respects foreign keys)
-    conn.execute("DELETE FROM journal_lines WHERE entry_id IN "
-                 "(SELECT id FROM journal_entries WHERE company_id=?)", (hid,))
-    conn.execute("DELETE FROM journal_entries WHERE company_id=?", (hid,))
-    conn.execute("DELETE FROM budgets WHERE company_id=?", (hid,))
-    conn.execute("DELETE FROM custom_field_values WHERE field_id IN "
-                 "(SELECT id FROM custom_fields WHERE company_id=?)", (hid,))
-    conn.execute("DELETE FROM custom_fields WHERE company_id=?", (hid,))
-    conn.execute("DELETE FROM projects WHERE company_id=?", (hid,))
-    conn.execute("DELETE FROM accounts WHERE company_id=?", (hid,))
-    conn.execute("DELETE FROM companies WHERE id=?", (hid,))
-    conn.commit()
+    delete_company_cascade(conn, hid)
     return True
+
+
+def delete_company_cascade(conn, company_id):
+    """Permanently delete a company and ALL of its data — accounts, projects,
+    journal entries & lines, budgets, investments and custom fields. Any other
+    company that pointed at it as a parent is detached. Order respects FKs."""
+    cid = company_id
+    conn.execute("UPDATE companies SET parent_id=NULL WHERE parent_id=?", (cid,))
+    conn.execute("DELETE FROM investment_events WHERE investment_id IN "
+                 "(SELECT id FROM investments WHERE company_id=?)", (cid,))
+    conn.execute("DELETE FROM investments WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM journal_lines WHERE entry_id IN "
+                 "(SELECT id FROM journal_entries WHERE company_id=?)", (cid,))
+    conn.execute("DELETE FROM journal_entries WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM budgets WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM custom_field_values WHERE field_id IN "
+                 "(SELECT id FROM custom_fields WHERE company_id=?)", (cid,))
+    conn.execute("DELETE FROM custom_fields WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM projects WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM accounts WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM companies WHERE id=?", (cid,))
+    conn.commit()
+
+
+def _ensure_source_column(conn):
+    """Add journal_entries.source on pre-existing databases and backfill it from
+    the reference/description left behind by earlier imports. Idempotent."""
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(journal_entries)")]
+    if "source" in cols:
+        return
+    conn.execute("ALTER TABLE journal_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'")
+    # best-effort backfill from the reference prefixes / descriptions earlier
+    # imports left behind (everything else stays 'manual')
+    conn.execute("UPDATE journal_entries SET source='bca_csv' WHERE reference LIKE 'CSV-%'")
+    conn.execute("UPDATE journal_entries SET source='bca_pdf' WHERE reference LIKE 'PDF-%'")
+    conn.execute("UPDATE journal_entries SET source='monit_wallet' WHERE source='manual' AND reference LIKE 'WLT-%'")
+    conn.execute(
+        "UPDATE journal_entries SET source='monit_wallet' WHERE source='manual' AND "
+        "(lower(description) LIKE '%monit%' OR lower(description) LIKE '%wallet%' "
+        " OR lower(description) LIKE '%petty cash%')")
+    conn.commit()
+
+
+def migrate_database(conn):
+    """Bring a single database to the current schema/data baseline. Idempotent —
+    safe to run on every database on every startup."""
+    _ensure_source_column(conn)
+    # drop the legacy holding first so the COA top-up only touches survivors
+    remove_holding(conn)
+    for r in conn.execute("SELECT id FROM companies").fetchall():
+        apply_standard_coa(conn, r["id"])
+    conn.commit()
 
 
 def init_db(force=False):
@@ -685,23 +723,17 @@ def init_db(force=False):
     is_new = not os.path.exists(group_path)
     _init_one(DEFAULT_DB, do_seed=is_new)
 
-    # top up the COA so existing companies gain any newly-added standard accounts
-    # (e.g. 1130 Petty Cash Monit) without touching journals
-    conn = get_db(DEFAULT_DB)
-    for r in conn.execute("SELECT id FROM companies").fetchall():
-        apply_standard_coa(conn, r["id"])
-    conn.commit()
-    conn.close()
-
     # ensure the sandbox exists (fresh demo data)
     if not os.path.exists(db_file(SANDBOX_DB)):
         _init_one(SANDBOX_DB, do_seed=True)
 
-    # migration 3: drop the legacy holding entity from every existing database
+    # bring EVERY database up to the current baseline (idempotent): new standard
+    # accounts (e.g. Petty Cash Monit, Bank Admin Fees), the journal-entry source
+    # column + backfill, and removal of the legacy holding entity
     for name in list_databases():
         c = get_db(name)
         try:
-            remove_holding(c)
+            migrate_database(c)
         finally:
             c.close()
     return is_new
