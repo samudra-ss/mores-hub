@@ -7,11 +7,17 @@ self-contained database (companies, accounts, journals, budgets, users — every
 |------|------------|
 | `MORES-GROUP.db` | Your **live group data**. Back this up. |
 | `TEST-SERVER.db` | A sandbox for testing. Safe to lose. |
-| `<other>.db` | Any extra databases you create in Settings → Databases. |
+| `<other>.db` | Any extra databases you create from the database picker. |
+| `backups/` | Safety copies the app/you place here. **Not** shown as databases. |
+
+Every `.db` file directly in this folder appears as a selectable database on the
+sign-in **Choose a Database** screen, so keep stray copies inside `backups/`
+(that subfolder is not scanned).
 
 ## How to back up
 Just **copy the `.db` files somewhere safe** (an external drive, another cloud
-folder, etc.). To restore, copy the file back. Closing the app first is safest.
+folder, the `backups/` subfolder here, etc.). To restore, copy the file back.
+Closing the app first is safest.
 
 Tip: because this whole project lives inside **OneDrive**, these files are
 already synced/backed up automatically. For an extra copy, drag `MORES-GROUP.db`

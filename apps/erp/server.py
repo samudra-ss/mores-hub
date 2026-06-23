@@ -192,11 +192,19 @@ def console():
     return send_from_directory(STATIC_DIR, "app.html")
 
 
+@app.get("/databases")
+def database_picker():
+    # Post-login database chooser: pick a data store, then enter the console.
+    if not session.get("user_id"):
+        return redirect("/")
+    return send_from_directory(STATIC_DIR, "databases.html")
+
+
 @app.get("/login")
 def login_page():
     # Standalone full-page login; the landing popup is the primary entry.
     if session.get("user_id"):
-        return redirect("/app")
+        return redirect("/databases")
     return send_from_directory(STATIC_DIR, "login.html")
 
 
@@ -1327,12 +1335,15 @@ def _company_name(cid):
 # --------------------------------------------------------------------------
 
 @app.get("/api/databases")
-@role_required("admin")
+@login_required
 def list_databases_api():
+    # Any signed-in user can see and switch databases (the picker page);
+    # creating and deleting stay admin-only below.
     active = active_db_name()
     return jsonify({
         "active": active,
         "default": database.DEFAULT_DB,
+        "can_manage": g.user["role"] == "admin",
         "databases": [{"name": n, "active": n == active,
                        "deletable": n != database.DEFAULT_DB} for n in database.list_databases()],
     })
@@ -1356,22 +1367,24 @@ def delete_database_api(name):
 
 
 @app.post("/api/databases/switch")
-@role_required("admin")
+@login_required
 def switch_database_api():
     d = request.get_json(force=True)
     name = d.get("name", "")
     if name not in database.list_databases():
         raise ValueError("Database '%s' not found" % name)
-    # the same person must exist in the target database (match by username)
+    # the same person must exist in the target database with the SAME role —
+    # matching on role too prevents a low-privilege user from switching into a
+    # database where their username happens to map to a higher-privileged account
     target = database.get_db(name)
     try:
         row = target.execute(
-            "SELECT id FROM users WHERE username=? AND is_active=1 AND role='admin'",
-            (g.user["username"],)).fetchone()
+            "SELECT id FROM users WHERE username=? AND is_active=1 AND role=?",
+            (g.user["username"], g.user["role"])).fetchone()
     finally:
         target.close()
     if not row:
-        raise ValueError("Your admin account does not exist in '%s'" % name)
+        raise ValueError("Your %s account does not exist in '%s'" % (g.user["role"], name))
     session["active_db"] = name
     session["user_id"] = row["id"]
     g.pop("db", None)

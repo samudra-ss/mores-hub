@@ -6,6 +6,8 @@ accounts are merged by account code and intercompany-flagged accounts are
 eliminated.
 """
 
+import datetime
+
 SIGN = {  # natural balance sign: balance = sign * (debit - credit)
     "asset": 1,
     "expense": 1,
@@ -413,6 +415,18 @@ def dashboard(conn, company_ids, year):
     ar = round(sum(b["balance"] for b in balances if b["code"] == "1200"), 2)
     ap = round(sum(b["balance"] for b in balances if b["code"] == "2100"), 2)
 
+    # Working capital as of TODAY = current assets − current liabilities.
+    # Current assets exclude Fixed Assets (15xx); current liabilities exclude the
+    # long-term Bank Loans (2500). Intercompany lines are already eliminated in
+    # consolidated views by account_balances().
+    today = datetime.date.today().isoformat()
+    wc_bal = account_balances(conn, company_ids, None, today)
+    current_assets = round(sum(b["balance"] for b in wc_bal
+                               if b["type"] == "asset" and not b["code"].startswith("15")), 2)
+    current_liabilities = round(sum(b["balance"] for b in wc_bal
+                                    if b["type"] == "liability" and b["code"] != "2500"), 2)
+    working_capital = round(current_assets - current_liabilities, 2)
+
     # Expense breakdown with budget (Realization vs Budget) for every expense line,
     # so the full Office Expense and its budget are visible.
     bva_exp = {r["code"]: r for r in bva["rows"] if r["type"] == "expense"}
@@ -465,6 +479,7 @@ def dashboard(conn, company_ids, year):
 
     return {
         "year": year,
+        "as_of": today,
         "kpis": {
             "revenue_ytd": pnl["total_revenue"],
             "expense_ytd": pnl["total_expense"],
@@ -473,6 +488,9 @@ def dashboard(conn, company_ids, year):
             "cash_balance": cash,
             "accounts_receivable": ar,
             "accounts_payable": ap,
+            "working_capital": working_capital,
+            "current_assets": current_assets,
+            "current_liabilities": current_liabilities,
             "office_expense": office_expense,
             "budget_expense": bva["total_budget_expense"],
             "budget_used_pct": round(100.0 * bva["total_actual_expense"] / bva["total_budget_expense"], 1)

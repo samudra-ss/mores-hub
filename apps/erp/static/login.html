@@ -127,7 +127,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       remember: document.getElementById('remember').checked,
     }),
   });
-  if (res.ok) { window.location.href = '/app'; return; }
+  if (res.ok) { window.location.href = '/databases'; return; }
   const data = await res.json().catch(() => ({}));
   err.textContent = data.error || 'Login failed'; err.hidden = false;
 });

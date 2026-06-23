@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MORES HV — Choose Database</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0d0f; --panel: #12161b; --text: #f4f6f8; --muted: #93a0ab;
+  --teal: #00a2b6; --teal-bright: #00bcd2; --border: #1f262d;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; }
+body {
+  font-family: "Hanken Grotesk", system-ui, sans-serif; color: var(--text);
+  min-height: 100vh; -webkit-font-smoothing: antialiased;
+  background:
+    radial-gradient(1100px 600px at 82% -8%, rgba(0,162,182,.16), transparent 55%),
+    radial-gradient(900px 500px at 0% 110%, rgba(0,162,182,.08), transparent 60%),
+    linear-gradient(180deg, #0b0e10 0%, #0a0d0f 100%);
+  background-attachment: fixed;
+}
+/* faint blueprint grid */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+.wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 22px 26px 60px; }
+/* top bar */
+.bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 26px; }
+.bar .logo { height: 30px; width: auto; display: block; }
+.bar .who { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
+.bar .who b { color: var(--text); font-weight: 600; }
+.bar .who .role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--teal-bright); border: 1px solid rgba(0,188,210,.35); border-radius: 999px; padding: 3px 9px; }
+.bar .logout { color: var(--muted); text-decoration: none; font-size: 13px; cursor: pointer; }
+.bar .logout:hover { color: var(--text); }
+/* heading */
+.head { margin: 8px 0 22px; }
+.head .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--teal-bright); }
+.head h1 { font-family: "Chakra Petch", sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -.3px; margin-top: 6px; }
+.head p { color: var(--muted); font-size: 13.5px; margin-top: 6px; max-width: 640px; }
+/* tile grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(218px, 1fr)); gap: 18px; margin-top: 8px; }
+.tile {
+  position: relative; height: 232px; border-radius: 16px; overflow: hidden; cursor: pointer;
+  border: 1px solid var(--border); background: var(--panel);
+  display: flex; flex-direction: column; transition: transform .14s, box-shadow .14s, border-color .14s;
+}
+.tile:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,.45); border-color: rgba(0,188,210,.5); }
+.tile .art { flex: 1; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(150deg, #00a2b6 0%, #0a7d8c 100%); }
+.tile .art svg { width: 96px; height: 96px; }
+.tile .label { padding: 13px 15px; background: var(--panel); }
+.tile .name { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+/* chips on the art */
+.tile .chip { position: absolute; top: 12px; left: 12px; font-family: var(--mono); font-size: 9.5px;
+  font-weight: 600; letter-spacing: .12em; text-transform: uppercase; padding: 4px 8px; border-radius: 6px;
+  background: rgba(8,11,13,.55); color: #fff; backdrop-filter: blur(2px); }
+.tile.active { border-color: var(--teal-bright); box-shadow: 0 0 0 1px var(--teal-bright), 0 14px 34px rgba(0,162,182,.25); }
+.tile.active .chip { background: var(--teal-bright); color: #06181b; }
+.tile .del { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 7px;
+  border: none; cursor: pointer; background: rgba(8,11,13,.5); color: #fff; font-size: 15px; line-height: 1;
+  display: none; align-items: center; justify-content: center; }
+.tile:hover .del { display: flex; }
+.tile .del:hover { background: #bd362f; }
+/* create tile */
+.tile.create { background: transparent; border: 2px dashed #2b343c; }
+.tile.create:hover { border-color: var(--teal-bright); background: rgba(0,162,182,.05); }
+.tile.create .art { background: transparent; flex-direction: column; gap: 10px; color: var(--teal-bright); }
+.tile.create .plus { font-size: 50px; font-weight: 300; line-height: 1; }
+.tile.create .ct { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+/* modal */
+.backdrop { position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center;
+  background: rgba(4,6,8,.66); padding: 20px; }
+.backdrop.show { display: flex; }
+.modal { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+  padding: 24px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+.modal h3 { font-family: "Chakra Petch", sans-serif; font-size: 19px; margin-bottom: 4px; }
+.modal p { color: var(--muted); font-size: 12.5px; margin-bottom: 16px; }
+.modal label { display: block; font-size: 12px; font-weight: 600; color: #c2c8cd; margin: 0 0 7px; }
+.modal input[type=text] { width: 100%; padding: 11px 13px; font-size: 14px; color: var(--text); font-family: inherit;
+  background: #0f1318; border: 1px solid #262d35; border-radius: 9px; outline: none; }
+.modal input[type=text]:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.2); }
+.modal .seedrow { display: flex; align-items: center; gap: 8px; margin: 14px 0 20px; color: var(--muted); font-size: 13px; }
+.modal .seedrow input { width: 15px; height: 15px; accent-color: var(--teal); }
+.modal .acts { display: flex; justify-content: flex-end; gap: 10px; }
+.btn { font-family: inherit; font-weight: 600; font-size: 13.5px; padding: 10px 16px; border-radius: 9px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; box-shadow: 0 8px 22px rgba(0,162,182,.3); }
+.btn.primary:hover { filter: brightness(1.07); }
+.err { color: #ff9d9d; font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+/* toast */
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 40;
+  background: #12161b; border: 1px solid var(--border); color: var(--text); padding: 11px 18px; border-radius: 10px;
+  font-size: 13px; box-shadow: 0 14px 34px rgba(0,0,0,.5); opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.toast.bad { border-color: rgba(189,54,47,.6); color: #ffb3b3; }
+.empty { color: var(--muted); font-size: 14px; padding: 40px 0; }
+@media (max-width: 540px) { .head h1 { font-size: 24px; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="bar">
+      <img class="logo" src="/static/assets/mores-logo-ondark.png" alt="Mores HV">
+      <div class="who">
+        <span><b id="whoName">—</b> <span class="role" id="whoRole"></span></span>
+        <a class="logout" id="logout">Logout</a>
+      </div>
+    </div>
+    <div class="head">
+      <div class="kicker">Helicopter View · Group Finance</div>
+      <h1>Choose a Database</h1>
+      <p>Each database is a fully separate set of companies, accounts and journals.
+        Pick one to open the console — you can switch any time from here.</p>
+    </div>
+    <div class="grid" id="grid"><div class="empty">Loading databases…</div></div>
+  </div>
+
+  <!-- create modal -->
+  <div class="backdrop" id="backdrop">
+    <div class="modal">
+      <h3>Create Database</h3>
+      <p>A new, independent data store. Fill it with demo data to explore, or start empty.</p>
+      <label for="dbName">Database name</label>
+      <input type="text" id="dbName" placeholder="e.g. 2027-BUDGET or CLIENT-X" autocomplete="off">
+      <label class="seedrow"><input type="checkbox" id="dbSeed" checked> Fill with demo data (uncheck for an empty database)</label>
+      <div class="acts">
+        <button class="btn" id="cCancel">Cancel</button>
+        <button class="btn primary" id="cCreate">Create</button>
+      </div>
+      <div class="err" id="cErr"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+const ROLE_LABELS = { admin: "Administrator", finance: "Accountant", viewer: "Viewer / Auditor" };
+const grid = document.getElementById('grid');
+const toastEl = document.getElementById('toast');
+let toastT;
+function toast(msg, bad) {
+  toastEl.textContent = msg; toastEl.className = 'toast show' + (bad ? ' bad' : '');
+  clearTimeout(toastT); toastT = setTimeout(() => toastEl.className = 'toast', 2600);
+}
+const SHOP = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18l-1 4a3 3 0 0 1-3 2.4H7A3 3 0 0 1 4 13z" fill="rgba(255,255,255,.14)"/>
+  <path d="M5 15.5V20h14v-4.5"/><path d="M10 20v-3.5h4V20"/></svg>`;
+
+async function jget(url) { const r = await fetch(url); if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.statusText); return r.json(); }
+async function jpost(url, body, method) {
+  const r = await fetch(url, { method: method || 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.statusText);
+  return r.json().catch(() => ({}));
+}
+
+let canManage = false, defaultDb = 'MORES-GROUP';
+
+async function load() {
+  let me;
+  try { me = await jget('/api/me'); } catch (e) { location.href = '/'; return; }
+  document.getElementById('whoName').textContent = me.full_name || me.username;
+  document.getElementById('whoRole').textContent = ROLE_LABELS[me.role] || me.role;
+  const d = await jget('/api/databases');
+  canManage = d.can_manage; defaultDb = d.default;
+  render(d);
+}
+
+function render(d) {
+  const tiles = d.databases.map(db => {
+    const isGroup = db.name === d.default;
+    const chip = db.active ? 'ACTIVE' : (isGroup ? 'LIVE · GROUP' : 'SANDBOX');
+    const meta = db.active ? 'Currently open' : (isGroup ? 'Your live group data' : 'Separate data store');
+    const del = (canManage && db.deletable && !db.active)
+      ? `<button class="del" data-del="${esc(db.name)}" title="Delete database">&times;</button>` : '';
+    return `<div class="tile ${db.active ? 'active' : ''}" data-open="${esc(db.name)}">
+      <div class="chip">${chip}</div>${del}
+      <div class="art">${SHOP}</div>
+      <div class="label"><div class="name" title="${esc(db.name)}">${esc(db.name)}</div>
+        <div class="meta">${meta}</div></div>
+    </div>`;
+  }).join('');
+  const createTile = canManage
+    ? `<div class="tile create" id="createTile">
+         <div class="art"><div class="plus">+</div><div class="ct">Click to create database</div></div>
+       </div>` : '';
+  grid.innerHTML = tiles + createTile;
+
+  grid.querySelectorAll('[data-open]').forEach(t => t.onclick = (e) => {
+    if (e.target.closest('[data-del]')) return;
+    open(t.dataset.open, t.classList.contains('active'));
+  });
+  grid.querySelectorAll('[data-del]').forEach(b => b.onclick = async (e) => {
+    e.stopPropagation();
+    const name = b.dataset.del;
+    if (!confirm(`Permanently delete the "${name}" database and ALL its data? This cannot be undone.`)) return;
+    try { await jpost('/api/databases/' + encodeURIComponent(name), null, 'DELETE'); toast('Database deleted'); load(); }
+    catch (err) { toast(err.message, true); }
+  });
+  const ct = document.getElementById('createTile');
+  if (ct) ct.onclick = openCreate;
+}
+
+async function open(name, isActive) {
+  try {
+    if (!isActive) await jpost('/api/databases/switch', { name });
+    location.href = '/app';
+  } catch (e) { toast(e.message, true); }
+}
+
+/* create modal */
+const backdrop = document.getElementById('backdrop');
+function openCreate() {
+  document.getElementById('dbName').value = '';
+  document.getElementById('dbSeed').checked = true;
+  document.getElementById('cErr').textContent = '';
+  backdrop.classList.add('show');
+  setTimeout(() => document.getElementById('dbName').focus(), 40);
+}
+function closeCreate() { backdrop.classList.remove('show'); }
+document.getElementById('cCancel').onclick = closeCreate;
+backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) closeCreate(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCreate(); });
+document.getElementById('cCreate').onclick = async () => {
+  const name = document.getElementById('dbName').value.trim();
+  const seed = document.getElementById('dbSeed').checked;
+  if (!name) { document.getElementById('cErr').textContent = 'Please enter a database name.'; return; }
+  try {
+    const r = await jpost('/api/databases', { name, seed_demo: seed });
+    closeCreate(); toast(`Database "${r.name}" created`); load();
+  } catch (e) { document.getElementById('cErr').textContent = e.message; }
+};
+
+document.getElementById('logout').onclick = async () => {
+  await fetch('/api/logout', { method: 'POST' }); location.href = '/';
+};
+
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+load();
+</script>
+</body>
+</html>

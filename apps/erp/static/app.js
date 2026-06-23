@@ -248,6 +248,8 @@ async function pageDashboard(el) {
       ${kpi("Revenue YTD", k.revenue_ytd)}
       ${kpi("Expenses YTD", k.expense_ytd)}
       ${kpi("Net Profit", k.net_profit_ytd, k.net_profit_ytd >= 0 ? "green" : "red", `Margin ${k.margin_pct}%`)}
+      ${kpi("Working Capital · Today", k.working_capital, k.working_capital >= 0 ? "green" : "red",
+        `as of ${d.as_of} · CA ${fmtShort(k.current_assets)} − CL ${fmtShort(k.current_liabilities)}`)}
       ${kpi("Office Expense", k.office_expense, "", "rent · utilities · admin")}
       ${kpi("Cash & Bank", k.cash_balance)}
       ${kpi("Receivables", k.accounts_receivable)}
@@ -1731,7 +1733,7 @@ async function pageReports(el) {
 /* ------------------------------------------------------------------ settings */
 async function pageSettings(el) {
   const tabs = [["coa", "Chart of Accounts"], ["fields", "Custom Fields"], ["companies", "Companies"]];
-  if (isAdmin()) tabs.push(["users", "Users"], ["databases", "Databases"]);
+  if (isAdmin()) tabs.push(["users", "Users"]);
   el.innerHTML = `
     <div class="page-head"><h2>Settings</h2></div>
     <div class="tabs" id="sTabs">${tabs.map(([k, l], i) =>
@@ -1750,60 +1752,13 @@ async function pageSettings(el) {
     else if (tab === "fields") await settingsFields(body);
     else if (tab === "companies") await settingsCompanies(body);
     else if (tab === "users") await settingsUsers(body);
-    else if (tab === "databases") await settingsDatabases(body);
   }
   await show();
 }
 
-async function settingsDatabases(body) {
-  const load = async () => {
-    const d = await api("/api/databases");
-    body.innerHTML = `<div class="card">
-      <div class="page-head"><h3 style="margin:0">Databases <span class="muted">(separate data stores)</span></h3>
-        <button class="btn btn-sm btn-primary" id="dbNew">+ Create Database</button></div>
-      <p class="muted" style="margin-top:-6px">Each database is a fully separate set of companies, accounts and journals.
-        <b>${esc(d.default)}</b> is your live group data; <b>TEST-SERVER</b> is a sandbox. Switching only affects your own session.</p>
-      <table class="tbl"><thead><tr><th>Database</th><th>Status</th><th style="min-width:230px"></th></tr></thead>
-        <tbody>${d.databases.map(db => `<tr>
-          <td><b>${esc(db.name)}</b>${db.name === d.default ? ' <span class="pill completed">group</span>' : ""}</td>
-          <td>${db.active ? '<span class="pill active">active (you)</span>' : '<span class="pill inactive">idle</span>'}</td>
-          <td>
-            ${db.active ? '<span class="muted">current</span>' : `<button class="btn btn-sm" data-switch="${esc(db.name)}">Switch to this</button>`}
-            ${db.deletable ? `<button class="btn btn-sm btn-danger" data-del="${esc(db.name)}">Delete</button>` : ""}
-          </td></tr>`).join("")}</tbody></table>
-    </div>`;
-    $$("#sBody [data-switch]").forEach(b => b.onclick = async () => {
-      if (!confirm(`Switch your session to "${b.dataset.switch}"? You'll be working in that data store until you switch back or log out.`)) return;
-      try {
-        await api("/api/databases/switch", { json: { name: b.dataset.switch } });
-        toast(`Now working in ${b.dataset.switch}`);
-        state.me = await api("/api/me"); state.companyId = "all"; localStorage.setItem("erp.company", "all");
-        renderCompanyChoice(); updateDbBadge(); location.hash = "#/dashboard"; render();
-      } catch (e) { toast(e.message, true); }
-    });
-    $$("#sBody [data-del]").forEach(b => b.onclick = async () => {
-      if (!confirm(`Permanently delete the "${b.dataset.del}" database and ALL its data? This cannot be undone.`)) return;
-      try { await api("/api/databases/" + encodeURIComponent(b.dataset.del), { method: "DELETE" }); toast("Database deleted"); load(); }
-      catch (e) { toast(e.message, true); }
-    });
-    $("#dbNew").onclick = () => {
-      openModal(`<div class="form-col" style="display:flex;flex-direction:column;gap:12px">
-        <label>Database name <input id="dbName" placeholder="e.g. 2027-BUDGET or CLIENT-X"></label>
-        <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="dbSeed" checked style="width:auto"> Fill with demo data (uncheck for an empty database)</label>
-        <div class="form-actions"><button class="btn btn-primary" id="dbCreate">Create</button></div></div>`,
-        { title: "Create Database", small: true });
-      $("#dbCreate").onclick = async () => {
-        try {
-          const r = await api("/api/databases", { json: { name: $("#dbName").value, seed_demo: $("#dbSeed").checked } });
-          toast(`Database "${r.name}" created`); closeModal(); load();
-        } catch (e) { toast(e.message, true); }
-      };
-    };
-  };
-  await load();
-}
-
 function updateDbBadge() {
+  // Database management lives on the dedicated /databases picker page; the badge
+  // shows the active store and links back to the picker to switch.
   const badge = $("#dbBadge");
   if (!badge) return;
   const active = state.me.active_db;
@@ -1811,6 +1766,9 @@ function updateDbBadge() {
   badge.textContent = active ? "LIVE · " + active : "";
   badge.hidden = !active;
   badge.className = "db-badge" + (isSandbox ? " sandbox" : "");
+  badge.style.cursor = "pointer";
+  badge.title = "Switch database";
+  badge.onclick = () => { window.location.href = "/databases"; };
 }
 
 async function settingsCoa(body) {
@@ -1950,13 +1908,11 @@ async function settingsCompanies(body) {
     const rows = await api("/api/companies");
     const byId = {}; rows.forEach(c => byId[c.id] = c);
     body.innerHTML = `<div class="card">
-      <div class="page-head"><h3 style="margin:0">Companies &amp; Holding Structure</h3>
+      <div class="page-head"><h3 style="margin:0">Companies</h3>
         ${isAdmin() ? `<button class="btn btn-sm btn-primary" id="coNew">+ Company</button>` : ""}</div>
-      <table class="tbl"><thead><tr><th>Code</th><th>Name</th><th>Role</th><th>Parent</th><th>Currency</th><th></th></tr></thead>
+      <table class="tbl"><thead><tr><th>Code</th><th>Name</th><th>Currency</th><th></th></tr></thead>
       <tbody>${rows.map(c => `<tr ${c.is_active ? "" : 'style="opacity:.5"'}>
         <td><b>${esc(c.code)}</b></td><td>${esc(c.name)}</td>
-        <td>${c.is_holding ? '<span class="pill completed">holding</span>' : '<span class="pill active">subsidiary</span>'}</td>
-        <td>${c.parent_id && byId[c.parent_id] ? esc(byId[c.parent_id].code) : ""}</td>
         <td>${esc(c.currency)}</td>
         <td>${isAdmin() ? `<button class="btn btn-sm" data-id="${c.id}">Edit</button>` : ""}</td></tr>`).join("")}</tbody></table></div>`;
     $$("#sBody [data-id]").forEach(b => b.onclick = () => companyEditor(byId[b.dataset.id], rows, load));
@@ -1970,21 +1926,15 @@ function companyEditor(c, all, reload) {
     <label>Code <input id="coCode" value="${esc(c ? c.code : "")}" ${c ? "disabled" : ""} placeholder="e.g. SUB1"></label>
     <label>Currency <input id="coCur" value="${esc(c ? c.currency : "IDR")}"></label>
     <label class="full">Name <input id="coName" value="${esc(c ? c.name : "")}"></label>
-    <label>Parent <select id="coParent"><option value="">— none —</option>${all.filter(x => !c || x.id !== c.id)
-      .map(x => `<option value="${x.id}" ${c && c.parent_id === x.id ? "selected" : ""}>${esc(x.code)} ${esc(x.name)}</option>`).join("")}</select></label>
-    <label style="flex-direction:row;align-items:center;gap:8px;margin-top:18px">
-      <input type="checkbox" id="coHold" ${c && c.is_holding ? "checked" : ""} style="width:auto"> Holding company</label>
-    ${c ? `<label style="flex-direction:row;align-items:center;gap:8px">
+    ${c ? `<label style="flex-direction:row;align-items:center;gap:8px;margin-top:18px">
       <input type="checkbox" id="coActive" ${c.is_active ? "checked" : ""} style="width:auto"> Active</label>`
-      : `<label style="flex-direction:row;align-items:center;gap:8px">
+      : `<label style="flex-direction:row;align-items:center;gap:8px;margin-top:18px">
       <input type="checkbox" id="coStd" checked style="width:auto"> Apply standard chart of accounts</label>`}
     </div><div class="form-actions"><button class="btn btn-primary" id="coSave">Save Company</button></div>`,
     { title: c ? "Edit Company" : "New Company", small: true });
   $("#coSave").onclick = async () => {
     const body = {
       name: $("#coName").value, currency: $("#coCur").value,
-      is_holding: $("#coHold").checked,
-      parent_id: $("#coParent").value ? parseInt($("#coParent").value, 10) : null,
     };
     try {
       if (c) await api("/api/companies/" + c.id, { method: "PUT", json: Object.assign(body, { is_active: $("#coActive").checked }) });

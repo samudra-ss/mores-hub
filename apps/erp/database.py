@@ -107,7 +107,6 @@ MDA_EXTRA_COA = [
 # Operating profile per entity: primary revenue account + how direct cost (COGS)
 # splits across the four COGS states.
 ENTITY_CFG = {
-    "HOLD": {"rev": "4100", "cogs": [("5100-01", 1.0)]},
     "MDA":  {"rev": "4100", "cogs": [("5100-01", 0.7), ("5100-02", 0.3)]},   # consulting
     "SBR":  {"rev": "4900", "cogs": [("5100-01", 0.5), ("5100-03", 0.5)]},   # media / Mores NX
     "MLT":  {"rev": "4200", "cogs": [("5100-03", 0.6), ("5100-04", 0.2), ("5100-01", 0.2)]},  # construction
@@ -307,18 +306,16 @@ def _add_entry(conn, company_id, seq, date, description, lines, status="posted",
     return entry_id
 
 
-# Five operating entities under MORES Holding (code, name, is_holding)
+# Operating entities (code, name) — each is an independent company; no holding parent.
 COMPANY_DEFS = [
-    ("HOLD", "MORES Holding", 1),
-    ("MDA", "MORES Data Analitika (Consulting)", 0),
-    ("SBR", "Sibernetika MA (Mores NX)", 0),
-    ("MLT", "Mores Lintas Teknika (Construction)", 0),
-    ("KMA", "Kultura Media Antara", 0),
-    ("MRS", "Modus Reform Studio", 0),
+    ("MDA", "MORES Data Analitika (Consulting)"),
+    ("SBR", "Sibernetika MA (Mores NX)"),
+    ("MLT", "Mores Lintas Teknika (Construction)"),
+    ("KMA", "Kultura Media Antara"),
+    ("MRS", "Modus Reform Studio"),
 ]
 
 PROJECT_DEFS = {
-    "HOLD": [("PRJ-CORP", "Group Corporate Services")],
     "MDA": [("PRJ-CDA", "Corporate Data Advisory"), ("PRJ-OJL", "OJL Engagement")],
     "SBR": [("PRJ-NX", "Mores NX Platform"), ("PRJ-LIC", "Media Licensing")],
     "MLT": [("PRJ-CDA-K", "CDA Construction"), ("PRJ-PRISMA", "Prisma Harapan Project")],
@@ -328,7 +325,6 @@ PROJECT_DEFS = {
 
 # monthly revenue base per (company_code, project_code)
 REVENUE_BASE = {
-    ("HOLD", "PRJ-CORP"): 350_000_000,
     ("MDA", "PRJ-CDA"): 600_000_000,
     ("MDA", "PRJ-OJL"): 400_000_000,
     ("SBR", "PRJ-NX"): 380_000_000,
@@ -338,11 +334,11 @@ REVENUE_BASE = {
     ("KMA", "PRJ-KMA"): 440_000_000,
     ("MRS", "PRJ-MRS"): 500_000_000,
 }
-PAYROLL_BASE = {"HOLD": 180_000_000, "MDA": 220_000_000, "SBR": 160_000_000,
+PAYROLL_BASE = {"MDA": 220_000_000, "SBR": 160_000_000,
                 "MLT": 280_000_000, "KMA": 120_000_000, "MRS": 140_000_000}
-RENT_BASE = {"HOLD": 45_000_000, "MDA": 60_000_000, "SBR": 40_000_000,
+RENT_BASE = {"MDA": 60_000_000, "SBR": 40_000_000,
              "MLT": 55_000_000, "KMA": 30_000_000, "MRS": 35_000_000}
-CAPITAL = {"HOLD": 10_000_000_000, "MDA": 4_000_000_000, "SBR": 3_000_000_000,
+CAPITAL = {"MDA": 4_000_000_000, "SBR": 3_000_000_000,
            "MLT": 5_000_000_000, "KMA": 2_000_000_000, "MRS": 2_000_000_000}
 
 
@@ -361,16 +357,11 @@ def seed(conn):
             (username, generate_password_hash(pw), full_name, role),
         )
 
-    # --- companies ----------------------------------------------------------
-    conn.execute(
-        "INSERT INTO companies (code, name, is_holding, currency) VALUES ('HOLD','MORES Holding', 1, 'IDR')")
-    hold = conn.execute("SELECT id FROM companies WHERE code='HOLD'").fetchone()["id"]
-    for code, name, is_holding in COMPANY_DEFS:
-        if code == "HOLD":
-            continue
+    # --- companies (independent operating entities; no holding parent) -------
+    for code, name in COMPANY_DEFS:
         conn.execute(
-            "INSERT INTO companies (code, name, parent_id, currency) VALUES (?,?,?, 'IDR')",
-            (code, name, hold))
+            "INSERT INTO companies (code, name, currency) VALUES (?,?, 'IDR')",
+            (code, name))
     companies = {r["code"]: r["id"] for r in conn.execute("SELECT id, code FROM companies").fetchall()}
     for code, cid in companies.items():
         apply_standard_coa(conn, cid)
@@ -539,11 +530,11 @@ def seed_investments(conn):
     for r in conn.execute(
             "SELECT p.id, p.code, c.code AS ccode FROM projects p JOIN companies c ON c.id=p.company_id"):
         projects[(r["ccode"], r["code"])] = r["id"]
-    if "HOLD" not in companies:
+    if "MDA" not in companies:
         return 0
     demo = [
         {
-            "company": "HOLD", "name": "Scholarship Program - Future Leaders",
+            "company": "MDA", "name": "Scholarship Program - Future Leaders",
             "category": "scholarship", "status": "active", "start": "2025-03-01",
             "horizon": 5, "committed": 1_200_000_000, "project": ("MDA", "PRJ-CDA"),
             "description": "Scholarships for consultancy-track scholars; alumni host future "
@@ -569,7 +560,7 @@ def seed_investments(conn):
             ],
         },
         {
-            "company": "HOLD", "name": "University Partnership Sponsorship",
+            "company": "MDA", "name": "University Partnership Sponsorship",
             "category": "partnership", "status": "active", "start": "2025-08-01",
             "horizon": 2, "committed": 300_000_000, "project": None,
             "description": "Sponsorship of industry lab; pipeline for talks and junior talent.",
@@ -630,6 +621,46 @@ def delete_database(name):
     return clean
 
 
+def remove_holding(conn):
+    """Idempotent migration: drop the legacy 'MORES Holding' (HOLD) entity and
+    all of its own books, leaving only the independent operating companies.
+
+    Strategic investments that were booked under the holding are reassigned to
+    MDA (fallback: any remaining company) so the Investments module keeps them;
+    only the holding's own accounts, projects, journals and budgets are removed.
+    Returns True if a holding entity was found and removed.
+    """
+    row = conn.execute("SELECT id FROM companies WHERE code='HOLD'").fetchone()
+    if not row:
+        return False
+    hid = row["id"]
+    # detach any children that still pointed at the holding as their parent
+    conn.execute("UPDATE companies SET parent_id=NULL WHERE parent_id=?", (hid,))
+    # keep strategic investments — move them to MDA (or the next available company)
+    keep = (conn.execute("SELECT id FROM companies WHERE code='MDA'").fetchone()
+            or conn.execute("SELECT id FROM companies WHERE id<>? ORDER BY id LIMIT 1",
+                            (hid,)).fetchone())
+    if keep:
+        conn.execute("UPDATE investments SET company_id=? WHERE company_id=?", (keep["id"], hid))
+    else:
+        conn.execute("DELETE FROM investment_events WHERE investment_id IN "
+                     "(SELECT id FROM investments WHERE company_id=?)", (hid,))
+        conn.execute("DELETE FROM investments WHERE company_id=?", (hid,))
+    # remove the holding's own books (order respects foreign keys)
+    conn.execute("DELETE FROM journal_lines WHERE entry_id IN "
+                 "(SELECT id FROM journal_entries WHERE company_id=?)", (hid,))
+    conn.execute("DELETE FROM journal_entries WHERE company_id=?", (hid,))
+    conn.execute("DELETE FROM budgets WHERE company_id=?", (hid,))
+    conn.execute("DELETE FROM custom_field_values WHERE field_id IN "
+                 "(SELECT id FROM custom_fields WHERE company_id=?)", (hid,))
+    conn.execute("DELETE FROM custom_fields WHERE company_id=?", (hid,))
+    conn.execute("DELETE FROM projects WHERE company_id=?", (hid,))
+    conn.execute("DELETE FROM accounts WHERE company_id=?", (hid,))
+    conn.execute("DELETE FROM companies WHERE id=?", (hid,))
+    conn.commit()
+    return True
+
+
 def init_db(force=False):
     """Set up the data directory, migrate any older database locations into it
     (preserving all data), and ensure the TEST-SERVER sandbox."""
@@ -665,6 +696,14 @@ def init_db(force=False):
     # ensure the sandbox exists (fresh demo data)
     if not os.path.exists(db_file(SANDBOX_DB)):
         _init_one(SANDBOX_DB, do_seed=True)
+
+    # migration 3: drop the legacy holding entity from every existing database
+    for name in list_databases():
+        c = get_db(name)
+        try:
+            remove_holding(c)
+        finally:
+            c.close()
     return is_new
 
 

@@ -1,14 +1,14 @@
 # MORES HV — Helicopter View
 
 Web-based group finance & accounting ERP (Odoo/Oracle-ERP-Cloud style, scoped to
-the finance core) for a multi-company / holding structure.
+the finance core) for a multi-company group.
 
 ## Features
 
 - **Web app with login** — session auth, roles: `admin`, `finance`, `viewer`,
   per-user company access.
-- **Multi-company & holding consolidation** — book per company, report per
-  company or consolidated; intercompany-flagged accounts are eliminated in
+- **Multi-company consolidation** — book per company, report per company or
+  consolidated across the group; intercompany-flagged accounts are eliminated in
   consolidated reports.
 - **Dashboard** — KPIs (revenue, expense, profit, cash, AR/AP, budget used),
   monthly revenue/expense/profit chart, expense breakdown, per-company and
@@ -48,9 +48,9 @@ Open http://127.0.0.1:8000
 New users are added in **Settings → Users** (Admin only): choose role
 Admin, Accountant, or Viewer/Auditor and optionally restrict company access.
 
-The SQLite database `erp.db` is created and seeded on first start
-(MORES Holding + PT MORES Digital + PT MORES Konstruksi, 17 months of journals,
-2026 budgets). Delete `erp.db` or run `python database.py --force` to reseed.
+The databases live in the dedicated `data/` folder and are seeded on first start
+(five operating entities — MDA, SBR, MLT, KMA, MRS — with 17 months of journals
+and 2026 budgets). Run `python database.py --force [NAME]` to reseed one.
 
 > Demo passwords above are seed data — change them in Settings → Users before
 > any real use.

@@ -110,7 +110,7 @@ nav.top img { height: 30px; width: auto; display: block; }
     <div class="badge"><span class="dot"></span> Go-Live ready · Group Finance Console</div>
     <h1>A <b>helicopter view</b> of your group&rsquo;s finance.</h1>
     <p class="lead">Multi-company accounting, budgets vs realization, project performance, bank import and
-      cash flow — consolidated across MORES Holding and every entity, in one console.</p>
+      cash flow — consolidated across every entity, in one console.</p>
     <div class="cta">
       <button class="btn btn-primary" id="heroCta">Go Live — Sign In</button>
       <a class="btn" href="#features">Explore features</a>
@@ -122,7 +122,7 @@ nav.top img { height: 30px; width: auto; display: block; }
     <h2>What&rsquo;s inside</h2>
     <div class="grid">
       <div class="card"><span class="ic">&#9638;</span><h3>Consolidated Dashboard</h3>
-        <p>Revenue, expense, office cost, cash flow and budget use — per company or for the whole holding.</p></div>
+        <p>Revenue, expense, office cost, cash flow and budget use — per company or for the whole group.</p></div>
       <div class="card"><span class="ic">&#9678;</span><h3>Budgets vs Realization</h3>
         <p>Plan per account and per project; track realization against budget with variance and % used.</p></div>
       <div class="card"><span class="ic">&#9673;</span><h3>Project HV</h3>
@@ -137,7 +137,7 @@ nav.top img { height: 30px; width: auto; display: block; }
   </section>
 
   <div class="foot">
-    <span>MORES Holding · PT Mores Data Analitika · Sibernetika MA · Mores Lintas Teknika · Kultura Media Antara · Modus Reform Studio</span>
+    <span>PT Mores Data Analitika · Sibernetika MA · Mores Lintas Teknika · Kultura Media Antara · Modus Reform Studio</span>
     <span class="cuan">More More Cuan</span>
   </div>
 
@@ -179,8 +179,8 @@ document.getElementById('forgot').onclick = () => { document.getElementById('for
 fetch('/api/me').then(r => r.ok ? r.json() : null).then(me => {
   if (!me) return;
   const cta = document.getElementById('heroCta'), nav = document.getElementById('navSignIn');
-  cta.textContent = 'Enter Console →'; cta.onclick = () => location.href = '/app';
-  nav.textContent = 'Enter Console'; nav.onclick = () => location.href = '/app';
+  cta.textContent = 'Choose Database →'; cta.onclick = () => location.href = '/databases';
+  nav.textContent = 'Choose Database'; nav.onclick = () => location.href = '/databases';
   document.getElementById('heroMeta').textContent = 'Signed in as ' + (me.full_name || me.username) + ' · ' + me.role;
 }).catch(() => {});
 
@@ -195,7 +195,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       remember: document.getElementById('remember').checked,
     }),
   });
-  if (res.ok) { window.location.href = '/app'; return; }
+  if (res.ok) { window.location.href = '/databases'; return; }
   const data = await res.json().catch(() => ({}));
   err.textContent = data.error || 'Login failed'; err.hidden = false;
 });
