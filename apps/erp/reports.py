@@ -8,6 +8,36 @@ eliminated.
 
 import datetime
 
+# Owner-watch thresholds (from the Pengawasan sheet). "dir" high = bigger is
+# better; low = smaller is better. healthy = on target, watch = approaching,
+# anything past watch = danger. All are editable in Settings → Thresholds.
+DEFAULT_THRESHOLDS = {
+    "cash_buffer_months": {"healthy": 3.0, "watch": 1.5, "dir": "high"},
+    "gross_margin": {"healthy": 0.45, "watch": 0.35, "dir": "high"},
+    "net_margin": {"healthy": 0.10, "watch": 0.05, "dir": "high"},
+    "current_ratio": {"healthy": 1.5, "watch": 1.0, "dir": "high"},
+    "dso_days": {"healthy": 60, "watch": 90, "dir": "low"},
+    "salary_ratio": {"healthy": 0.55, "watch": 0.65, "dir": "low"},
+}
+
+
+def _threshold_status(value, t):
+    if value is None or not t:
+        return "n/a"
+    h, w = t.get("healthy"), t.get("watch")
+    if h is None or w is None:
+        return "n/a"
+    if t.get("dir", "high") == "high":
+        return "healthy" if value >= h else "watch" if value >= w else "danger"
+    return "healthy" if value <= h else "watch" if value <= w else "danger"
+
+
+def _fmt_threshold(v, is_pct):
+    if v is None:
+        return "-"
+    return ("%.0f%%" % (v * 100)) if is_pct else ("%g" % v)
+
+
 SIGN = {  # natural balance sign: balance = sign * (debit - credit)
     "asset": 1,
     "expense": 1,
@@ -497,7 +527,7 @@ def cash_flow(conn, company_ids, year):
     }
 
 
-def dashboard(conn, company_ids, year):
+def dashboard(conn, company_ids, year, thresholds=None):
     date_from, date_to = "%d-01-01" % year, "%d-12-31" % year
     pnl = profit_and_loss(conn, company_ids, date_from, date_to)
     monthly = monthly_pnl_series(conn, company_ids, year)
@@ -542,6 +572,90 @@ def dashboard(conn, company_ids, year):
     # Administration group (66xx, which now includes Bank Admin Fees 6610)
     office_expense = round(sum(r["balance"] for r in pnl["expense"]
                               if r["code"] in ("6200", "6300") or r["code"].startswith("66")), 2)
+
+    # ---- ratios & health indicators (modelled on the Pengawasan sheet) -------
+    revenue = pnl["total_revenue"]
+    cogs = round(sum(r["balance"] for r in pnl["expense"] if r["code"].startswith("5")), 2)
+    opex = round(sum(r["balance"] for r in pnl["expense"] if r["code"].startswith("6")), 2)
+    salary = round(sum(r["balance"] for r in pnl["expense"] if r["code"] == "6100"), 2)
+    # non-operating = interest/financing (72xx). Operating profit therefore keeps
+    # every other expense — incl. the MDA C-AKUN (7300) operating band — so no
+    # expense band silently vanishes from the operating line.
+    non_operating = round(sum(r["balance"] for r in pnl["expense"] if r["code"].startswith("72")), 2)
+    gross_profit = round(revenue - cogs, 2)
+    operating_profit = round(revenue - (pnl["total_expense"] - non_operating), 2)
+
+    # balance-sheet ratios use the same period-end snapshot as cash/AR/AP so a
+    # past/future year reads its year-end position (not today's)
+    period_ca = round(sum(b["balance"] for b in balances
+                          if b["type"] == "asset" and not b["code"].startswith("15")), 2)
+    period_cl = round(sum(b["balance"] for b in balances
+                          if b["type"] == "liability" and b["code"] != "2500"), 2)
+    period_inv = round(sum(b["balance"] for b in balances if b["code"] == "1300"), 2)
+
+    today_d = datetime.date.today()
+    if year < today_d.year:
+        months_elapsed, days_elapsed = 12, 365
+    elif year > today_d.year:
+        months_elapsed, days_elapsed = 0, 0
+    else:
+        months_elapsed = today_d.month
+        days_elapsed = (today_d - datetime.date(year, 1, 1)).days + 1
+
+    gross_margin = round(gross_profit / revenue, 4) if revenue else None
+    net_margin = round(pnl["net_profit"] / revenue, 4) if revenue else None
+    salary_ratio = round(salary / revenue, 4) if revenue else None
+    current_ratio = round(period_ca / period_cl, 2) if period_cl else None
+    quick_ratio = round((period_ca - period_inv) / period_cl, 2) if period_cl else None
+    dso_days = round(ar * days_elapsed / revenue, 1) if revenue and days_elapsed else None
+    avg_month_exp = (pnl["total_expense"] / months_elapsed) if months_elapsed else 0
+    cash_buffer_months = round(cash / avg_month_exp, 2) if avg_month_exp else None
+
+    th = thresholds or DEFAULT_THRESHOLDS
+    indicators = [
+        ("gross_margin", "Gross Margin", gross_margin, True),
+        ("net_margin", "Net Margin", net_margin, True),
+        ("current_ratio", "Current Ratio", current_ratio, False),
+        ("dso_days", "DSO (days)", dso_days, False),
+        ("cash_buffer_months", "Cash Buffer (months)", cash_buffer_months, False),
+        ("salary_ratio", "Salary / Revenue", salary_ratio, True),
+    ]
+    health, warnings = [], []
+    for key, label, value, is_pct in indicators:
+        t = th.get(key, DEFAULT_THRESHOLDS.get(key, {}))
+        status = _threshold_status(value, t)
+        health.append({"key": key, "label": label, "value": value, "is_pct": is_pct,
+                       "target": t.get("healthy"), "watch": t.get("watch"),
+                       "dir": t.get("dir", "high"), "status": status})
+        if status in ("watch", "danger"):
+            warnings.append({"level": "danger" if status == "danger" else "watch",
+                             "key": key, "title": label,
+                             "detail": "%s is %s the safe range (target %s)."
+                                       % (label, "below" if t.get("dir") == "high" else "above",
+                                          _fmt_threshold(t.get("healthy"), is_pct))})
+
+    # cost overrun vs the YTD-prorated budget (day-to-day pace)
+    factor = (months_elapsed / 12.0) if months_elapsed else 0.0
+    budget_prorated = round(bva["total_budget_expense"] * factor, 2)
+    cost_overrun = round(bva["total_actual_expense"] - budget_prorated, 2)
+    overrun_accounts = []
+    for r in bva["rows"]:
+        if r["type"] != "expense":
+            continue
+        prorated = r["budget"] * factor
+        over = round(r["actual"] - prorated, 2)
+        if prorated > 0 and over > 0.005:
+            overrun_accounts.append({"code": r["code"], "name": r["name"],
+                                     "actual": round(r["actual"], 2),
+                                     "prorated_budget": round(prorated, 2), "over": over})
+    overrun_accounts.sort(key=lambda x: -x["over"])
+    if cost_overrun > 0 and budget_prorated > 0:
+        warnings.insert(0, {"level": "danger", "key": "cost_overrun", "title": "Cost overrun",
+                            "detail": "Spending is over the budget pace for %d month(s) by this amount."
+                                      % months_elapsed, "amount": cost_overrun})
+
+    net_position = round(ar - ap, 2)
+
     proj = project_performance(conn, company_ids, year)
     cf = cash_flow(conn, company_ids, year)
 
@@ -590,7 +704,27 @@ def dashboard(conn, company_ids, year):
             "budget_expense": bva["total_budget_expense"],
             "budget_used_pct": round(100.0 * bva["total_actual_expense"] / bva["total_budget_expense"], 1)
                 if bva["total_budget_expense"] else None,
+            # xlsx-style additions
+            "gross_profit": gross_profit,
+            "gross_margin": gross_margin,
+            "operating_profit": operating_profit,
+            "current_ratio": current_ratio,
+            "quick_ratio": quick_ratio,
+            "dso_days": dso_days,
+            "cash_buffer_months": cash_buffer_months,
+            "salary_ratio": salary_ratio,
+            "net_position": net_position,
+            "months_elapsed": months_elapsed,
         },
+        "health": health,
+        "warnings": warnings,
+        "ar_ap": {
+            "ar": ar, "ap": ap, "net_position": net_position,
+            "risky_ar": None,  # populated by the AR Aging module (next wave)
+            "free_cash": cash,
+        },
+        "cost_overrun": {"over": cost_overrun, "prorated_budget": budget_prorated,
+                         "accounts": overrun_accounts[:6]},
         "monthly": monthly,
         "expense_breakdown": expense_breakdown,
         "projects": proj[:8],

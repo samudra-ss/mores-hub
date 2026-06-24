@@ -48,6 +48,33 @@ function fmtShortRp(n) {
 // escape a value for use inside a CSS attribute selector
 function cssEsc(s) { return String(s).replace(/["\\\]]/g, "\\$&"); }
 
+// non-money formatters for ratios/percentages (Indonesian comma decimal)
+function fmtPct(v) { return (v == null || isNaN(v)) ? "—" : (v * 100).toFixed(1).replace(".", ",") + "%"; }
+function fmtRatio(v) { return (v == null || isNaN(v)) ? "—" : v.toFixed(2).replace(".", ",") + "x"; }
+function fmtDays(v) { return (v == null || isNaN(v)) ? "—" : Math.round(v) + " d"; }
+function fmtMonths(v) { return (v == null || isNaN(v)) ? "—" : v.toFixed(1).replace(".", ",") + " mo"; }
+
+const HEALTH_PILL = { healthy: "posted", watch: "draft", danger: "bad", "n/a": "inactive" };
+const HEALTH_LABEL = { healthy: "Healthy", watch: "Watch", danger: "Danger", "n/a": "n/a" };
+function healthStatusCls(s) { return s === "danger" ? "red" : s === "watch" ? "amber" : s === "healthy" ? "green" : ""; }
+function healthVal(h) {
+  if (h.value == null) return "—";
+  if (h.is_pct) return fmtPct(h.value);
+  if (h.key === "current_ratio") return fmtRatio(h.value);
+  if (h.key === "dso_days") return fmtDays(h.value);
+  if (h.key === "cash_buffer_months") return fmtMonths(h.value);
+  return String(h.value);
+}
+function healthTarget(h) {
+  const pre = h.dir === "low" ? "≤ " : "≥ ";
+  if (h.target == null) return "—";
+  if (h.is_pct) return pre + fmtPct(h.target);
+  if (h.key === "current_ratio") return pre + fmtRatio(h.target);
+  if (h.key === "dso_days") return pre + fmtDays(h.target);
+  if (h.key === "cash_buffer_months") return pre + fmtMonths(h.target);
+  return pre + h.target;
+}
+
 // entry-source pill colour (label text comes from the server's source_label)
 const SOURCE_CLASS = {
   manual: "inactive", bca_bank: "active", bca_csv: "active",
@@ -322,6 +349,18 @@ const TR = {
   "Budget vs Realization": "Anggaran vs Realisasi",
   "Investment Analysis": "Analisis Investasi", "Bank Import — BCA": "Impor Bank — BCA",
   "Gain vs Budget": "Laba vs Anggaran", "Performance": "Kinerja",
+  // dashboard health / ratios / AR-AP (xlsx components)
+  "Gross Margin": "Margin Kotor", "Operating Profit": "Laba Operasional",
+  "Cash Buffer": "Buffer Kas", "Current Ratio": "Rasio Lancar",
+  "Net Margin": "Margin Bersih", "DSO (days)": "DSO (hari)",
+  "Cash Buffer (months)": "Buffer Kas (bulan)", "Salary / Revenue": "Rasio Gaji thd Pendapatan",
+  "Financial Health Indicators": "Indikator Kesehatan Keuangan",
+  "Metric": "Metrik", "Value": "Nilai", "Target": "Target", "Status": "Status",
+  "Receivables, Payables & Net Position": "Piutang, Utang & Posisi Bersih",
+  "Total Accounts Receivable": "Total Piutang Usaha", "Total Accounts Payable": "Total Hutang Usaha",
+  "Risky AR (> 90 days)": "Piutang Berisiko (> 90 hari)",
+  "Net Position (AR − AP)": "Posisi Bersih (Piutang − Hutang)",
+  "Free Operating Cash": "Kas Bebas Operasional",
   // common buttons
   "Apply": "Terapkan", "Export Excel": "Ekspor Excel", "Export PDF": "Ekspor PDF",
 };
@@ -449,6 +488,12 @@ async function pageDashboard(el) {
   const kpi = (label, value, cls, sub) => `<div class="kpi ${cls || ""}">
     <div class="kpi-label">${label}</div><div class="kpi-value" title="${fmtRp(value)}">${fmtShortRp(value)}</div>
     ${sub ? `<div class="kpi-sub">${sub}</div>` : ""}</div>`;
+  // raw-value KPI (ratios/percent/days — not money)
+  const kpiv = (label, valStr, status, sub) => `<div class="kpi ${healthStatusCls(status)}">
+    <div class="kpi-label">${label}</div><div class="kpi-value">${valStr}</div>
+    ${sub ? `<div class="kpi-sub">${sub}</div>` : ""}</div>`;
+  const hb = {}; (d.health || []).forEach(h => hb[h.key] = h);
+  const st = key => (hb[key] || {}).status;
   const monthly = d.monthly;
   const bvaPct = k.budget_used_pct;
   const holding = state.me.companies.find(c => c.is_holding);
@@ -465,13 +510,21 @@ async function pageDashboard(el) {
         ${holding ? seg("Holding", holding.id) : ""}
         ${state.me.companies.filter(c => !c.is_holding).map(c => seg(c.code, c.id)).join("")}
       </div></div>
+    ${(d.warnings && d.warnings.length) ? `<div class="warn-banner">
+      ${d.warnings.map(w => `<div class="warn ${w.level === "danger" ? "danger" : "watch"}">
+        <span class="warn-ic">${w.level === "danger" ? "⚠" : "›"}</span>
+        <span><b>${esc(w.title)}</b> — ${esc(w.detail)}${w.amount ? ` <b>${fmtRp(w.amount)}</b>` : ""}</span></div>`).join("")}
+    </div>` : ""}
     <div class="grid kpis">
       ${kpi(t("Revenue YTD"), k.revenue_ytd)}
-      ${kpi(t("Expenses YTD"), k.expense_ytd)}
       ${kpi(t("Net Profit"), k.net_profit_ytd, k.net_profit_ytd >= 0 ? "green" : "red", `Margin ${k.margin_pct}%`)}
+      ${kpiv(t("Gross Margin"), fmtPct(k.gross_margin), st("gross_margin"), `target ≥ ${fmtPct((hb.gross_margin || {}).target)}`)}
+      ${kpi(t("Operating Profit"), k.operating_profit, k.operating_profit >= 0 ? "green" : "red")}
+      ${kpiv(t("Cash Buffer"), fmtMonths(k.cash_buffer_months), st("cash_buffer_months"), `target ≥ ${fmtMonths((hb.cash_buffer_months || {}).target)}`)}
+      ${kpiv(t("DSO"), fmtDays(k.dso_days), st("dso_days"), `target ≤ ${fmtDays((hb.dso_days || {}).target)}`)}
+      ${kpiv(t("Current Ratio"), fmtRatio(k.current_ratio), st("current_ratio"), `target ≥ ${fmtRatio((hb.current_ratio || {}).target)}`)}
       ${kpi(t("Working Capital · Today"), k.working_capital, k.working_capital >= 0 ? "green" : "red",
         `as of ${d.as_of} · CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`)}
-      ${kpi(t("Office Expense"), k.office_expense, "", "rent · utilities · admin")}
       ${kpi(t("Cash & Bank"), k.cash_balance)}
       ${kpi(t("Receivables"), k.accounts_receivable)}
       ${kpi(t("Payables"), k.accounts_payable)}
@@ -506,6 +559,32 @@ async function pageDashboard(el) {
               <td class="num ${used != null && used > 100 ? "neg" : ""}">${used == null ? "—" : used + "%"}</td></tr>`;
           }).join("") || `<tr><td colspan="4" class="empty">No expenses</td></tr>`}</tbody></table></div>
       </div>
+    </div>
+    <div class="grid two-col mt">
+      <div class="card"><h3>${t("Financial Health Indicators")}</h3>
+        <table class="tbl"><thead><tr><th>${t("Metric")}</th><th class="num">${t("Value")}</th><th class="num">${t("Target")}</th><th>${t("Status")}</th></tr></thead>
+          <tbody>${(d.health || []).map(h => `<tr>
+            <td>${esc(t(h.label))}</td>
+            <td class="num"><b>${healthVal(h)}</b></td>
+            <td class="num muted">${healthTarget(h)}</td>
+            <td><span class="pill ${HEALTH_PILL[h.status] || "inactive"}">${HEALTH_LABEL[h.status] || h.status}</span></td></tr>`).join("")}
+          </tbody></table>
+        <p class="muted mt">Thresholds set in Settings → Thresholds. <b>Healthy</b> = on target · <b>Watch</b> = approaching · <b>Danger</b> = past the limit.</p>
+      </div>
+      ${(() => { const aa = d.ar_ap || {}; return `<div class="card"><h3>${t("Receivables, Payables & Net Position")}</h3>
+        <table class="tbl"><tbody>
+          <tr><td>${t("Total Accounts Receivable")}</td><td class="num"><b>${fmtRp(aa.ar)}</b></td></tr>
+          <tr><td>${t("Risky AR (> 90 days)")}</td><td class="num muted">${aa.risky_ar == null ? "— (from AR Aging)" : fmtRp(aa.risky_ar)}</td></tr>
+          <tr><td>${t("Total Accounts Payable")}</td><td class="num"><b>${fmtRp(aa.ap)}</b></td></tr>
+          <tr class="total"><td>${t("Net Position (AR − AP)")}</td><td class="num ${(aa.net_position || 0) >= 0 ? "pos" : "neg"}"><b>${fmtRp(aa.net_position)}</b></td></tr>
+          <tr><td>${t("Free Operating Cash")}</td><td class="num">${fmtRp(aa.free_cash)}</td></tr>
+        </tbody></table>
+        ${(d.cost_overrun && d.cost_overrun.accounts && d.cost_overrun.accounts.length) ? `<h3 style="margin-top:16px">Cost Overrun — over the YTD budget pace</h3>
+        <table class="tbl"><thead><tr><th>Account</th><th class="num">Actual</th><th class="num">YTD Budget</th><th class="num">Over</th></tr></thead>
+          <tbody>${d.cost_overrun.accounts.map(a => `<tr><td>${esc(a.code)} ${esc(a.name)}</td>
+            <td class="num">${fmt(a.actual)}</td><td class="num muted">${fmt(a.prorated_budget)}</td>
+            <td class="num neg">${fmt(a.over)}</td></tr>`).join("")}</tbody></table>` : ""}
+      </div>`; })()}
     </div>
     <div class="card mt"><h3>Monthly Cash Flow (${state.year})</h3>
       ${chartBars(MONTH_NAMES, [
@@ -2016,7 +2095,7 @@ async function pageReports(el) {
 /* ------------------------------------------------------------------ settings */
 async function pageSettings(el) {
   const tabs = [["coa", "Chart of Accounts"], ["fields", "Custom Fields"], ["companies", "Companies"]];
-  if (isAdmin()) tabs.push(["users", "Users"]);
+  if (isAdmin()) tabs.push(["users", "Users"], ["thresholds", "Thresholds"]);
   el.innerHTML = `
     <div class="page-head"><h2>${t("Settings")}</h2></div>
     <div class="tabs" id="sTabs">${tabs.map(([k, l], i) =>
@@ -2035,6 +2114,7 @@ async function pageSettings(el) {
     else if (tab === "fields") await settingsFields(body);
     else if (tab === "companies") await settingsCompanies(body);
     else if (tab === "users") await settingsUsers(body);
+    else if (tab === "thresholds") await settingsThresholds(body);
   }
   await show();
 }
@@ -2064,6 +2144,7 @@ async function settingsCoa(body) {
         <a class="btn btn-sm" href="/api/templates/coa">&#x2913; Template</a>
         ${canWrite() ? `<button class="btn btn-sm" id="cImport">&#x2912; Import</button>
         <button class="btn btn-sm" id="cStd">Apply Standard COA</button>
+        ${isAdmin() ? `<button class="btn btn-sm" id="cStdAll" title="Apply the standard accounts (incl. intercompany 1900/2900) to every company">Uniform across all companies</button>` : ""}
         <button class="btn btn-sm btn-primary" id="cNew">+ Account</button>` : ""}
       </div></div>
     <div id="cList"></div></div>`;
@@ -2101,6 +2182,14 @@ async function settingsCoa(body) {
     const r = await api("/api/accounts/apply-standard", { json: { company_id: parseInt(company(), 10) } });
     toast(r.added ? `${r.added} standard accounts added` : "Already up to date with the standard COA");
     load();
+  };
+  if ($("#cStdAll")) $("#cStdAll").onclick = async () => {
+    if (!confirm("Apply the standard chart of accounts (incl. intercompany 1900/2900) to EVERY company? Existing accounts are kept; only missing standard accounts are added.")) return;
+    try {
+      const r = await api("/api/accounts/apply-standard-all", { json: {} });
+      toast(r.total_added ? `${r.total_added} accounts added across ${r.companies.length} companies — COA uniform` : "All companies already uniform");
+      load();
+    } catch (e) { toast(e.message, true); }
   };
   if ($("#cImport")) $("#cImport").onclick = () => importModal({
     title: "Import Chart of Accounts", url: "/api/import/coa", templateUrl: "/api/templates/coa",
@@ -2260,6 +2349,51 @@ function companyEditor(c, all, reload) {
       reload();
     } catch (e) { toast(e.message, true); }
   };
+}
+
+async function settingsThresholds(body) {
+  const METRICS = [
+    { key: "cash_buffer_months", label: "Cash Buffer (months)", unit: "mo", dir: "high" },
+    { key: "gross_margin", label: "Gross Margin", unit: "%", dir: "high", pct: true },
+    { key: "net_margin", label: "Net Margin", unit: "%", dir: "high", pct: true },
+    { key: "current_ratio", label: "Current Ratio", unit: "x", dir: "high" },
+    { key: "dso_days", label: "DSO (days)", unit: "d", dir: "low" },
+    { key: "salary_ratio", label: "Salary / Revenue", unit: "%", dir: "low", pct: true },
+  ];
+  const load = async () => {
+    const d = await api("/api/settings/thresholds");
+    const th = d.thresholds;
+    const disp = (m, v) => (v == null ? "" : (m.pct ? Math.round(v * 1000) / 10 : v));
+    body.innerHTML = `<div class="card">
+      <div class="page-head"><h3 style="margin:0">Warning Thresholds <span class="muted">(owner-watch · Pengawasan)</span></h3>
+        <button class="btn btn-sm btn-primary" id="thSave">Save thresholds</button></div>
+      <p class="muted" style="margin-top:-6px">Drives the dashboard health indicators &amp; warning banner. <b>Healthy</b> = on target ·
+        <b>Watch</b> = approaching · past Watch = <b>Danger</b>. For “lower is better” metrics (DSO, Salary/Revenue) the Healthy number is the lower one.</p>
+      <table class="tbl"><thead><tr><th>Metric</th><th>Direction</th><th class="num">Healthy (target)</th><th class="num">Watch</th></tr></thead>
+        <tbody>${METRICS.map(m => `<tr>
+          <td><b>${m.label}</b></td>
+          <td class="muted">${m.dir === "high" ? "higher is better" : "lower is better"}</td>
+          <td class="num"><input class="th-in" data-key="${m.key}" data-f="healthy" type="number" step="any" value="${disp(m, th[m.key].healthy)}" style="width:96px;text-align:right"> ${m.unit}</td>
+          <td class="num"><input class="th-in" data-key="${m.key}" data-f="watch" type="number" step="any" value="${disp(m, th[m.key].watch)}" style="width:96px;text-align:right"> ${m.unit}</td></tr>`).join("")}
+        </tbody></table>
+      <p class="muted mt">Percent fields are entered as whole numbers (45 = 45%). Defaults follow your Pengawasan sheet.</p>
+    </div>`;
+    $("#thSave").onclick = async () => {
+      const payload = {};
+      METRICS.forEach(m => payload[m.key] = {});
+      $$("#sBody .th-in").forEach(inp => {
+        const m = METRICS.find(x => x.key === inp.dataset.key);
+        let v = parseFloat(inp.value);
+        if (!isNaN(v)) payload[inp.dataset.key][inp.dataset.f] = m.pct ? v / 100 : v;
+      });
+      try {
+        await api("/api/settings/thresholds", { json: { thresholds: payload } });
+        toast("Thresholds saved — dashboard updated");
+        load();
+      } catch (e) { toast(e.message, true); }
+    };
+  };
+  await load();
 }
 
 async function settingsUsers(body) {

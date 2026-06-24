@@ -239,6 +239,11 @@ CREATE TABLE IF NOT EXISTS investment_events (
     amount REAL NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL DEFAULT ''
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_entry ON journal_lines(entry_id);
 CREATE INDEX IF NOT EXISTS idx_lines_account ON journal_lines(account_id);
 CREATE INDEX IF NOT EXISTS idx_lines_project ON journal_lines(project_id);
@@ -692,6 +697,8 @@ def migrate_database(conn):
     """Bring a single database to the current schema/data baseline. Idempotent —
     safe to run on every database on every startup."""
     _ensure_source_column(conn)
+    conn.execute("CREATE TABLE IF NOT EXISTS app_settings ("
+                 "key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')")
     # drop the legacy holding first so the COA top-up only touches survivors
     remove_holding(conn)
     for r in conn.execute("SELECT id FROM companies").fetchall():

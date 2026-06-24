@@ -1,5 +1,6 @@
 """MORES ERP - Flask application: auth, REST API, Excel endpoints, static SPA."""
 import functools
+import json
 import os
 import secrets
 from datetime import datetime, timedelta
@@ -409,6 +410,21 @@ def apply_standard():
     return jsonify({"added": added})
 
 
+@app.post("/api/accounts/apply-standard-all")
+@role_required("admin")
+def apply_standard_all():
+    """Apply the standard chart of accounts to EVERY company so the COA — and
+    the intercompany accounts (1900/2900) — line up across the group."""
+    rows = db().execute("SELECT id, code FROM companies ORDER BY code").fetchall()
+    result, total = [], 0
+    for r in rows:
+        added = database.apply_standard_coa(db(), r["id"])
+        total += added
+        result.append({"code": r["code"], "added": added})
+    db().commit()
+    return jsonify({"companies": result, "total_added": total})
+
+
 # --------------------------------------------------------------------------
 # Projects
 # --------------------------------------------------------------------------
@@ -759,11 +775,55 @@ def save_budgets():
 # Reports & dashboard
 # --------------------------------------------------------------------------
 
+def get_thresholds():
+    """Merge stored watch thresholds over the Pengawasan defaults. Stored data is
+    optional/best-effort — any problem (missing table on an unmigrated db, bad or
+    non-dict JSON) falls back cleanly to the defaults rather than 500-ing."""
+    merged = {k: dict(v) for k, v in reports.DEFAULT_THRESHOLDS.items()}
+    try:
+        row = db().execute("SELECT value FROM app_settings WHERE key='thresholds'").fetchone()
+        parsed = json.loads(row["value"]) if row and row["value"] else {}
+        if isinstance(parsed, dict):
+            for k, v in parsed.items():
+                if k in merged and isinstance(v, dict):
+                    for kk in ("healthy", "watch"):
+                        if v.get(kk) is not None:
+                            merged[k][kk] = float(v[kk])
+    except Exception:
+        pass
+    return merged
+
+
+@app.get("/api/settings/thresholds")
+@login_required
+def get_thresholds_api():
+    return jsonify({"thresholds": get_thresholds(), "defaults": reports.DEFAULT_THRESHOLDS})
+
+
+@app.post("/api/settings/thresholds")
+@role_required("admin")
+def set_thresholds_api():
+    d = request.get_json(force=True)
+    incoming = d.get("thresholds", {})
+    clean = {}
+    for k in reports.DEFAULT_THRESHOLDS:
+        v = incoming.get(k)
+        if isinstance(v, dict):
+            try:
+                clean[k] = {"healthy": float(v["healthy"]), "watch": float(v["watch"])}
+            except (KeyError, TypeError, ValueError):
+                continue
+    db().execute("INSERT INTO app_settings (key, value) VALUES ('thresholds', ?)"
+                 " ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(clean),))
+    db().commit()
+    return jsonify({"ok": True, "thresholds": get_thresholds()})
+
+
 @app.get("/api/reports/dashboard")
 @login_required
 def report_dashboard():
     ids, label = scope_from_request()
-    data = reports.dashboard(db(), ids, year_param())
+    data = reports.dashboard(db(), ids, year_param(), thresholds=get_thresholds())
     data["scope"] = label
     return jsonify(data)
 
