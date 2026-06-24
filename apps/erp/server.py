@@ -781,6 +781,106 @@ def report_tb():
     return jsonify(data)
 
 
+OPENING_REF = "OPENING-BALANCE"  # marks the single opening-balance entry per company
+
+
+@app.get("/api/reports/opening-balances")
+@login_required
+def get_opening_balances():
+    try:
+        company_id = int(request.args.get("company_id"))
+    except (TypeError, ValueError):
+        raise ValueError("company_id is required")
+    check_company_access(company_id)
+    je = db().execute(
+        "SELECT id, date FROM journal_entries WHERE company_id=? AND reference=? ORDER BY id DESC LIMIT 1",
+        (company_id, OPENING_REF)).fetchone()
+    lines, date = [], None
+    if je:
+        date = je["date"]
+        # one row per code (collapse any duplicate account lines)
+        lines = [dict(r) for r in db().execute(
+            "SELECT a.code, MIN(a.name) AS name, MIN(a.type) AS type,"
+            "       SUM(jl.debit) AS debit, SUM(jl.credit) AS credit"
+            " FROM journal_lines jl JOIN accounts a ON a.id = jl.account_id"
+            " WHERE jl.entry_id=? GROUP BY a.code ORDER BY a.code", (je["id"],)).fetchall()]
+    return jsonify({"date": date, "lines": lines})
+
+
+OPENING_BS_TYPES = ("asset", "liability", "equity")
+
+
+@app.post("/api/reports/opening-balances")
+@role_required("admin", "finance")
+def save_opening_balances():
+    """Create/replace the opening-balance journal entry for one company. Lines
+    may only touch balance-sheet accounts (income-statement opening balances
+    belong in Retained Earnings). Any debit/credit imbalance is posted to the
+    balancing account (Retained Earnings by default) so the entry always
+    balances. Replaces any previous opening entry for the company."""
+    d = request.get_json(force=True)
+    try:
+        company_id = int(d["company_id"])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError("company_id is required")
+    check_company_access(company_id)
+    date = (d.get("date") or "%d-01-01" % datetime.now().year)[:10]
+    balancing_code = (d.get("balancing_code") or "3200").strip()
+    acc = {r["code"]: r for r in db().execute(
+        "SELECT id, code, type FROM accounts WHERE company_id=?", (company_id,))}
+    # net debit-minus-credit per account id (collapses repeats of the same code)
+    net = {}
+    for l in d.get("lines", []):
+        deb = round(float(l.get("debit") or 0), 2)
+        cre = round(float(l.get("credit") or 0), 2)
+        if deb == 0 and cre == 0:
+            continue
+        a = acc.get((l.get("code") or "").strip())
+        if not a:
+            continue
+        if a["type"] not in OPENING_BS_TYPES:
+            raise ValueError("Opening balances may only be set on balance-sheet "
+                             "accounts — %s is a %s account" % (a["code"], a["type"]))
+        net[a["id"]] = round(net.get(a["id"], 0.0) + deb - cre, 2)
+    if not net:
+        raise ValueError("Enter at least one opening balance")
+    diff = round(sum(net.values()), 2)  # debit-positive; >0 means debits exceed credits
+    if abs(diff) >= 0.01:
+        b = acc.get(balancing_code)
+        if not b:
+            raise ValueError("Balancing account %s does not exist in this company" % balancing_code)
+        if b["type"] not in OPENING_BS_TYPES:
+            raise ValueError("Balancing account %s must be a balance-sheet account" % balancing_code)
+        net[b["id"]] = round(net.get(b["id"], 0.0) - diff, 2)
+    # replace any prior opening-balance entry for this company (atomic per request)
+    for o in db().execute("SELECT id FROM journal_entries WHERE company_id=? AND reference=?",
+                          (company_id, OPENING_REF)).fetchall():
+        db().execute("DELETE FROM journal_lines WHERE entry_id=?", (o["id"],))
+        db().execute("DELETE FROM journal_entries WHERE id=?", (o["id"],))
+    # next OB sequence for the month (max existing OB-YYYYMM-* + 1, not a row count)
+    prefix = "OB-%s-" % date[:7].replace("-", "")
+    last = db().execute(
+        "SELECT entry_no FROM journal_entries WHERE company_id=? AND entry_no LIKE ?"
+        " ORDER BY entry_no DESC LIMIT 1", (company_id, prefix + "%")).fetchone()
+    seq = (int(last["entry_no"].rsplit("-", 1)[1]) + 1) if last else 1
+    entry_no = "%s%05d" % (prefix, seq)
+    cur = db().execute(
+        "INSERT INTO journal_entries (company_id, entry_no, date, description, reference, status, source, created_by)"
+        " VALUES (?,?,?,?,?, 'posted', 'manual', ?)",
+        (company_id, entry_no, date, "Opening balances", OPENING_REF, g.user["id"]))
+    for aid, val in net.items():
+        if abs(val) < 0.005:
+            continue
+        deb, cre = (val, 0.0) if val > 0 else (0.0, round(-val, 2))
+        db().execute(
+            "INSERT INTO journal_lines (entry_id, account_id, description, debit, credit)"
+            " VALUES (?,?,?,?,?)", (cur.lastrowid, aid, "Opening balance", round(deb, 2), cre))
+    db().commit()
+    return jsonify({"ok": True, "entry_no": entry_no,
+                    "plugged_to": balancing_code if abs(diff) >= 0.01 else None,
+                    "difference": diff})
+
+
 @app.get("/api/reports/account-ledger")
 @login_required
 def report_account_ledger():

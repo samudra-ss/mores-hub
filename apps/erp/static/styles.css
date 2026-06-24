@@ -373,3 +373,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #aee2e9; border-c
 /* delete-company confirmation */
 .confirm-del p { margin: 0 0 12px; }
 .confirm-del .seg-check { margin-bottom: 16px; color: var(--text); }
+
+/* opening-balances editor footer */
+.ob-foot { display: flex; justify-content: space-between; align-items: center;
+  gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
+.ob-foot .form-actions { margin: 0; }
+.ob-foot .pos { color: var(--green); }

@@ -106,6 +106,80 @@ async function openAccountLedger(code, fallbackName) {
   } catch (e) { $("#alBody").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }
 
+// Opening-balances editor: enter each balance-sheet account's starting balance;
+// the imbalance plugs to Retained Earnings and posts as one opening entry.
+async function openOpeningBalances(onSaved) {
+  const cid0 = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
+  openModal(`<div id="obBody"><div class="empty">Loading…</div></div>`, { title: "Opening Balances" });
+  const fmtIn = n => n ? Math.round(n).toLocaleString("id-ID") : "";
+  async function loadFor(cid) {
+    const [accounts, existing] = await Promise.all([
+      api("/api/accounts?company_id=" + cid),
+      api("/api/reports/opening-balances?company_id=" + cid),
+    ]);
+    const prior = {}; (existing.lines || []).forEach(l => prior[l.code] = l);
+    const data = accounts
+      .filter(a => a.is_active && ["asset", "liability", "equity"].includes(a.type))
+      .map(a => ({ code: a.code, name: a.name, type: a.type,
+        debit: (prior[a.code] || {}).debit || 0, credit: (prior[a.code] || {}).credit || 0 }));
+    const date = existing.date || `${state.year}-01-01`;
+    const totals = () => {
+      const td = data.reduce((s, r) => s + r.debit, 0), tc = data.reduce((s, r) => s + r.credit, 0);
+      return { td, tc, diff: Math.round((td - tc) * 100) / 100 };
+    };
+    const renderTot = () => {
+      const t = totals();
+      $("#obTotD").textContent = fmt(t.td); $("#obTotC").textContent = fmt(t.tc);
+      $("#obDiff").innerHTML = Math.abs(t.diff) < 0.01
+        ? `<span class="pos">&#10003; Balanced</span>`
+        : `Difference <b>${fmt(Math.abs(t.diff))}</b> → posts to <b>Retained Earnings (3200)</b> as ${t.diff > 0 ? "credit" : "debit"}`;
+    };
+    $("#obBody").innerHTML = `
+      <div class="filters" style="margin-bottom:8px">
+        <label>Company <select id="obCompany">${state.me.companies.map(c =>
+          `<option value="${c.id}" ${String(c.id) === String(cid) ? "selected" : ""}>${esc(c.code)} — ${esc(c.name)}</option>`).join("")}</select></label>
+        <label>As of date <input type="date" id="obDate" value="${date}"></label>
+      </div>
+      <p class="muted" style="margin-top:-2px">Enter each account&rsquo;s opening balance — assets as <b>Debit</b>, liabilities &amp; equity as <b>Credit</b>.
+        Any difference is posted to Retained Earnings so the books balance. Saving replaces this company&rsquo;s previous opening entry.</p>
+      <div style="max-height:48vh;overflow:auto"><table class="tbl">
+        <thead><tr><th>Code</th><th>Account</th><th>Type</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+        <tbody>${data.map((r, ri) => `<tr>
+          <td><b>${esc(r.code)}</b></td><td>${esc(r.name)}</td><td>${r.type}</td>
+          <td><input class="ob-deb" data-ri="${ri}" type="text" inputmode="numeric" style="text-align:right;width:128px" value="${fmtIn(r.debit)}"></td>
+          <td><input class="ob-cre" data-ri="${ri}" type="text" inputmode="numeric" style="text-align:right;width:128px" value="${fmtIn(r.credit)}"></td>
+        </tr>`).join("") || `<tr><td colspan="5" class="empty">No balance-sheet accounts</td></tr>`}</tbody>
+        <tfoot><tr class="total"><td colspan="3">TOTAL</td><td class="num" id="obTotD"></td><td class="num" id="obTotC"></td></tr></tfoot>
+      </table></div>
+      <div class="ob-foot"><div id="obDiff"></div>
+        <div class="form-actions"><button class="btn" id="obCancel">Cancel</button>
+          <button class="btn btn-primary" id="obSave">Save opening balances</button></div></div>`;
+    const wire = (sel, key) => $$(sel).forEach(inp => {
+      const r = data[inp.dataset.ri];
+      inp.addEventListener("focus", () => { inp.value = r[key] ? String(Math.round(r[key])) : ""; inp.select(); });
+      inp.addEventListener("input", () => { r[key] = Number(inp.value.replace(/[^\d]/g, "")) || 0; renderTot(); });
+      inp.addEventListener("blur", () => { inp.value = fmtIn(r[key]); });
+    });
+    wire("#obBody .ob-deb", "debit");
+    wire("#obBody .ob-cre", "credit");
+    renderTot();
+    $("#obCompany").onchange = () => loadFor(parseInt($("#obCompany").value, 10));
+    $("#obCancel").onclick = closeModal;
+    $("#obSave").onclick = async () => {
+      try {
+        const r = await api("/api/reports/opening-balances", { json: {
+          company_id: parseInt($("#obCompany").value, 10), date: $("#obDate").value,
+          lines: data.map(x => ({ code: x.code, debit: x.debit, credit: x.credit })),
+        } });
+        toast("Opening balances saved" + (r.plugged_to ? ` — difference posted to ${r.plugged_to}` : ""));
+        closeModal();
+        if (onSaved) onSaved();
+      } catch (e) { toast(e.message, true); }
+    };
+  }
+  await loadFor(cid0);
+}
+
 async function api(path, opts = {}) {
   if (opts.json !== undefined) {
     opts.method = opts.method || "POST";
@@ -1143,20 +1217,30 @@ async function pageBank(el) {
       `<option value="${p.id}" ${String(sel) === String(p.id) ? "selected" : ""}>${esc(p.code)}</option>`).join("");
   }
 
+  const balanceCell = t => {
+    if (t.balance == null) return '<span class="muted">—</span>';
+    const tag = {
+      ok: '<span class="pill posted" title="Running balance matches this amount — direction confirmed">&#10003; saldo</span>',
+      mismatch: '<span class="pill bad" title="Running balance does not match the amount — a row may be missing or the amount is off">&#9888; gap</span>',
+      start: '<span class="muted" title="First row — no earlier balance to check against">opening row</span>',
+    }[t.balance_check] || "";
+    return `<b>${fmt(t.balance)}</b>${tag ? "<br>" + tag : ""}`;
+  };
   function renderTable() {
-    $("#bkTable").innerHTML = `<thead><tr><th></th><th>Date</th><th>In/Out</th><th>Description</th>
-      <th class="num">Amount<br><span style="font-weight:400;text-transform:none">(Jumlah Transfer / Nominal)</span></th>
+    $("#bkTable").innerHTML = `<thead><tr><th></th><th>Date</th><th>In/Out</th><th style="min-width:240px">Description</th>
+      <th class="num">Amount<br><span style="font-weight:400;text-transform:none">(Jumlah / Nominal)</span></th>
+      <th class="num">Balance<br><span style="font-weight:400;text-transform:none">(Saldo — after txn)</span></th>
       <th>No Referensi<br><span style="font-weight:400;text-transform:none">(Reference Number)</span></th><th>Status</th>
       <th style="min-width:230px">Contra account<br><span style="font-weight:400;text-transform:none">(cost for OUT / revenue for IN)</span></th><th>Project</th></tr></thead>
       <tbody>${txs.map((t, i) => `<tr data-i="${i}" ${t.duplicate || t.internal ? 'style="opacity:.55"' : ""}>
         <td><input type="checkbox" class="bk-sel" ${t.ok && !t.duplicate && !t.internal && t.amount && t.date ? "checked" : ""}></td>
         <td>${esc(t.date || "?")}<br><span class="muted">${esc(t.time)}</span></td>
         <td><span class="pill ${t.direction === "in" ? "posted" : "draft"}">${t.direction === "in" ? "IN" : "OUT"}</span></td>
-        <td><input class="bk-desc" style="width:100%;min-width:220px" value="${esc(t.description)}">
+        <td><textarea class="bk-desc" rows="2" style="width:100%;min-width:240px;resize:vertical;font-family:inherit;font-size:12.5px">${esc(t.description)}</textarea>
           ${t.va_number ? `<span class="muted">VA ${esc(t.va_number)}</span>` : ""}
-          ${t.category ? `<span class="muted">${esc(t.category.toLowerCase().replace(/_/g, " "))}</span>` : ""}
-          ${t.balance ? `<span class="muted">saldo ${fmt(t.balance)}</span>` : ""}</td>
+          ${t.category ? `<span class="muted">${esc(t.category.toLowerCase().replace(/_/g, " "))}</span>` : ""}</td>
         <td class="num"><b>${fmt(t.amount)}</b></td>
+        <td class="num">${balanceCell(t)}</td>
         <td><b style="font-size:12px">${esc(t.reference || "—")}</b></td>
         <td><span class="pill ${t.ok ? "posted" : "draft"}">${esc(t.status || "?")}</span>
           ${t.duplicate ? '<br><span class="pill inactive">already booked</span>' : ""}
@@ -1843,6 +1927,7 @@ async function pageReports(el) {
     } else if (tab === "tb") {
       body.innerHTML = `<div class="filters">${dateRangeFilters()}
         <label class="seg-check"><input type="checkbox" id="tbDetail"> Detailed — journal entries &amp; source</label>
+        ${canWrite() ? `<button class="btn btn-sm" id="tbOpening">&#9998; Opening Balances</button>` : ""}
         <span class="muted" id="rPeriod"></span></div><div id="rTable"></div>`;
       const run = async () => {
         const detailed = $("#tbDetail").checked;
@@ -1875,6 +1960,7 @@ async function pageReports(el) {
       };
       $("#rGo").onclick = run;
       $("#tbDetail").onchange = run;
+      if ($("#tbOpening")) $("#tbOpening").onclick = () => openOpeningBalances(run);
       await run();
     } else if (tab === "cf") {
       const cfDefault = state.companyId !== "all" ? state.companyId : firstCompanyId();

@@ -77,6 +77,47 @@ def suggest_bank_account(description):
     return None
 
 
+def reconcile_balances(records):
+    """Use the running balance (saldo, the rightmost column) as a reference.
+
+    Records arrive in statement order. Where two consecutive rows both carry a
+    balance, the saldo movement should equal the amount and move in the same
+    direction the CR/DB marker already parsed. The CR/DB suffix stays
+    authoritative for direction (it is order-independent); the balance is used
+    only to CONFIRM and to flag anything that doesn't add up. Each record gets a
+    'balance_check':
+      'start'    – first row with a balance (nothing before it to check)
+      'ok'       – saldo moved by exactly the amount, in the parsed direction
+      'mismatch' – saldo gap or direction disagreement (a row may be missing,
+                   the amount is off, or the statement isn't oldest-first)
+      'n/a'      – no balance on this row
+    Returns a list of warning strings for the mismatches.
+    """
+    warnings, prev = [], None
+    for r in records:
+        bal = r.get("balance")
+        amt = round(r.get("amount") or 0, 2)
+        if bal is None:
+            r["balance_check"] = "n/a"
+            prev = None  # don't bridge a gap across a balance-less row
+            continue
+        if prev is None:
+            r["balance_check"] = "start"
+        else:
+            delta = round(bal - prev, 2)
+            parsed_in = r.get("direction") == "in"
+            if amt > 0 and abs(abs(delta) - amt) < 0.01 and (delta > 0) == parsed_in:
+                r["balance_check"] = "ok"  # saldo confirms the CR/DB direction
+            else:
+                r["balance_check"] = "mismatch"
+                warnings.append(
+                    "Saldo gap at {} ({}): balance moved {:+,.0f} but the {} amount is {:,.0f}".format(
+                        r.get("date", "?"), (r.get("description") or "")[:30], delta,
+                        "incoming" if parsed_in else "outgoing", amt))
+        prev = bal
+    return warnings
+
+
 def parse_amount(s):
     """'Rp 1,970,100.00' / 'Rp1.970.100,00' / '1970100' -> float."""
     s = re.sub(r"(?i)rp\.?", "", str(s)).strip()
@@ -239,7 +280,7 @@ def parse_bca_csv(data):
         jumlah = cells[3].upper()
         direction = "in" if jumlah.rstrip().endswith("CR") else "out"
         amount = parse_amount(jumlah)
-        balance = parse_amount(cells[4]) if len(cells) > 4 else 0.0
+        balance = parse_amount(cells[4]) if len(cells) > 4 and cells[4].strip() else None
         if not amount:
             warnings.append("Row skipped (no amount): %s…" % desc[:40])
             continue
@@ -258,6 +299,7 @@ def parse_bca_csv(data):
         })
     if not in_table:
         warnings.append("Header row 'Tanggal Transaksi' not found — is this a BCA mutasi-rekening CSV?")
+    warnings.extend(reconcile_balances(records))
     return records, warnings, meta
 
 
@@ -366,7 +408,7 @@ def parse_bca_estatement_pdf(data):
                 current = None
                 continue
             monies = _MONEY_RE.findall(rest)
-            amount, balance, direction = 0.0, 0.0, "in"
+            amount, balance, direction = 0.0, None, "in"
             if monies:
                 amount = parse_amount(monies[0])
                 # is the token straight after the amount "DB"? -> money out
@@ -386,6 +428,7 @@ def parse_bca_estatement_pdf(data):
     flush()
     if not records:
         warnings.append("No transactions found in the PDF.")
+    warnings.extend(reconcile_balances(records))
     return records, warnings, meta
 
 
@@ -494,7 +537,7 @@ def parse_wallet_xlsx(data):
             "status": status.title(), "note": note, "ok": True,
             "description": full_desc, "direction": direction,
             "category": category, "internal": internal, "suggested_code": suggested,
-            "balance": 0.0,
+            "balance": None,  # wallet/card exports have no running account balance
         })
     if not records:
         warnings.append("No usable transactions found in the spreadsheet.")
