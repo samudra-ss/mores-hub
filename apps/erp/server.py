@@ -954,6 +954,81 @@ def report_account_ledger():
     return jsonify(data)
 
 
+# --------------------------------------------------------------------------
+# Accounts Receivable aging (Piutang)
+# --------------------------------------------------------------------------
+
+def _ar_as_of():
+    return (request.args.get("as_of") or datetime.now().date().isoformat())[:10]
+
+
+def _receivable_fields(d):
+    return (d.get("client", "").strip(), d.get("invoice_no", "").strip(),
+            (d.get("invoice_date") or None), (d.get("due_date") or None),
+            round(float(d.get("amount") or 0), 2), round(float(d.get("paid") or 0), 2),
+            d.get("notes", "").strip())
+
+
+@app.get("/api/receivables")
+@login_required
+def list_receivables():
+    ids, label = scope_from_request()
+    data = reports.receivables_aging(db(), ids, _ar_as_of())
+    data["scope"] = label
+    return jsonify(data)
+
+
+@app.post("/api/receivables")
+@role_required("admin", "finance")
+def create_receivable():
+    d = request.get_json(force=True)
+    company_id = int(d["company_id"])
+    check_company_access(company_id)
+    if not (d.get("client") or "").strip():
+        raise ValueError("Client name is required")
+    cur = db().execute(
+        "INSERT INTO receivables (company_id, client, invoice_no, invoice_date, due_date, amount, paid, notes)"
+        " VALUES (?,?,?,?,?,?,?,?)", (company_id,) + _receivable_fields(d))
+    db().commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.put("/api/receivables/<int:rid>")
+@role_required("admin", "finance")
+def update_receivable(rid):
+    row = db().execute("SELECT company_id FROM receivables WHERE id=?", (rid,)).fetchone()
+    if not row:
+        raise ValueError("Receivable not found")
+    check_company_access(row["company_id"])
+    d = request.get_json(force=True)
+    db().execute(
+        "UPDATE receivables SET client=?, invoice_no=?, invoice_date=?, due_date=?,"
+        " amount=?, paid=?, notes=? WHERE id=?", _receivable_fields(d) + (rid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/receivables/<int:rid>")
+@role_required("admin", "finance")
+def delete_receivable(rid):
+    row = db().execute("SELECT company_id FROM receivables WHERE id=?", (rid,)).fetchone()
+    if not row:
+        raise ValueError("Receivable not found")
+    check_company_access(row["company_id"])
+    db().execute("DELETE FROM receivables WHERE id=?", (rid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/export/receivables")
+@login_required
+def export_receivables():
+    ids, label = scope_from_request()
+    aging = reports.receivables_aging(db(), ids, _ar_as_of())
+    return _xlsx(excel_io.export_receivables(aging, label),
+                 "ar_aging_%s.xlsx" % aging["as_of"])
+
+
 @app.get("/api/reports/pnl")
 @login_required
 def report_pnl():

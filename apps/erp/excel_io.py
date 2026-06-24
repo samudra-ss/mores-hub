@@ -78,6 +78,48 @@ def export_trial_balance(tb, scope_label, period_label):
     return _to_bytes(wb)
 
 
+def export_receivables(aging, scope_label):
+    wb = Workbook()
+    ws = _sheet(wb, "Piutang", "AR Aging (Piutang) — %s" % scope_label,
+                "As of %s" % aging["as_of"])
+    _header_row(ws, 4, ["No", "Client", "Invoice", "Invoice Date", "Due Date",
+                        "Amount", "Outstanding", "Not Due", "1-30 d", "31-60 d",
+                        "61-90 d", "> 90 d", "Days Late", "Status"],
+                [5, 28, 16, 13, 13, 16, 16, 14, 12, 12, 12, 12, 10, 20])
+    bcol = {"not_due": 8, "d1_30": 9, "d31_60": 10, "d61_90": 11, "d90": 12}
+    r = 5
+    for i, it in enumerate(aging["items"], 1):
+        ws.cell(row=r, column=1, value=i)
+        ws.cell(row=r, column=2, value=it["client"])
+        ws.cell(row=r, column=3, value=it["invoice_no"])
+        ws.cell(row=r, column=4, value=it["invoice_date"])
+        ws.cell(row=r, column=5, value=it["due_date"])
+        _num(ws, r, 6, it["amount"])
+        _num(ws, r, 7, it["outstanding"])
+        if it["bucket"]:
+            _num(ws, r, bcol[it["bucket"]], it["outstanding"])
+        ws.cell(row=r, column=13, value=it["days_overdue"] or 0)
+        ws.cell(row=r, column=14, value=it["status_label"])
+        r += 1
+    ws.cell(row=r, column=2, value="TOTAL").font = BOLD
+    _num(ws, r, 6, aging["total_amount"], bold=True)
+    _num(ws, r, 7, aging["total_outstanding"], bold=True)
+    for b, col in bcol.items():
+        _num(ws, r, col, aging["buckets"][b], bold=True)
+    r += 3
+    ws.cell(row=r, column=2, value="AGING SUMMARY").font = BOLD
+    r += 1
+    for s in aging["summary"]:
+        ws.cell(row=r, column=2, value=s["label"])
+        _num(ws, r, 6, s["amount"])
+        pc = ws.cell(row=r, column=7, value=(s["pct"] or 0) / 100.0)
+        pc.number_format = "0.0%"
+        r += 1
+    ws.cell(row=r, column=2, value="TOTAL OUTSTANDING").font = BOLD
+    _num(ws, r, 6, aging["total_outstanding"], bold=True)
+    return _to_bytes(wb)
+
+
 def export_pnl(pnl, scope_label, period_label):
     wb = Workbook()
     ws = _sheet(wb, "Profit & Loss", "Profit & Loss — %s" % scope_label, period_label)

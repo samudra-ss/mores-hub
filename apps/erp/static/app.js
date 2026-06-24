@@ -41,7 +41,11 @@ function fmtShortRp(n) {
   if (ti > 0 && Number((a / div).toFixed(dp)) >= 1000) {
     [div, unit] = tiers[--ti]; dp = dpFor(unit);
   }
-  const s = (a / div).toFixed(dp).replace(".", ",");
+  // up to 3 decimals, but trim trailing zeros so round values stay clean
+  // (3.231 B -> "3,231 B"; 160 M -> "160 M", not "160,000 M")
+  let s = (a / div).toFixed(dp);
+  if (dp) s = s.replace(/\.?0+$/, "");
+  s = s.replace(".", ",");
   return "Rp " + sign + s + (unit ? " " + unit : "");
 }
 
@@ -316,6 +320,9 @@ function chartDonut(items, opts = {}) {
 // Mores design palette — teal family + calm neutrals (one teal accent, restrained)
 const PALETTE = ["#00a2b6", "#0a7d8c", "#7fcdd8", "#13a6b8", "#5b6b80", "#1f9d57", "#c87a08", "#9aa6b1"];
 const C_REV = "#00a2b6", C_EXP = "#9aa6b1", C_PROFIT = "#1f9d57";
+// AR aging bucket colours + status pill classes (Piutang)
+const AR_BUCKET_COLOR = { not_due: "#1f9d57", d1_30: "#00a2b6", d31_60: "#c87a08", d61_90: "#d2691e", d90: "#bd362f" };
+const AR_STATUS_PILL = { current: "posted", late_1_30: "draft", late_31_60: "draft", late_61_90: "draft", bad: "bad", paid: "inactive" };
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const ROLE_LABELS = { admin: "Admin", finance: "Accountant", viewer: "Viewer/Auditor" };
 const ROLE_DESC = {
@@ -361,6 +368,18 @@ const TR = {
   "Risky AR (> 90 days)": "Piutang Berisiko (> 90 hari)",
   "Net Position (AR − AP)": "Posisi Bersih (Piutang − Hutang)",
   "Free Operating Cash": "Kas Bebas Operasional",
+  // receivables / AR aging (Piutang)
+  "Receivables": "Piutang", "AR Aging (Piutang)": "Daftar Umur Piutang",
+  "As of": "Per Tanggal", "Add Invoice": "Tambah Invoice", "Client": "Klien",
+  "Invoice": "No. Invoice", "Invoice Date": "Tgl Invoice", "Due Date": "Jatuh Tempo",
+  "Amount": "Nilai Invoice", "Outstanding": "Sisa Tagihan", "Not Due": "Belum Jatuh Tempo",
+  "Days Late": "Hari Terlambat", "Aging Summary": "Ringkasan Umur Piutang",
+  "Bucket": "Kelompok Umur", "TOTAL": "TOTAL", "TOTAL OUTSTANDING": "TOTAL PIUTANG",
+  "Risk": "Risiko", "Total Outstanding": "Total Piutang",
+  "Current (Lancar)": "Lancar", "Late 1–30 (Terlambat)": "Terlambat 1–30",
+  "Late 31–60 (Terlambat)": "Terlambat 31–60", "Late 61–90 (Terlambat)": "Terlambat 61–90",
+  "Bad / >90 (Macet)": "Macet (>90)", "Paid (Lunas)": "Lunas",
+  "1–30 d": "1–30 hr", "31–60 d": "31–60 hr", "61–90 d": "61–90 hr", "> 90 d": "> 90 hr",
   // common buttons
   "Apply": "Terapkan", "Export Excel": "Ekspor Excel", "Export PDF": "Ekspor PDF",
 };
@@ -370,6 +389,7 @@ function t(s) { return state.lang === "id" ? (TR[s] || s) : s; }
 const NAV_ITEMS = [
   ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
   ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Bank Import"],
+  ["receivables", "◰", "Receivables"],
   ["budgets", "◎", "Budgets"], ["investments", "✦", "Investments"],
   ["projects", "△", "Projects"], ["reports", "▤", "Reports"],
   ["settings", "⚙", "Settings"],
@@ -463,8 +483,9 @@ function renderCompanyChoice() {
 
 const routes = {
   dashboard: pageDashboard, projecthv: pageProjectHV, journals: pageJournals,
-  bank: pageBank, budgets: pageBudgets, investments: pageInvestments,
-  projects: pageProjects, reports: pageReports, settings: pageSettings,
+  bank: pageBank, receivables: pageReceivables, budgets: pageBudgets,
+  investments: pageInvestments, projects: pageProjects, reports: pageReports,
+  settings: pageSettings,
 };
 const INV_CATEGORIES = {
   scholarship: "Scholarship", partnership: "Partnership", rnd: "R&D",
@@ -1421,6 +1442,123 @@ async function pageBank(el) {
     if (okCount) toast(`${okCount} bank transfer(s) booked`);
   };
   await loadCompanyData();
+}
+
+/* ------------------------------------------------------------ receivables (AR aging) */
+async function pageReceivables(el) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!state.arAsOf) state.arAsOf = today;
+  const cid = state.companyId === "all" ? "all" : parseInt(state.companyId, 10);
+  el.innerHTML = `
+    <div class="page-head"><h2>${t("Receivables")} — ${t("AR Aging (Piutang)")}</h2>
+      <div class="page-actions">
+        <label class="muted">${t("Company")} <select id="arCompany">${companyOptions(cid, { includeAll: true })}</select></label>
+        <label class="muted">${t("As of")} <input type="date" id="arAsOf" value="${state.arAsOf}"></label>
+        <a class="btn btn-sm" id="arExp">&#x2913; ${t("Export Excel")}</a>
+        ${canWrite() ? `<button class="btn btn-sm btn-primary" id="arNew">+ ${t("Add Invoice")}</button>` : ""}
+      </div></div>
+    <div id="arBody"><div class="empty">Loading…</div></div>`;
+  const scopeFor = () => $("#arCompany").value;
+  const load = async () => {
+    state.arAsOf = $("#arAsOf").value || today;
+    const qs = `company_id=${scopeFor()}&as_of=${state.arAsOf}`;
+    $("#arExp").href = `/api/export/receivables?${qs}`;
+    const d = await api(`/api/receivables?${qs}`);
+    $("#scopeBadge").textContent = d.scope;
+    const consol = scopeFor() === "all";
+    const bcell = (it, b) => it.bucket === b ? `<b>${fmt(it.outstanding)}</b>` : `<span class="muted">-</span>`;
+    const rows = d.items.map((it, i) => `<tr>
+      <td>${i + 1}</td>
+      ${consol ? `<td>${esc(it.company_code)}</td>` : ""}
+      <td><b>${esc(it.client)}</b></td>
+      <td>${esc(it.invoice_no)}</td>
+      <td class="muted">${esc(it.invoice_date || "")}</td>
+      <td>${esc(it.due_date || "")}</td>
+      <td class="num">${fmt(it.amount)}</td>
+      <td class="num">${fmt(it.outstanding)}</td>
+      <td class="num">${bcell(it, "not_due")}</td>
+      <td class="num">${bcell(it, "d1_30")}</td>
+      <td class="num">${bcell(it, "d31_60")}</td>
+      <td class="num">${bcell(it, "d61_90")}</td>
+      <td class="num ${it.bucket === "d90" ? "neg" : ""}">${bcell(it, "d90")}</td>
+      <td class="num">${it.days_overdue == null ? "-" : it.days_overdue}</td>
+      <td><span class="pill ${AR_STATUS_PILL[it.status] || "inactive"}">${esc(t(it.status_label))}</span></td>
+      ${canWrite() ? `<td><button class="btn btn-sm" data-edit="${it.id}">Edit</button></td>` : ""}
+    </tr>`).join("") || `<tr><td colspan="${14 + (consol ? 1 : 0) + (canWrite() ? 1 : 0)}" class="empty">No invoices yet — add one to start tracking AR aging.</td></tr>`;
+    const totalRow = `<tr class="total"><td colspan="${consol ? 7 : 6}">${t("TOTAL")}</td>
+      <td class="num">${fmt(d.total_outstanding)}</td>
+      <td class="num">${fmt(d.buckets.not_due)}</td><td class="num">${fmt(d.buckets.d1_30)}</td>
+      <td class="num">${fmt(d.buckets.d31_60)}</td><td class="num">${fmt(d.buckets.d61_90)}</td>
+      <td class="num">${fmt(d.buckets.d90)}</td><td colspan="${canWrite() ? 3 : 2}"></td></tr>`;
+    $("#arBody").innerHTML = `
+      <div class="card"><div style="overflow-x:auto"><table class="tbl ar-tbl">
+        <thead><tr><th>No</th>${consol ? "<th>Co.</th>" : ""}<th>${t("Client")}</th><th>${t("Invoice")}</th>
+          <th>${t("Invoice Date")}</th><th>${t("Due Date")}</th><th class="num">${t("Amount")}</th><th class="num">${t("Outstanding")}</th>
+          <th class="num">${t("Not Due")}</th><th class="num">1–30</th><th class="num">31–60</th><th class="num">61–90</th><th class="num">&gt;90</th>
+          <th class="num">${t("Days Late")}</th><th>${t("Status")}</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
+        <tbody>${rows}${totalRow}</tbody></table></div>
+        <p class="muted mt">Outstanding = Amount − Paid. Status &amp; aging are computed from the As-of date vs each Due Date.</p>
+      </div>
+      <div class="grid two-col mt">
+        <div class="card"><h3>${t("Aging Summary")}</h3>
+          <table class="tbl"><thead><tr><th>${t("Bucket")}</th><th class="num">${t("Amount")}</th><th class="num">%</th><th style="width:34%"></th></tr></thead>
+            <tbody>${d.summary.map(s => `<tr>
+              <td>${esc(t(s.label))}</td><td class="num">${fmt(s.amount)}</td><td class="num">${s.pct}%</td>
+              <td><div class="bar"><span style="width:${Math.min(100, s.pct)}%;background:${AR_BUCKET_COLOR[s.bucket]}"></span></div></td></tr>`).join("")}
+              <tr class="total"><td>${t("TOTAL OUTSTANDING")}</td><td class="num">${fmt(d.total_outstanding)}</td><td colspan="2"></td></tr>
+            </tbody></table>
+        </div>
+        <div class="card"><h3>${t("Risk")}</h3>
+          <div class="grid kpis">
+            <div class="kpi"><div class="kpi-label">${t("Total Outstanding")}</div><div class="kpi-value">${fmtShortRp(d.total_outstanding)}</div></div>
+            <div class="kpi ${d.risky > 0 ? "red" : ""}"><div class="kpi-label">${t("Risky AR (> 90 days)")}</div><div class="kpi-value">${fmtShortRp(d.risky)}</div>
+              <div class="kpi-sub">${d.total_outstanding ? Math.round(100 * d.risky / d.total_outstanding) : 0}% of outstanding</div></div>
+          </div>
+          <p class="muted mt">Enter only the invoice fields (client, invoice, dates, amount, paid) — buckets, days late and status are computed, just like your Excel Piutang sheet.</p>
+        </div>
+      </div>`;
+    $$("#arBody [data-edit]").forEach(b => b.onclick = () => receivableEditor(d.items.find(x => x.id == b.dataset.edit), load));
+  };
+  $("#arCompany").onchange = load;
+  $("#arAsOf").onchange = load;
+  if ($("#arNew")) $("#arNew").onclick = () => receivableEditor(null, load);
+  await load();
+}
+
+function receivableEditor(r, reload) {
+  const today = new Date().toISOString().slice(0, 10);
+  const newCompany = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
+  openModal(`<div class="form-grid">
+    ${r ? "" : `<label class="full">Company <select id="rvCompany">${companyOptions(newCompany)}</select></label>`}
+    <label class="full">Client <input id="rvClient" value="${esc(r ? r.client : "")}" placeholder="e.g. PT Andalan Niaga"></label>
+    <label>Invoice No <input id="rvInv" value="${esc(r ? r.invoice_no : "")}" placeholder="INV-2026-051"></label>
+    <label>Invoice Date <input type="date" id="rvIdate" value="${esc(r ? (r.invoice_date || "") : today)}"></label>
+    <label>Due Date <input type="date" id="rvDue" value="${esc(r ? (r.due_date || "") : "")}"></label>
+    <label>Amount (Rp) <input id="rvAmount" inputmode="numeric" value="${r ? fmt(r.amount) : ""}"></label>
+    <label>Paid / Received (Rp) <input id="rvPaid" inputmode="numeric" value="${r ? fmt(r.paid) : "0"}"></label>
+    <label class="full">Notes <input id="rvNotes" value="${esc(r ? r.notes : "")}"></label>
+    </div><div class="form-actions">
+      ${r ? `<button class="btn btn-danger" id="rvDel">Delete</button>` : ""}
+      <button class="btn btn-primary" id="rvSave">Save invoice</button></div>`,
+    { title: r ? "Edit receivable" : "New receivable", small: true });
+  const numv = id => parseInt(($("#" + id).value || "0").replace(/[^\d-]/g, ""), 10) || 0;
+  $("#rvSave").onclick = async () => {
+    const body = {
+      client: $("#rvClient").value, invoice_no: $("#rvInv").value,
+      invoice_date: $("#rvIdate").value || null, due_date: $("#rvDue").value || null,
+      amount: numv("rvAmount"), paid: numv("rvPaid"), notes: $("#rvNotes").value,
+    };
+    try {
+      if (r) await api("/api/receivables/" + r.id, { method: "PUT", json: body });
+      else await api("/api/receivables", { json: Object.assign(body, { company_id: parseInt($("#rvCompany").value, 10) }) });
+      toast("Receivable saved"); closeModal(); reload();
+    } catch (e) { toast(e.message, true); }
+  };
+  if ($("#rvDel")) $("#rvDel").onclick = async () => {
+    if (!confirm("Delete this invoice from AR aging?")) return;
+    try { await api("/api/receivables/" + r.id, { method: "DELETE" }); toast("Deleted"); closeModal(); reload(); }
+    catch (e) { toast(e.message, true); }
+  };
 }
 
 /* ------------------------------------------------------------------ investments */

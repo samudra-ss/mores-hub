@@ -244,7 +244,21 @@ CREATE TABLE IF NOT EXISTS app_settings (
     value TEXT NOT NULL DEFAULT ''
 );
 
+CREATE TABLE IF NOT EXISTS receivables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL REFERENCES companies(id),
+    client TEXT NOT NULL DEFAULT '',
+    invoice_no TEXT NOT NULL DEFAULT '',
+    invoice_date TEXT,
+    due_date TEXT,
+    amount REAL NOT NULL DEFAULT 0,
+    paid REAL NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_entry ON journal_lines(entry_id);
+CREATE INDEX IF NOT EXISTS idx_receivables_company ON receivables(company_id);
 CREATE INDEX IF NOT EXISTS idx_lines_account ON journal_lines(account_id);
 CREATE INDEX IF NOT EXISTS idx_lines_project ON journal_lines(project_id);
 CREATE INDEX IF NOT EXISTS idx_entries_company_date ON journal_entries(company_id, date);
@@ -661,6 +675,7 @@ def delete_company_cascade(conn, company_id):
     conn.execute("DELETE FROM investment_events WHERE investment_id IN "
                  "(SELECT id FROM investments WHERE company_id=?)", (cid,))
     conn.execute("DELETE FROM investments WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM receivables WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM journal_lines WHERE entry_id IN "
                  "(SELECT id FROM journal_entries WHERE company_id=?)", (cid,))
     conn.execute("DELETE FROM journal_entries WHERE company_id=?", (cid,))
@@ -699,6 +714,14 @@ def migrate_database(conn):
     _ensure_source_column(conn)
     conn.execute("CREATE TABLE IF NOT EXISTS app_settings ("
                  "key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS receivables ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "company_id INTEGER NOT NULL REFERENCES companies(id),"
+        "client TEXT NOT NULL DEFAULT '', invoice_no TEXT NOT NULL DEFAULT '',"
+        "invoice_date TEXT, due_date TEXT, amount REAL NOT NULL DEFAULT 0,"
+        "paid REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
     # drop the legacy holding first so the COA top-up only touches survivors
     remove_holding(conn)
     for r in conn.execute("SELECT id FROM companies").fetchall():

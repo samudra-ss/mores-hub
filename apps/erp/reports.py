@@ -527,6 +527,82 @@ def cash_flow(conn, company_ids, year):
     }
 
 
+# ---- Accounts Receivable aging (Piutang) ----------------------------------
+AR_STATUS = {
+    "current": "Current (Lancar)", "late_1_30": "Late 1–30 (Terlambat)",
+    "late_31_60": "Late 31–60 (Terlambat)", "late_61_90": "Late 61–90 (Terlambat)",
+    "bad": "Bad / >90 (Macet)", "paid": "Paid (Lunas)",
+}
+AR_BUCKETS = ["not_due", "d1_30", "d31_60", "d61_90", "d90"]
+AR_BUCKET_LABELS = {
+    "not_due": "Not Due", "d1_30": "1–30 d", "d31_60": "31–60 d",
+    "d61_90": "61–90 d", "d90": "> 90 d",
+}
+
+
+def receivables_aging(conn, company_ids, as_of):
+    """Per-invoice AR aging as of a report date, plus bucket totals & summary.
+    Aging runs on the OUTSTANDING amount (amount − paid); fully-paid rows drop
+    out of the buckets and are marked Paid."""
+    ph, ids = _company_filter(company_ids)
+    rows = conn.execute(
+        "SELECT r.*, c.code AS company_code FROM receivables r "
+        "JOIN companies c ON c.id = r.company_id "
+        "WHERE r.company_id IN (%s) ORDER BY r.due_date IS NULL, r.due_date, r.id" % ph,
+        ids).fetchall()
+    try:
+        as_of_d = datetime.date.fromisoformat(as_of)
+    except (ValueError, TypeError):
+        as_of_d = datetime.date.today()
+    items, buckets = [], {b: 0.0 for b in AR_BUCKETS}
+    total_amount = total_out = 0.0
+    for r in rows:
+        amount = round(r["amount"] or 0, 2)
+        paid = round(r["paid"] or 0, 2)
+        outstanding = round(amount - paid, 2)
+        total_amount = round(total_amount + amount, 2)
+        bucket, days = None, None
+        if outstanding <= 0.005:
+            status = "paid"
+        else:
+            total_out = round(total_out + outstanding, 2)
+            due = None
+            if r["due_date"]:
+                try:
+                    due = datetime.date.fromisoformat(r["due_date"])
+                except ValueError:
+                    due = None
+            days = (as_of_d - due).days if due else 0
+            if days <= 0:
+                bucket, status = "not_due", "current"
+            elif days <= 30:
+                bucket, status = "d1_30", "late_1_30"
+            elif days <= 60:
+                bucket, status = "d31_60", "late_31_60"
+            elif days <= 90:
+                bucket, status = "d61_90", "late_61_90"
+            else:
+                bucket, status = "d90", "bad"
+            buckets[bucket] = round(buckets[bucket] + outstanding, 2)
+        items.append({
+            "id": r["id"], "company_code": r["company_code"], "client": r["client"],
+            "invoice_no": r["invoice_no"], "invoice_date": r["invoice_date"],
+            "due_date": r["due_date"], "amount": amount, "paid": paid,
+            "outstanding": outstanding,
+            "days_overdue": (max(days, 0) if days is not None else None),
+            "bucket": bucket, "status": status, "status_label": AR_STATUS.get(status, status),
+            "notes": r["notes"],
+        })
+    summary = [{"bucket": b, "label": AR_BUCKET_LABELS[b], "amount": buckets[b],
+                "pct": round(100.0 * buckets[b] / total_out, 1) if total_out else 0.0}
+               for b in AR_BUCKETS]
+    return {
+        "as_of": as_of_d.isoformat(), "items": items, "buckets": buckets, "summary": summary,
+        "total_amount": total_amount, "total_outstanding": total_out, "risky": buckets["d90"],
+        "status_labels": AR_STATUS, "bucket_labels": AR_BUCKET_LABELS,
+    }
+
+
 def dashboard(conn, company_ids, year, thresholds=None):
     date_from, date_to = "%d-01-01" % year, "%d-12-31" % year
     pnl = profit_and_loss(conn, company_ids, date_from, date_to)
@@ -655,6 +731,11 @@ def dashboard(conn, company_ids, year, thresholds=None):
                                       % months_elapsed, "amount": cost_overrun})
 
     net_position = round(ar - ap, 2)
+    # risky AR (>90 days outstanding) from the AR Aging module, as of today
+    try:
+        risky_ar = receivables_aging(conn, company_ids, today)["risky"]
+    except Exception:
+        risky_ar = None
 
     proj = project_performance(conn, company_ids, year)
     cf = cash_flow(conn, company_ids, year)
@@ -720,7 +801,7 @@ def dashboard(conn, company_ids, year, thresholds=None):
         "warnings": warnings,
         "ar_ap": {
             "ar": ar, "ap": ap, "net_position": net_position,
-            "risky_ar": None,  # populated by the AR Aging module (next wave)
+            "risky_ar": risky_ar,  # >90-day outstanding from AR Aging
             "free_cash": cash,
         },
         "cost_overrun": {"over": cost_overrun, "prorated_budget": budget_prorated,

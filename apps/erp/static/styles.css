@@ -387,6 +387,10 @@ html[data-theme="dark"] .warn.watch { background: rgba(200,122,8,.16); border-co
 .confirm-del p { margin: 0 0 12px; }
 .confirm-del .seg-check { margin-bottom: 16px; color: var(--text); }
 
+/* AR aging (Piutang) table — compact for many columns */
+.ar-tbl { font-size: 12.5px; }
+.ar-tbl th, .ar-tbl td { padding: 6px 8px; white-space: nowrap; }
+
 /* opening-balances editor footer */
 .ob-foot { display: flex; justify-content: space-between; align-items: center;
   gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
