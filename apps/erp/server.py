@@ -1079,6 +1079,40 @@ def report_cash_flow():
     return jsonify(data)
 
 
+@app.get("/api/reports/cash-flow-weekly")
+@login_required
+def report_cash_flow_weekly():
+    ids, label = scope_from_request()
+    data = reports.weekly_cash_flow(db(), ids, year_param())
+    data["scope"] = label
+    return jsonify(data)
+
+
+@app.post("/api/cash-budget")
+@role_required("admin", "finance")
+def save_cash_budget():
+    """Upsert the weekly cash budget for one company/year."""
+    d = request.get_json(force=True)
+    try:
+        company_id = int(d["company_id"])
+    except (KeyError, TypeError, ValueError):
+        raise ValueError("company_id is required")
+    check_company_access(company_id)
+    year = int(d.get("year") or 2026)
+    for w in d.get("weeks", []):
+        week = int(w.get("week") or 0)
+        if not (1 <= week <= reports.CASH_WEEKS):  # reader iterates 1..52; keep in sync
+            continue
+        cin = round(float(w.get("cash_in") or 0), 2)
+        cout = round(float(w.get("cash_out") or 0), 2)
+        db().execute(
+            "INSERT INTO cash_budget (company_id, year, week, cash_in, cash_out) VALUES (?,?,?,?,?)"
+            " ON CONFLICT(company_id, year, week) DO UPDATE SET cash_in=excluded.cash_in, cash_out=excluded.cash_out",
+            (company_id, year, week, cin, cout))
+    db().commit()
+    return jsonify({"ok": True})
+
+
 @app.get("/api/export/cash-flow")
 @login_required
 def export_cash_flow():

@@ -603,6 +603,76 @@ def receivables_aging(conn, company_ids, as_of):
     }
 
 
+# ---- Weekly cash flow + cash budget ---------------------------------------
+CASH_WEEKS = 52  # week N = days [(N-1)*7+1 .. N*7]; week 52 absorbs the year-end remainder
+
+
+def _cash_week_of(date_str, year):
+    try:
+        d = datetime.date.fromisoformat(date_str)
+    except (ValueError, TypeError):
+        return None
+    if d.year != year:
+        return None
+    return min(CASH_WEEKS, (d.timetuple().tm_yday - 1) // 7 + 1)
+
+
+def _cash_week_dates(year, week):
+    start = datetime.date(year, 1, 1) + datetime.timedelta(days=(week - 1) * 7)
+    end = datetime.date(year, 12, 31) if week >= CASH_WEEKS else start + datetime.timedelta(days=6)
+    return start.isoformat(), end.isoformat()
+
+
+def weekly_cash_flow(conn, company_ids, year):
+    """Actual vs budgeted cash by week: opening balance carried forward, weekly
+    cash in/out/net/ending for both actual (11xx movements) and the per-week cash
+    budget, plus the running variance (actual ending − budget ending)."""
+    ph, ids = _company_filter(company_ids)
+    cash_cond = "a.type = 'asset' AND a.code LIKE '11%%'"
+    opening = conn.execute(
+        "SELECT COALESCE(SUM(jl.debit - jl.credit), 0) FROM journal_lines jl "
+        "JOIN journal_entries je ON je.id = jl.entry_id JOIN accounts a ON a.id = jl.account_id "
+        "WHERE je.status='posted' AND je.company_id IN (%s) AND %s AND je.date < ?"
+        % (ph, cash_cond), ids + ["%d-01-01" % year]).fetchone()[0]
+    rows = conn.execute(
+        "SELECT je.date AS d, SUM(jl.debit) AS cin, SUM(jl.credit) AS cout "
+        "FROM journal_lines jl JOIN journal_entries je ON je.id = jl.entry_id "
+        "JOIN accounts a ON a.id = jl.account_id "
+        "WHERE je.status='posted' AND je.company_id IN (%s) AND %s AND strftime('%%Y', je.date) = ? "
+        "GROUP BY je.date" % (ph, cash_cond), ids + [str(year)]).fetchall()
+    actual = {w: [0.0, 0.0] for w in range(1, CASH_WEEKS + 1)}
+    for r in rows:
+        w = _cash_week_of(r["d"], year)
+        if w:
+            actual[w][0] = round(actual[w][0] + (r["cin"] or 0), 2)
+            actual[w][1] = round(actual[w][1] + (r["cout"] or 0), 2)
+    brows = conn.execute(
+        "SELECT week, SUM(cash_in) AS cin, SUM(cash_out) AS cout FROM cash_budget "
+        "WHERE company_id IN (%s) AND year = ? GROUP BY week" % ph, ids + [year]).fetchall()
+    bud = {r["week"]: [round(r["cin"] or 0, 2), round(r["cout"] or 0, 2)] for r in brows}
+    weeks, run, brun = [], round(opening, 2), round(opening, 2)
+    t_in = t_out = bt_in = bt_out = 0.0
+    for w in range(1, CASH_WEEKS + 1):
+        cin, cout = actual[w]
+        net = round(cin - cout, 2)
+        run = round(run + net, 2)
+        bcin, bcout = bud.get(w, [0.0, 0.0])
+        bnet = round(bcin - bcout, 2)
+        brun = round(brun + bnet, 2)
+        s, e = _cash_week_dates(year, w)
+        t_in, t_out, bt_in, bt_out = t_in + cin, t_out + cout, bt_in + bcin, bt_out + bcout
+        weeks.append({"week": w, "start": s, "end": e, "cash_in": cin, "cash_out": cout,
+                      "net": net, "ending": run, "budget_in": bcin, "budget_out": bcout,
+                      "budget_net": bnet, "budget_ending": brun, "variance": round(run - brun, 2)})
+    return {
+        "year": year, "opening_balance": round(opening, 2), "weeks": weeks,
+        "total_in": round(t_in, 2), "total_out": round(t_out, 2), "total_net": round(t_in - t_out, 2),
+        "budget_total_in": round(bt_in, 2), "budget_total_out": round(bt_out, 2),
+        "budget_total_net": round(bt_in - bt_out, 2),
+        "closing": weeks[-1]["ending"], "budget_closing": weeks[-1]["budget_ending"],
+    }
+
+
 def dashboard(conn, company_ids, year, thresholds=None):
     date_from, date_to = "%d-01-01" % year, "%d-12-31" % year
     pnl = profit_and_loss(conn, company_ids, date_from, date_to)
@@ -739,6 +809,15 @@ def dashboard(conn, company_ids, year, thresholds=None):
 
     proj = project_performance(conn, company_ids, year)
     cf = cash_flow(conn, company_ids, year)
+    # weekly cash trajectory — actual vs budgeted ending balance (dashboard chart)
+    try:
+        wcf = weekly_cash_flow(conn, company_ids, year)
+        weekly_cash = [{"week": w["week"], "ending": w["ending"],
+                        "budget_ending": w["budget_ending"], "net": w["net"],
+                        "budget_net": w["budget_net"]} for w in wcf["weeks"]]
+        cash_budget_set = wcf["budget_total_in"] != 0 or wcf["budget_total_out"] != 0
+    except Exception:
+        weekly_cash, cash_budget_set = [], False
 
     ph, ids = _company_filter(company_ids)
     # per-company summary (useful on consolidated/holding view)
@@ -814,5 +893,7 @@ def dashboard(conn, company_ids, year, thresholds=None):
             "total_in": cf["total_in"], "total_out": cf["total_out"],
             "net_change": cf["net_change"], "closing_balance": cf["closing_balance"],
         },
+        "weekly_cash": weekly_cash,
+        "cash_budget_set": cash_budget_set,
         "per_company": sorted(comp.values(), key=lambda c: -c["revenue"]),
     }

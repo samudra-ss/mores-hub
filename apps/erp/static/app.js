@@ -380,6 +380,19 @@ const TR = {
   "Late 31–60 (Terlambat)": "Terlambat 31–60", "Late 61–90 (Terlambat)": "Terlambat 61–90",
   "Bad / >90 (Macet)": "Macet (>90)", "Paid (Lunas)": "Lunas",
   "1–30 d": "1–30 hr", "31–60 d": "31–60 hr", "61–90 d": "61–90 hr", "> 90 d": "> 90 hr",
+  // weekly cash flow + cash budget
+  "Monthly": "Bulanan", "Weekly": "Mingguan",
+  "Weekly Cash — Actual vs Budget": "Kas Mingguan — Aktual vs Anggaran",
+  "Weekly Cash Flow": "Arus Kas Mingguan", "set the cash budget by week": "atur anggaran kas per minggu",
+  "Save Cash Budget": "Simpan Anggaran Kas",
+  "Pick a single company to set the weekly cash budget": "Pilih satu perusahaan untuk mengatur anggaran kas mingguan",
+  "Week": "Minggu", "Period": "Periode", "Actual In": "Kas Masuk Aktual", "Actual Out": "Kas Keluar Aktual",
+  "Net": "Bersih", "Ending": "Saldo Akhir", "Budget In": "Anggaran Masuk", "Budget Out": "Anggaran Keluar",
+  "Budget Ending": "Saldo Anggaran", "Variance": "Selisih",
+  "Actual closing": "Saldo Akhir Aktual", "Budget closing": "Saldo Akhir Anggaran",
+  "Cash Flow — Actual vs Budget (Weekly)": "Arus Kas — Aktual vs Anggaran (Mingguan)",
+  "Cumulative cash position — realization vs the weekly cash budget.": "Posisi kas kumulatif — realisasi vs anggaran kas mingguan.",
+  "Set a weekly cash budget in Reports → Cash Flow → Weekly to compare against the budget line.": "Atur anggaran kas mingguan di Laporan → Arus Kas → Mingguan untuk membandingkan dengan garis anggaran.",
   // common buttons
   "Apply": "Terapkan", "Export Excel": "Ekspor Excel", "Export PDF": "Ekspor PDF",
 };
@@ -617,6 +630,15 @@ async function pageDashboard(el) {
         · Out ${fmtShort(d.cash_flow.total_out)} · Net ${fmtShort(d.cash_flow.net_change)}
         · Closing <b>${fmtShort(d.cash_flow.closing_balance)}</b></div>
     </div>
+    ${(d.weekly_cash && d.weekly_cash.length) ? `<div class="card mt"><h3>${t("Cash Flow — Actual vs Budget (Weekly)")}</h3>
+      ${chartBars(d.weekly_cash.map(w => (w.week % 4 === 1 ? "W" + w.week : "")), [
+        { name: "Actual Ending", color: C_REV, values: d.weekly_cash.map(w => w.ending), type: "line" },
+        { name: "Budget Ending", color: "#c87a08", values: d.weekly_cash.map(w => w.budget_ending), type: "line" },
+      ], { height: 280 })}
+      <div class="muted mt">${d.cash_budget_set
+        ? t("Cumulative cash position — realization vs the weekly cash budget.")
+        : t("Set a weekly cash budget in Reports → Cash Flow → Weekly to compare against the budget line.")}</div>
+    </div>` : ""}
     <div class="grid two-col mt">
       <div class="card"><h3>Project Performance — click a project for budget vs realization</h3>
         <table class="tbl"><thead><tr><th>Project</th><th>Company</th>
@@ -2030,6 +2052,60 @@ async function projectEditor(p, reload, defaultCompanyId) {
   };
 }
 
+// weekly cash flow view: actual vs budget trajectory + inline weekly cash budget
+async function renderCfWeekly(host, cid, year) {
+  const d = await api(`/api/reports/cash-flow-weekly?company_id=${cid}&year=${year}`);
+  $("#rScope").textContent = d.scope;
+  const editable = String(cid) !== "all" && canWrite();
+  const wk = d.weeks;
+  const labels = wk.map(w => (w.week % 4 === 1 || w.week === wk.length) ? "W" + w.week : "");
+  const chart = chartBars(labels, [
+    { name: "Actual Ending", color: C_REV, values: wk.map(w => w.ending), type: "line" },
+    { name: "Budget Ending", color: "#c87a08", values: wk.map(w => w.budget_ending), type: "line" },
+  ], { width: 860, height: 300 });
+  const rows = wk.map(w => `<tr>
+    <td>W${w.week}</td><td class="muted" style="white-space:nowrap">${esc(w.start.slice(5))}–${esc(w.end.slice(5))}</td>
+    <td class="num">${fmt(w.cash_in)}</td><td class="num">${fmt(w.cash_out)}</td>
+    <td class="num ${w.net >= 0 ? "pos" : "neg"}">${fmt(w.net)}</td><td class="num"><b>${fmt(w.ending)}</b></td>
+    ${editable
+      ? `<td class="num"><input class="cb-in" data-week="${w.week}" data-f="in" value="${w.budget_in ? fmt(w.budget_in) : ""}" style="width:104px;text-align:right" inputmode="numeric"></td>
+         <td class="num"><input class="cb-in" data-week="${w.week}" data-f="out" value="${w.budget_out ? fmt(w.budget_out) : ""}" style="width:104px;text-align:right" inputmode="numeric"></td>`
+      : `<td class="num muted">${fmt(w.budget_in)}</td><td class="num muted">${fmt(w.budget_out)}</td>`}
+    <td class="num muted">${fmt(w.budget_ending)}</td>
+    <td class="num ${w.variance >= 0 ? "pos" : "neg"}">${fmt(w.variance)}</td></tr>`).join("");
+  host.innerHTML = `
+    <div class="card"><h3>${t("Weekly Cash — Actual vs Budget")} (${year})</h3>${chart}
+      <div class="muted mt">Opening <b>${fmtRp(d.opening_balance)}</b> · ${t("Actual closing")} <b>${fmtRp(d.closing)}</b> · ${t("Budget closing")} <b>${fmtRp(d.budget_closing)}</b></div>
+    </div>
+    <div class="card mt">
+      <div class="page-head"><h3 style="margin:0">${t("Weekly Cash Flow")} — ${t("set the cash budget by week")}</h3>
+        ${editable ? `<button class="btn btn-sm btn-primary" id="cbSave">${t("Save Cash Budget")}</button>`
+                   : `<span class="muted">${t("Pick a single company to set the weekly cash budget")}</span>`}</div>
+      <div style="max-height:460px;overflow:auto"><table class="tbl ar-tbl">
+        <thead><tr><th>${t("Week")}</th><th>${t("Period")}</th>
+          <th class="num">${t("Actual In")}</th><th class="num">${t("Actual Out")}</th><th class="num">${t("Net")}</th><th class="num">${t("Ending")}</th>
+          <th class="num">${t("Budget In")}</th><th class="num">${t("Budget Out")}</th><th class="num">${t("Budget Ending")}</th><th class="num">${t("Variance")}</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+    </div>`;
+  if (editable) {
+    const sv = $("#cbSave");
+    if (sv) sv.onclick = async () => {
+      const numv = elx => parseInt((elx.value || "0").replace(/[^\d-]/g, ""), 10) || 0;
+      const byWeek = {};
+      $$(".cb-in").forEach(inp => {
+        const k = inp.dataset.week;
+        byWeek[k] = byWeek[k] || { week: parseInt(k, 10), cash_in: 0, cash_out: 0 };
+        byWeek[k][inp.dataset.f === "in" ? "cash_in" : "cash_out"] = numv(inp);
+      });
+      try {
+        await api("/api/cash-budget", { json: { company_id: parseInt(cid, 10), year, weeks: Object.values(byWeek) } });
+        toast("Cash budget saved — chart updated");
+        renderCfWeekly(host, cid, year);
+      } catch (e) { toast(e.message, true); }
+    };
+  }
+}
+
 /* ------------------------------------------------------------------ reports */
 async function pageReports(el) {
   el.innerHTML = `
@@ -2180,24 +2256,32 @@ async function pageReports(el) {
       if ($("#tbOpening")) $("#tbOpening").onclick = () => openOpeningBalances(run);
       await run();
     } else if (tab === "cf") {
-      const cfDefault = state.companyId !== "all" ? state.companyId : firstCompanyId();
+      const cfDefault = state.cfCompany || (state.companyId !== "all" ? state.companyId : firstCompanyId());
+      if (!state.cfView) state.cfView = "monthly";
+      const weekly = state.cfView === "weekly";
       body.innerHTML = `<div class="filters">
           <label>Company <select id="cfCompany">${companyOptions(cfDefault, { includeAll: true })}</select></label>
-          <a class="btn" id="cfExp">&#x2913; Export Excel</a>
-          <a class="btn" id="cfExpPdf">&#x1F4C4; Export PDF</a>
+          <div class="seg-group" id="cfViewSeg">
+            <button class="seg ${!weekly ? "active" : ""}" data-v="monthly">${t("Monthly")}</button>
+            <button class="seg ${weekly ? "active" : ""}" data-v="weekly">${t("Weekly")}</button>
+          </div>
+          <a class="btn" id="cfExp" ${weekly ? 'style="display:none"' : ""}>&#x2913; Export Excel</a>
+          <a class="btn" id="cfExpPdf" ${weekly ? 'style="display:none"' : ""}>&#x1F4C4; Export PDF</a>
           <span class="muted">Cash &amp; bank accounts (11xx) — year ${state.year}</span></div>
         <div id="cfDetail"></div><div id="cfCompare"></div>`;
       const runCf = async () => {
         const cid = $("#cfCompany").value;
+        if (state.cfView === "weekly") { $("#cfCompare").innerHTML = ""; await renderCfWeekly($("#cfDetail"), cid, state.year); return; }
         const d = await api(`/api/reports/cash-flow?company_id=${cid}&year=${state.year}`);
         $("#rScope").textContent = d.scope;
         $("#cfExp").href = `/api/export/cash-flow?company_id=${cid}&year=${state.year}`;
         $("#cfExpPdf").href = `/api/export/pdf/cash-flow?company_id=${cid}&year=${state.year}`;
         renderCfDetail(d);
       };
-      $("#cfCompany").onchange = runCf;
+      $("#cfCompany").onchange = () => { state.cfCompany = $("#cfCompany").value; runCf(); };
+      $$("#cfViewSeg .seg").forEach(b => b.onclick = () => { state.cfView = b.dataset.v; show(); });
       await runCf();
-      if (state.me.companies.length > 1) {
+      if (!weekly && state.me.companies.length > 1) {
         const per = await Promise.all(state.me.companies.map(c =>
           api(`/api/reports/cash-flow?company_id=${c.id}&year=${state.year}`).then(d => ({ c, d }))));
         $("#cfCompare").innerHTML = `<h3 class="mt">Per Company Comparison (${state.year})</h3>
