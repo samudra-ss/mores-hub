@@ -350,6 +350,7 @@ const TR = {
   "Budget Used": "Anggaran Terpakai",
   "Monthly Revenue vs Expense — IDR": "Pendapatan vs Beban Bulanan — IDR",
   "Expense Breakdown — Realization vs Budget": "Rincian Beban — Realisasi vs Anggaran",
+  "Operating Expenses (6000)": "Beban Operasional (6000)",
   // report / page titles + tabs
   "Financial Reports": "Laporan Keuangan", "Profit & Loss": "Laba Rugi",
   "Cash Flow": "Arus Kas", "Balance Sheet": "Neraca", "Trial Balance": "Neraca Saldo",
@@ -540,8 +541,11 @@ async function pageDashboard(el) {
   const bvaPct = k.budget_used_pct;
   const holding = state.me.companies.find(c => c.is_holding);
   const seg = (label, val) => `<button class="seg ${String(state.companyId) === String(val) ? "active" : ""}" data-scope="${val}">${label}</button>`;
+  // Expense breakdown shows only the Operating Expenses group (6000) and its
+  // subsidiaries (61xx–69xx); COGS (5xxx), interest (72xx) and C-AKUN (73xx) are excluded.
+  const opexRows = d.expense_breakdown.filter(r => String(r.code).startsWith("6"));
   // Office Expense = rent (6200) + utilities (6300) + office & admin group (66xx, incl. bank admin fees)
-  const officeRows = d.expense_breakdown.filter(r => ["6200", "6300"].includes(r.code) || String(r.code).startsWith("66"));
+  const officeRows = opexRows.filter(r => ["6200", "6300"].includes(r.code) || String(r.code).startsWith("66"));
   const officeActual = round2(officeRows.reduce((a, r) => a + r.actual, 0));
   const officeBudget = round2(officeRows.reduce((a, r) => a + r.budget, 0));
   const officeUsed = officeBudget ? Math.round(100 * officeActual / officeBudget) : null;
@@ -583,8 +587,8 @@ async function pageDashboard(el) {
           { name: "Expense", color: C_EXP, values: monthly.map(m => m.expense) },
           { name: "Profit", color: C_PROFIT, values: monthly.map(m => m.profit), type: "line" },
         ])}</div>
-      <div class="card"><h3>${t("Expense Breakdown — Realization vs Budget")}</h3>
-        ${chartDonut(d.expense_breakdown.slice(0, 8).map((r, i) => ({
+      <div class="card"><h3>${t("Expense Breakdown — Realization vs Budget")} <span class="muted" style="font-weight:500;font-size:13px">· ${t("Operating Expenses (6000)")}</span></h3>
+        ${chartDonut(opexRows.slice(0, 8).map((r, i) => ({
           label: r.code + " " + r.name, value: r.actual, color: PALETTE[i % PALETTE.length] })))}
         <div class="office-total mt">
           <span><b>Office Expense</b> <span class="muted">(rent · utilities · admin)</span></span>
@@ -593,13 +597,13 @@ async function pageDashboard(el) {
         </div>
         <div style="max-height:240px;overflow:auto" class="mt"><table class="tbl">
           <thead><tr><th>Account</th><th class="num">Realization</th><th class="num">Budget</th><th class="num">Used</th></tr></thead>
-          <tbody>${d.expense_breakdown.map(r => {
+          <tbody>${opexRows.map(r => {
             const used = r.budget ? Math.round(100 * r.actual / r.budget) : null;
             return `<tr><td>${esc(r.code)} ${esc(r.name)}</td>
               <td class="num">${fmt(r.actual)}</td>
               <td class="num muted">${fmt(r.budget)}</td>
               <td class="num ${used != null && used > 100 ? "neg" : ""}">${used == null ? "—" : used + "%"}</td></tr>`;
-          }).join("") || `<tr><td colspan="4" class="empty">No expenses</td></tr>`}</tbody></table></div>
+          }).join("") || `<tr><td colspan="4" class="empty">No operating expenses</td></tr>`}</tbody></table></div>
       </div>
     </div>
     <div class="grid two-col mt">
@@ -1319,9 +1323,11 @@ async function pageBank(el) {
   let txs = [], accounts = [], projects = [], mode = "paste";
 
   async function loadCompanyData() {
+    // accounts must belong to the import company; projects span the whole
+    // database (a bank line can be tagged to any project, in any company)
     [accounts, projects] = await Promise.all([
       api("/api/accounts?company_id=" + $("#bkCompany").value),
-      api("/api/projects?company_id=" + $("#bkCompany").value),
+      api("/api/projects?company_id=all"),
     ]);
     accounts = accounts.filter(a => a.is_active);
     const banks = accounts.filter(a => a.type === "asset" && a.code.startsWith("11"));
@@ -1343,8 +1349,13 @@ async function pageBank(el) {
       + grp("Liabilities", accounts.filter(a => a.type === "liability"));
   }
   function projectOpts(sel) {
-    return `<option value="">—</option>` + projects.map(p =>
-      `<option value="${p.id}" ${String(sel) === String(p.id) ? "selected" : ""}>${esc(p.code)}</option>`).join("");
+    // all projects in the database, grouped by company so the source is clear
+    const byCo = {};
+    projects.forEach(p => { (byCo[p.company_code] = byCo[p.company_code] || []).push(p); });
+    const groups = Object.keys(byCo).sort().map(co =>
+      `<optgroup label="${esc(co)}">` + byCo[co].map(p =>
+        `<option value="${p.id}" ${String(sel) === String(p.id) ? "selected" : ""}>${esc(p.code)} — ${esc(p.name)}</option>`).join("") + "</optgroup>").join("");
+    return `<option value="">—</option>` + groups;
   }
 
   const balanceCell = t => {
