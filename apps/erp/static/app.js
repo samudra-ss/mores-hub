@@ -393,6 +393,14 @@ const TR = {
   "Cash Flow — Actual vs Budget (Weekly)": "Arus Kas — Aktual vs Anggaran (Mingguan)",
   "Cumulative cash position — realization vs the weekly cash budget.": "Posisi kas kumulatif — realisasi vs anggaran kas mingguan.",
   "Set a weekly cash budget in Reports → Cash Flow → Weekly to compare against the budget line.": "Atur anggaran kas mingguan di Laporan → Arus Kas → Mingguan untuk membandingkan dengan garis anggaran.",
+  // budget vs realization tabs
+  "Revenue": "Pendapatan", "Expenses": "Beban", "Budget": "Anggaran", "Realization": "Realisasi",
+  "Variance vs Target": "Selisih vs Target", "Over / (Under)": "Lebih / (Kurang)",
+  "Achieved": "Tercapai", "Used": "Terpakai",
+  "Realization = posted actuals (Realisasi)": "Realisasi = aktual yang sudah diposting",
+  "Revenue target (budget) vs realization. Green = at or above target.": "Target pendapatan (anggaran) vs realisasi. Hijau = mencapai atau melebihi target.",
+  "Expense budget vs realization. Green = at or under budget; red = overspent.": "Anggaran beban vs realisasi. Hijau = sesuai atau di bawah anggaran; merah = melebihi anggaran.",
+  "No revenue budget": "Belum ada anggaran pendapatan", "No expense budget": "Belum ada anggaran beban",
   // common buttons
   "Apply": "Terapkan", "Export Excel": "Ekspor Excel", "Export PDF": "Ekspor PDF",
 };
@@ -2297,18 +2305,50 @@ async function pageReports(el) {
     } else if (tab === "bva") {
       const d = await api(`/api/reports/budget-vs-actual?${scopeQS()}`);
       $("#rScope").textContent = d.scope;
-      body.innerHTML = `<div class="filters"><a class="btn" href="/api/export/budget-vs-actual?${scopeQS()}">&#x2913; Export Excel</a>
-        <a class="btn" href="/api/export/pdf/budget-vs-actual?${scopeQS()}">&#x1F4C4; Export PDF</a>
-        <span class="muted">Realization = posted actuals (Realisasi)</span></div>
-        <table class="tbl"><thead><tr><th>Code</th><th>Account</th><th>Type</th>
-        <th class="num">Budget</th><th class="num">Realization</th><th class="num">Variance</th><th class="num">Used</th></tr></thead>
-        <tbody>${d.rows.map(r => {
-          const bad = r.type === "expense" ? r.variance > 0 : r.variance < 0;
-          return `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td>${r.type}</td>
+      if (!state.bvaKind) state.bvaKind = "revenue";
+      body.innerHTML = `<div class="filters">
+        <div class="seg-group" id="bvaSeg">
+          <button class="seg ${state.bvaKind === "revenue" ? "active" : ""}" data-k="revenue">${t("Revenue")}</button>
+          <button class="seg ${state.bvaKind === "expense" ? "active" : ""}" data-k="expense">${t("Expenses")}</button>
+        </div>
+        <a class="btn" href="/api/export/budget-vs-actual?${scopeQS()}">&#x2913; ${t("Export Excel")}</a>
+        <a class="btn" href="/api/export/pdf/budget-vs-actual?${scopeQS()}">&#x1F4C4; ${t("Export PDF")}</a>
+        <span class="muted">${t("Realization = posted actuals (Realisasi)")}</span></div>
+        <div id="bvaBody"></div>`;
+      const renderBva = () => {
+        const isRev = state.bvaKind === "revenue";
+        const rows = d.rows.filter(r => r.type === state.bvaKind);
+        const tBudget = isRev ? d.total_budget_revenue : d.total_budget_expense;
+        const tActual = isRev ? d.total_actual_revenue : d.total_actual_expense;
+        const tVar = round2(tActual - tBudget);
+        const tUsed = tBudget ? Math.round(100 * tActual / tBudget) : null;
+        const goodVar = v => isRev ? v >= 0 : v <= 0;        // rev: ≥target good · exp: ≤budget good
+        const badUsed = p => p != null && (isRev ? p < 100 : p > 100);
+        $("#bvaBody").innerHTML = `
+          <p class="muted" style="margin-top:-4px">${isRev
+            ? t("Revenue target (budget) vs realization. Green = at or above target.")
+            : t("Expense budget vs realization. Green = at or under budget; red = overspent.")}</p>
+          <table class="tbl"><thead><tr><th>Code</th><th>Account</th>
+            <th class="num">${t("Budget")}</th><th class="num">${t("Realization")}</th>
+            <th class="num">${isRev ? t("Variance vs Target") : t("Over / (Under)")}</th>
+            <th class="num">${isRev ? t("Achieved") : t("Used")}</th></tr></thead>
+          <tbody>${rows.map(r => `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td>
             <td class="num">${fmt(r.budget)}</td><td class="num">${fmt(r.actual)}</td>
-            <td class="num ${bad ? "neg" : "pos"}">${fmt(r.variance)}</td>
-            <td class="num">${r.used_pct == null ? "-" : r.used_pct + "%"}</td></tr>`;
-        }).join("") || `<tr><td colspan="7" class="empty">No budget for ${state.year}</td></tr>`}</tbody></table>`;
+            <td class="num ${goodVar(r.variance) ? "pos" : "neg"}">${fmt(r.variance)}</td>
+            <td class="num ${badUsed(r.used_pct) ? "neg" : ""}">${r.used_pct == null ? "-" : r.used_pct + "%"}</td></tr>`).join("")
+            || `<tr><td colspan="6" class="empty">${isRev ? t("No revenue budget") : t("No expense budget")} — ${state.year}</td></tr>`}
+            <tr class="total"><td colspan="2">${t("TOTAL")} ${isRev ? t("Revenue") : t("Expenses")}</td>
+              <td class="num">${fmt(tBudget)}</td><td class="num">${fmt(tActual)}</td>
+              <td class="num ${goodVar(tVar) ? "pos" : "neg"}">${fmt(tVar)}</td>
+              <td class="num ${badUsed(tUsed) ? "neg" : ""}">${tUsed == null ? "-" : tUsed + "%"}</td></tr>
+          </tbody></table>`;
+      };
+      $$("#bvaSeg .seg").forEach(b => b.onclick = () => {
+        state.bvaKind = b.dataset.k;
+        $$("#bvaSeg .seg").forEach(x => x.classList.toggle("active", x === b));
+        renderBva();
+      });
+      renderBva();
     }
   }
   await show();
