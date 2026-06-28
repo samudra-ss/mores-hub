@@ -73,6 +73,41 @@ body::before {
   display: none; align-items: center; justify-content: center; }
 .tile:hover .del { display: flex; }
 .tile .del:hover { background: #bd362f; }
+.tile .gear { position: absolute; top: 10px; right: 40px; width: 26px; height: 26px; border-radius: 7px;
+  border: none; cursor: pointer; background: rgba(8,11,13,.5); color: #fff; font-size: 14px; line-height: 1;
+  display: none; align-items: center; justify-content: center; }
+.tile:hover .gear { display: flex; }
+.tile .gear:hover { background: var(--teal); }
+.tile .art .emoji { font-size: 64px; line-height: 1; }
+/* frozen / no-access states */
+.tile.frozen .art { filter: grayscale(.7) brightness(.7); }
+.tile .chip.frozenchip { background: #6b5300; color: #ffe6a3; }
+.tile.locked { opacity: .62; cursor: not-allowed; }
+.tile.locked:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.tile.locked .art::after { content: "🔒"; position: absolute; font-size: 30px; }
+/* access roles on the tile */
+.tile .access { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.acc-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.acc-k { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); width: 34px; }
+.rb { font-size: 9.5px; font-weight: 600; padding: 1.5px 6px; border-radius: 5px; letter-spacing: .02em; }
+.rb-admin { background: rgba(0,162,182,.2); color: #56c8d8; }
+.rb-finance { background: rgba(31,157,87,.2); color: #7fd3a0; }
+.rb-viewer { background: rgba(154,166,177,.18); color: #aeb8c2; }
+.rb-none { background: rgba(154,166,177,.14); color: var(--muted); }
+/* profile modal pickers */
+.pick-row { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 16px; }
+.pick { width: 38px; height: 38px; border-radius: 9px; border: 1px solid #2a323b; background: #0f1318;
+  cursor: pointer; font-size: 19px; display: flex; align-items: center; justify-content: center; padding: 0; }
+.pick.sel { border-color: var(--teal-bright); box-shadow: 0 0 0 2px rgba(0,188,210,.4); }
+.swatch { width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+.swatch.sel { border-color: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.4) inset; }
+.role-grid { display: flex; gap: 16px; flex-wrap: wrap; margin: 2px 0 16px; }
+.role-grid label { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text); font-weight: 500; margin: 0; cursor: pointer; }
+.role-grid input { width: 15px; height: 15px; accent-color: var(--teal); }
+.role-grid input:disabled { accent-color: var(--muted); }
+.freeze-row { display: flex; align-items: center; gap: 9px; margin: 4px 0 16px; padding: 11px 13px;
+  background: rgba(200,122,8,.1); border: 1px solid rgba(200,122,8,.3); border-radius: 9px; color: #f0c489; font-size: 13px; }
+.fld-label { font-size: 12px; font-weight: 600; color: #c2c8cd; margin: 14px 0 4px; }
 /* create tile */
 .tile.create { background: transparent; border: 2px dashed #2b343c; }
 .tile.create:hover { border-color: var(--teal-bright); background: rgba(0,162,182,.05); }
@@ -142,6 +177,42 @@ body::before {
       <div class="err" id="cErr"></div>
     </div>
   </div>
+
+  <!-- database settings (profile) modal — admin only -->
+  <div class="backdrop" id="pBackdrop">
+    <div class="modal" style="width:min(480px,100%)">
+      <h3>Database Settings</h3>
+      <p id="pName" style="font-family:var(--mono);color:var(--teal-bright);margin-bottom:16px"></p>
+
+      <div class="fld-label">Picture</div>
+      <div class="pick-row" id="pIcons"></div>
+
+      <div class="fld-label">Tile colour</div>
+      <div class="pick-row" id="pColors"></div>
+
+      <label class="freeze-row"><input type="checkbox" id="pFrozen">
+        <span><b>Freeze this database</b> — lock it so no one (except admins) can open or edit it.</span></label>
+
+      <div class="fld-label">Who can ENTER (open) this database</div>
+      <div class="role-grid" id="pEnter">
+        <label><input type="checkbox" data-role="admin" checked disabled> Admin</label>
+        <label><input type="checkbox" data-role="finance"> Accountant</label>
+        <label><input type="checkbox" data-role="viewer"> Viewer / Auditor</label>
+      </div>
+
+      <div class="fld-label">Who can EDIT (write) in this database</div>
+      <div class="role-grid" id="pEdit">
+        <label><input type="checkbox" data-role="admin" checked disabled> Admin</label>
+        <label><input type="checkbox" data-role="finance"> Accountant</label>
+      </div>
+
+      <div class="acts" style="margin-top:18px">
+        <button class="btn" id="pCancel">Cancel</button>
+        <button class="btn primary" id="pSave">Save settings</button>
+      </div>
+      <div class="err" id="pErr"></div>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
 
 <script>
@@ -176,18 +247,39 @@ async function load() {
   render(d);
 }
 
+let dbList = [];
+const ROLE_SHORT = { admin: 'Admin', finance: 'Accountant', viewer: 'Viewer' };
+const ICON_PRESETS = ['🏪','🏢','🏦','📊','💼','🧪','📁','⭐','🚀','🧮','🗂️','🔒'];
+const COLOR_PRESETS = ['#00a2b6','#2f6db0','#1f9d57','#c87a08','#bd362f','#7a5af0','#5b6b80','#0c1013'];
+function roleBadges(roles) {
+  if (!roles || !roles.length) return '<span class="rb rb-none">none</span>';
+  return roles.map(r => `<span class="rb rb-${r}">${ROLE_SHORT[r] || r}</span>`).join(' ');
+}
+
 function render(d) {
+  dbList = d.databases;
   const tiles = d.databases.map(db => {
     const isGroup = db.name === d.default;
-    const chip = db.active ? 'ACTIVE' : (isGroup ? 'LIVE · GROUP' : 'SANDBOX');
-    const meta = db.active ? 'Currently open' : (isGroup ? 'Your live group data' : 'Separate data store');
+    const frozen = db.frozen;
+    const locked = !db.can_enter;
+    const chip = db.active ? 'ACTIVE' : (frozen ? 'FROZEN' : (isGroup ? 'LIVE · GROUP' : 'SANDBOX'));
+    const meta = db.active ? 'Currently open' : (frozen ? 'Locked by admin' : (isGroup ? 'Your live group data' : 'Separate data store'));
+    const gear = canManage ? `<button class="gear" data-cfg="${esc(db.name)}" title="Database settings">&#9881;</button>` : '';
     const del = (canManage && db.deletable && !db.active)
       ? `<button class="del" data-del="${esc(db.name)}" title="Delete database">&times;</button>` : '';
-    return `<div class="tile ${db.active ? 'active' : ''}" data-open="${esc(db.name)}">
-      <div class="chip">${chip}</div>${del}
-      <div class="art">${SHOP}</div>
+    const art = db.icon
+      ? `<div class="art" style="background:${esc(db.color || '#00a2b6')}"><span class="emoji">${esc(db.icon)}</span></div>`
+      : `<div class="art">${SHOP}</div>`;
+    return `<div class="tile ${db.active ? 'active' : ''} ${frozen ? 'frozen' : ''} ${locked ? 'locked' : ''}"
+        data-open="${esc(db.name)}" data-enter="${db.can_enter ? 1 : 0}">
+      <div class="chip ${frozen ? 'frozenchip' : ''}">${chip}</div>${gear}${del}
+      ${art}
       <div class="label"><div class="name" title="${esc(db.name)}">${esc(db.name)}</div>
-        <div class="meta">${meta}</div></div>
+        <div class="meta">${meta}</div>
+        <div class="access">
+          <span class="acc-row"><span class="acc-k">Enter</span> ${roleBadges(db.enter_roles)}</span>
+          <span class="acc-row"><span class="acc-k">Edit</span> ${roleBadges(db.edit_roles)}</span>
+        </div></div>
     </div>`;
   }).join('');
   const createTile = canManage
@@ -197,9 +289,11 @@ function render(d) {
   grid.innerHTML = tiles + createTile;
 
   grid.querySelectorAll('[data-open]').forEach(t => t.onclick = (e) => {
-    if (e.target.closest('[data-del]')) return;
+    if (e.target.closest('[data-del]') || e.target.closest('[data-cfg]')) return;
+    if (t.dataset.enter !== '1') { toast('You don\'t have access to open this database.', true); return; }
     open(t.dataset.open, t.classList.contains('active'));
   });
+  grid.querySelectorAll('[data-cfg]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openProfile(b.dataset.cfg); });
   grid.querySelectorAll('[data-del]').forEach(b => b.onclick = async (e) => {
     e.stopPropagation();
     const name = b.dataset.del;
@@ -210,6 +304,46 @@ function render(d) {
   const ct = document.getElementById('createTile');
   if (ct) ct.onclick = openCreate;
 }
+
+/* database settings (profile) modal — admin only */
+const pBackdrop = document.getElementById('pBackdrop');
+let pCurrent = { name: '', icon: '', color: '#00a2b6' };
+function pMarkSel() {
+  document.querySelectorAll('#pIcons .pick').forEach(b => b.classList.toggle('sel', b.dataset.icon === pCurrent.icon));
+  document.querySelectorAll('#pColors .swatch').forEach(b => b.classList.toggle('sel', (b.dataset.color || '').toLowerCase() === (pCurrent.color || '').toLowerCase()));
+}
+function openProfile(name) {
+  const db = dbList.find(x => x.name === name);
+  if (!db) return;
+  if (!document.getElementById('pIcons').children.length) {
+    document.getElementById('pIcons').innerHTML = `<button class="pick" data-icon="" title="Default shop icon">&#127978;</button>`
+      + ICON_PRESETS.map(ic => `<button class="pick" data-icon="${ic}">${ic}</button>`).join('');
+    document.getElementById('pColors').innerHTML = COLOR_PRESETS.map(c => `<button class="swatch" data-color="${c}" style="background:${c}"></button>`).join('');
+  }
+  pCurrent = { name, icon: db.icon || '', color: db.color || '#00a2b6' };
+  document.getElementById('pName').textContent = name;
+  document.getElementById('pFrozen').checked = !!db.frozen;
+  document.querySelectorAll('#pEnter input').forEach(i => { if (!i.disabled) i.checked = (db.enter_roles || []).includes(i.dataset.role); });
+  document.querySelectorAll('#pEdit input').forEach(i => { if (!i.disabled) i.checked = (db.edit_roles || []).includes(i.dataset.role); });
+  document.getElementById('pErr').textContent = '';
+  pMarkSel();
+  pBackdrop.classList.add('show');
+}
+function closeProfile() { pBackdrop.classList.remove('show'); }
+document.getElementById('pIcons').onclick = e => { const b = e.target.closest('.pick'); if (b) { pCurrent.icon = b.dataset.icon; pMarkSel(); } };
+document.getElementById('pColors').onclick = e => { const b = e.target.closest('.swatch'); if (b) { pCurrent.color = b.dataset.color; pMarkSel(); } };
+document.getElementById('pCancel').onclick = closeProfile;
+pBackdrop.addEventListener('mousedown', e => { if (e.target === pBackdrop) closeProfile(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeProfile(); });
+document.getElementById('pSave').onclick = async () => {
+  const enter_roles = [...document.querySelectorAll('#pEnter input:checked')].map(i => i.dataset.role);
+  const edit_roles = [...document.querySelectorAll('#pEdit input:checked')].map(i => i.dataset.role);
+  try {
+    await jpost('/api/databases/' + encodeURIComponent(pCurrent.name) + '/profile',
+      { icon: pCurrent.icon, color: pCurrent.color, frozen: document.getElementById('pFrozen').checked, enter_roles, edit_roles }, 'PUT');
+    closeProfile(); toast('Database settings saved'); load();
+  } catch (e) { document.getElementById('pErr').textContent = e.message; }
+};
 
 async function open(name, isActive) {
   try {

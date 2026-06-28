@@ -92,6 +92,48 @@ def role_required(*roles):
     return deco
 
 
+# writes that must keep working even in a frozen/read-only database
+WRITE_GUARD_ALLOW = {"/api/login", "/api/logout", "/api/databases/switch"}
+
+
+@app.before_request
+def _enforce_frozen_db():
+    """Block writes when the active database is frozen or the user's role isn't
+    allowed to edit it. Recomputed live from the database's own profile on every
+    write, so a freeze / role change takes effect immediately for every session
+    (no reliance on a cached flag that could be stale or missing)."""
+    if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
+        return
+    if not request.path.startswith("/api/") or request.path in WRITE_GUARD_ALLOW:
+        return
+    uid = session.get("user_id")
+    if not uid:
+        return  # unauthenticated — the view's login_required returns 401
+    user = db().execute("SELECT role FROM users WHERE id=? AND is_active=1", (uid,)).fetchone()
+    if user is None:
+        return
+    if not _can_edit(database.get_db_profile(db()), user["role"]):
+        return jsonify({"error": "This database is read-only for your account "
+                        "(frozen or access-restricted). Open a database you can edit."}), 403
+
+
+def _db_profile_of(name):
+    """Read a named database's access profile (own short-lived connection)."""
+    conn = database.get_db(name)
+    try:
+        return database.get_db_profile(conn)
+    finally:
+        conn.close()
+
+
+def _can_enter(prof, role):
+    return role == "admin" or (not prof["frozen"] and role in prof["enter_roles"])
+
+
+def _can_edit(prof, role):
+    return role == "admin" or (not prof["frozen"] and role in prof["edit_roles"])
+
+
 def accessible_company_ids():
     """All active company ids the current user may see."""
     rows = db().execute("SELECT id FROM companies WHERE is_active=1").fetchall()
@@ -1655,16 +1697,53 @@ def _company_name(cid):
 @app.get("/api/databases")
 @login_required
 def list_databases_api():
-    # Any signed-in user can see and switch databases (the picker page);
-    # creating and deleting stay admin-only below.
+    # Any signed-in user can see the picker; creating/deleting/profile stay admin.
     active = active_db_name()
+    role = g.user["role"]
+    dbs = []
+    for n in database.list_databases():
+        try:
+            prof = _db_profile_of(n)
+        except Exception:
+            # an unreadable/locked file shouldn't blank the whole list — show it
+            # as a locked tile rather than 500-ing the picker
+            prof = dict(database.DEFAULT_DB_PROFILE, frozen=True)
+        dbs.append({
+            "name": n, "active": n == active, "deletable": n != database.DEFAULT_DB,
+            "icon": prof["icon"], "color": prof["color"], "frozen": prof["frozen"],
+            "enter_roles": prof["enter_roles"], "edit_roles": prof["edit_roles"],
+            "can_enter": _can_enter(prof, role), "can_edit": _can_edit(prof, role),
+        })
     return jsonify({
-        "active": active,
-        "default": database.DEFAULT_DB,
-        "can_manage": g.user["role"] == "admin",
-        "databases": [{"name": n, "active": n == active,
-                       "deletable": n != database.DEFAULT_DB} for n in database.list_databases()],
+        "active": active, "default": database.DEFAULT_DB,
+        "can_manage": role == "admin", "role": role, "databases": dbs,
     })
+
+
+@app.put("/api/databases/<name>/profile")
+@role_required("admin")
+def set_database_profile_api(name):
+    if name not in database.list_databases():
+        raise ValueError("Database '%s' not found" % name)
+    d = request.get_json(force=True)
+    updates = {}
+    for key in ("icon", "color"):
+        if key in d:
+            updates[key] = str(d.get(key) or "")
+    if "frozen" in d:
+        updates["frozen"] = bool(d.get("frozen"))
+    for key in ("enter_roles", "edit_roles"):
+        if key in d:
+            updates[key] = [r for r in (d.get(key) or []) if r in database.DB_ROLES]
+    if name == active_db_name():
+        prof = database.set_db_profile(db(), updates)
+    else:
+        conn = database.get_db(name)
+        try:
+            prof = database.set_db_profile(conn, updates)
+        finally:
+            conn.close()
+    return jsonify({"ok": True, "profile": prof})
 
 
 @app.post("/api/databases")
@@ -1699,10 +1778,15 @@ def switch_database_api():
         row = target.execute(
             "SELECT id FROM users WHERE username=? AND is_active=1 AND role=?",
             (g.user["username"], g.user["role"])).fetchone()
+        prof = database.get_db_profile(target)
     finally:
         target.close()
     if not row:
         raise ValueError("Your %s account does not exist in '%s'" % (g.user["role"], name))
+    role = g.user["role"]
+    if not _can_enter(prof, role):
+        raise ValueError("'%s' is %s — you don't have access to open it."
+                         % (name, "frozen" if prof["frozen"] else "restricted for your role"))
     session["active_db"] = name
     session["user_id"] = row["id"]
     g.pop("db", None)

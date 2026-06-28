@@ -3,6 +3,7 @@
 Supports MULTIPLE named databases, each a self-contained SQLite file under
 databases/. The live group data is "MORES-GROUP"; "TEST-SERVER" is a sandbox.
 """
+import json
 import os
 import random
 import re
@@ -45,6 +46,57 @@ def list_databases():
             names.append(fn[:-3].replace("_", " "))
     names.sort(key=lambda n: (n != DEFAULT_DB, n.lower()))
     return names
+
+
+DB_ROLES = ("admin", "finance", "viewer")
+DEFAULT_DB_PROFILE = {
+    "icon": "", "color": "#00a2b6", "frozen": False,
+    "enter_roles": ["admin", "finance", "viewer"],
+    "edit_roles": ["admin", "finance"],
+}
+
+
+def get_db_profile(conn):
+    """Per-database profile (tile icon/colour, frozen flag, and which roles may
+    enter / edit) stored in the database's own app_settings. Admin is always
+    allowed. Missing/corrupt data falls back to the defaults."""
+    prof = {k: (list(v) if isinstance(v, list) else v) for k, v in DEFAULT_DB_PROFILE.items()}
+    try:
+        row = conn.execute("SELECT value FROM app_settings WHERE key='db_profile'").fetchone()
+        if row and row["value"]:
+            stored = json.loads(row["value"])
+            if isinstance(stored, dict):
+                for k in prof:
+                    if k in stored and stored[k] is not None:
+                        prof[k] = stored[k]
+    except Exception:
+        pass
+    prof["frozen"] = bool(prof.get("frozen"))
+    prof["icon"] = str(prof.get("icon") or "")[:8]
+    prof["color"] = str(prof.get("color") or "#00a2b6")[:16]
+    prof["enter_roles"] = [r for r in DB_ROLES if r in set(prof.get("enter_roles") or []) | {"admin"}]
+    prof["edit_roles"] = [r for r in DB_ROLES if r in set(prof.get("edit_roles") or []) | {"admin"}]
+    return prof
+
+
+def set_db_profile(conn, updates):
+    """Merge updates into the database's profile and persist it. Returns the
+    saved profile. The app_settings table is created if it doesn't exist yet."""
+    conn.execute("CREATE TABLE IF NOT EXISTS app_settings ("
+                 "key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT '')")
+    prof = get_db_profile(conn)
+    for k in DEFAULT_DB_PROFILE:
+        if k in updates and updates[k] is not None:
+            prof[k] = updates[k]
+    prof["frozen"] = bool(prof.get("frozen"))
+    prof["icon"] = str(prof.get("icon") or "")[:8]
+    prof["color"] = str(prof.get("color") or "#00a2b6")[:16]
+    prof["enter_roles"] = [r for r in DB_ROLES if r in set(prof.get("enter_roles") or []) | {"admin"}]
+    prof["edit_roles"] = [r for r in DB_ROLES if r in set(prof.get("edit_roles") or []) | {"admin"}]
+    conn.execute("INSERT INTO app_settings (key, value) VALUES ('db_profile', ?)"
+                 " ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(prof),))
+    conn.commit()
+    return prof
 
 ACCOUNT_TYPES = ("asset", "liability", "equity", "revenue", "expense")
 
