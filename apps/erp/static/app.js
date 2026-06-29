@@ -402,6 +402,12 @@ const TR = {
   "Revenue target (budget) vs realization. Green = at or above target.": "Target pendapatan (anggaran) vs realisasi. Hijau = mencapai atau melebihi target.",
   "Expense budget vs realization. Green = at or under budget; red = overspent.": "Anggaran beban vs realisasi. Hijau = sesuai atau di bawah anggaran; merah = melebihi anggaran.",
   "No revenue budget": "Belum ada anggaran pendapatan", "No expense budget": "Belum ada anggaran beban",
+  // change password
+  "Change password": "Ubah Kata Sandi", "Current password": "Kata Sandi Saat Ini",
+  "New password": "Kata Sandi Baru", "Confirm new password": "Konfirmasi Kata Sandi Baru",
+  "at least 6 characters": "minimal 6 karakter",
+  "New password must be at least 6 characters.": "Kata sandi baru minimal 6 karakter.",
+  "New passwords do not match.": "Kata sandi baru tidak cocok.", "Password changed": "Kata sandi berhasil diubah",
   // common buttons
   "Apply": "Terapkan", "Export Excel": "Ekspor Excel", "Export PDF": "Ekspor PDF",
 };
@@ -454,7 +460,9 @@ function companyOptions(selected, { includeAll } = {}) {
 async function boot() {
   state.me = await api("/api/me");
   $("#userBox").innerHTML = `<b>${esc(state.me.full_name || state.me.username)}</b>
-    <span class="muted">${esc(ROLE_LABELS[state.me.role] || state.me.role)}</span>`;
+    <span class="muted">${esc(ROLE_LABELS[state.me.role] || state.me.role)}</span>
+    <a href="#" id="changePw" class="userbox-link">${t("Change password")}</a>`;
+  $("#changePw").onclick = (e) => { e.preventDefault(); changePasswordModal(); };
   if (!canWrite()) { const a = $('#nav a[data-route="bank"]'); if (a) a.style.display = "none"; }
   renderCompanyChoice();
   updateDbBadge();
@@ -484,6 +492,25 @@ async function boot() {
   relabelChrome();
   window.addEventListener("hashchange", render);
   render();
+}
+
+function changePasswordModal() {
+  openModal(`<div class="form-col" style="display:flex;flex-direction:column;gap:12px">
+    <label>${t("Current password")} <input type="password" id="pwCur" autocomplete="current-password"></label>
+    <label>${t("New password")} <input type="password" id="pwNew" autocomplete="new-password" placeholder="${t("at least 6 characters")}"></label>
+    <label>${t("Confirm new password")} <input type="password" id="pwNew2" autocomplete="new-password"></label>
+    <div id="pwErr" style="color:var(--red);font-size:12.5px;min-height:16px"></div>
+    <div class="form-actions"><button class="btn btn-primary" id="pwSave">${t("Change password")}</button></div>
+  </div>`, { title: t("Change password"), small: true });
+  $("#pwSave").onclick = async () => {
+    const n1 = $("#pwNew").value, n2 = $("#pwNew2").value, err = $("#pwErr");
+    if (n1.length < 6) { err.textContent = t("New password must be at least 6 characters."); return; }
+    if (n1 !== n2) { err.textContent = t("New passwords do not match."); return; }
+    try {
+      await api("/api/me/password", { json: { current_password: $("#pwCur").value, new_password: n1 } });
+      toast(t("Password changed")); closeModal();
+    } catch (e) { err.textContent = e.message; }
+  };
 }
 
 // Topbar company picker as choice buttons (not a dropdown).
@@ -1312,7 +1339,7 @@ async function pageBank(el) {
         <label id="bkBankLabel">Cash / Bank account (the cash side) <select id="bkBank" style="min-width:240px"></select></label>
         <label>Book as <select id="bkStatus"><option value="draft">Draft</option><option value="posted" selected>Posted</option></select></label>
       </div>
-      <div style="overflow-x:auto"><table class="tbl" id="bkTable"></table></div>
+      <div style="overflow-x:auto"><table class="tbl bk-compact" id="bkTable"></table></div>
       <div class="form-actions" style="justify-content:flex-start">
         <button class="btn btn-primary" id="bkBook">Book selected transfers</button>
         <span class="muted" id="bkBookInfo"></span>
@@ -1368,16 +1395,16 @@ async function pageBank(el) {
     return `<b>${fmt(t.balance)}</b>${tag ? "<br>" + tag : ""}`;
   };
   function renderTable() {
-    $("#bkTable").innerHTML = `<thead><tr><th></th><th>Date</th><th>In/Out</th><th style="min-width:240px">Description</th>
+    $("#bkTable").innerHTML = `<thead><tr><th></th><th>Date</th><th>In/Out</th><th style="min-width:150px">Description</th>
       <th class="num">Amount<br><span style="font-weight:400;text-transform:none">(Jumlah / Nominal)</span></th>
-      <th class="num">Balance<br><span style="font-weight:400;text-transform:none">(Saldo — after txn)</span></th>
-      <th>No Referensi<br><span style="font-weight:400;text-transform:none">(Reference Number)</span></th><th>Status</th>
-      <th style="min-width:230px">Contra account<br><span style="font-weight:400;text-transform:none">(cost for OUT / revenue for IN)</span></th><th>Project</th></tr></thead>
+      <th class="num">Balance<br><span style="font-weight:400;text-transform:none">(Saldo)</span></th>
+      <th>No Referensi<br><span style="font-weight:400;text-transform:none">(Ref. No.)</span></th><th>Status</th>
+      <th style="min-width:140px">Contra account<br><span style="font-weight:400;text-transform:none">(cost OUT / revenue IN)</span></th><th>Project</th></tr></thead>
       <tbody>${txs.map((t, i) => `<tr data-i="${i}" ${t.duplicate || t.internal ? 'style="opacity:.55"' : ""}>
         <td><input type="checkbox" class="bk-sel" ${t.ok && !t.duplicate && !t.internal && t.amount && t.date ? "checked" : ""}></td>
         <td>${esc(t.date || "?")}<br><span class="muted">${esc(t.time)}</span></td>
         <td><span class="pill ${t.direction === "in" ? "posted" : "draft"}">${t.direction === "in" ? "IN" : "OUT"}</span></td>
-        <td><textarea class="bk-desc" rows="2" style="width:100%;min-width:240px;resize:vertical;font-family:inherit;font-size:12.5px">${esc(t.description)}</textarea>
+        <td><textarea class="bk-desc" rows="2" style="width:100%;min-width:140px;resize:vertical;font-family:inherit">${esc(t.description)}</textarea>
           ${t.va_number ? `<span class="muted">VA ${esc(t.va_number)}</span>` : ""}
           ${t.category ? `<span class="muted">${esc(t.category.toLowerCase().replace(/_/g, " "))}</span>` : ""}</td>
         <td class="num"><b>${fmt(t.amount)}</b></td>

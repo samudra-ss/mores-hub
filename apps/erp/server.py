@@ -93,7 +93,7 @@ def role_required(*roles):
 
 
 # writes that must keep working even in a frozen/read-only database
-WRITE_GUARD_ALLOW = {"/api/login", "/api/logout", "/api/databases/switch"}
+WRITE_GUARD_ALLOW = {"/api/login", "/api/logout", "/api/databases/switch", "/api/me/password"}
 
 
 @app.before_request
@@ -299,6 +299,22 @@ def api_me():
         "active_db": active_db_name(),
         "databases": database.list_databases() if g.user["role"] == "admin" else [],
     })
+
+
+@app.post("/api/me/password")
+@login_required
+def change_my_password():
+    """Self-service password change for the signed-in user (any role)."""
+    d = request.get_json(force=True)
+    new = d.get("new_password", "")
+    if len(new) < 6:
+        raise ValueError("New password must be at least 6 characters")
+    if not check_password_hash(g.user["password_hash"], d.get("current_password", "")):
+        raise ValueError("Current password is incorrect")
+    db().execute("UPDATE users SET password_hash=? WHERE id=?",
+                 (generate_password_hash(new), g.user["id"]))
+    db().commit()
+    return jsonify({"ok": True})
 
 
 # --------------------------------------------------------------------------

@@ -431,7 +431,7 @@ def seed(conn):
 
     # --- users -------------------------------------------------------------
     users = [
-        ("admin", "admin123", "System Administrator", "admin"),
+        ("admin", "MoresMores2018", "System Administrator", "admin"),
         ("finance", "finance123", "Finance Manager", "finance"),
         ("viewer", "viewer123", "Report Viewer", "viewer"),
     ]
