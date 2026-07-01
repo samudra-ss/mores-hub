@@ -381,6 +381,15 @@ const TR = {
   "Late 31–60 (Terlambat)": "Terlambat 31–60", "Late 61–90 (Terlambat)": "Terlambat 61–90",
   "Bad / >90 (Macet)": "Macet (>90)", "Paid (Lunas)": "Lunas",
   "1–30 d": "1–30 hr", "31–60 d": "31–60 hr", "61–90 d": "61–90 hr", "> 90 d": "> 90 hr",
+  // payables (AP aging / Hutang)
+  "AP Aging (Hutang)": "Daftar Umur Utang", "Add Bill": "Tambah Tagihan",
+  "Vendor": "Pemasok", "Bill": "No. Tagihan", "Bill Date": "Tgl Tagihan",
+  "Overdue AP (> 90 days)": "Utang Menunggak (> 90 hari)",
+  // C-AKUN (7300) dashboard chart
+  "C-AKUN (7300) — Budget vs Realization": "C-AKUN (7300) — Anggaran vs Realisasi",
+  "account 7300 & its sub-accounts": "akun 7300 & sub-akunnya",
+  "No C-AKUN (7300) accounts with activity yet.": "Belum ada akun C-AKUN (7300) dengan aktivitas.",
+  "Account": "Akun",
   // weekly cash flow + cash budget
   "Monthly": "Bulanan", "Weekly": "Mingguan",
   "Weekly Cash — Actual vs Budget": "Kas Mingguan — Aktual vs Anggaran",
@@ -417,7 +426,7 @@ function t(s) { return state.lang === "id" ? (TR[s] || s) : s; }
 const NAV_ITEMS = [
   ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
   ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Bank Import"],
-  ["receivables", "◰", "Receivables"],
+  ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
   ["budgets", "◎", "Budgets"], ["investments", "✦", "Investments"],
   ["projects", "△", "Projects"], ["reports", "▤", "Reports"],
   ["settings", "⚙", "Settings"],
@@ -532,7 +541,7 @@ function renderCompanyChoice() {
 
 const routes = {
   dashboard: pageDashboard, projecthv: pageProjectHV, journals: pageJournals,
-  bank: pageBank, receivables: pageReceivables, budgets: pageBudgets,
+  bank: pageBank, receivables: pageReceivables, payables: pagePayables, budgets: pageBudgets,
   investments: pageInvestments, projects: pageProjects, reports: pageReports,
   settings: pageSettings,
 };
@@ -576,6 +585,13 @@ async function pageDashboard(el) {
   const officeActual = round2(officeRows.reduce((a, r) => a + r.actual, 0));
   const officeBudget = round2(officeRows.reduce((a, r) => a + r.budget, 0));
   const officeUsed = officeBudget ? Math.round(100 * officeActual / officeBudget) : null;
+  // C-AKUN: parent account 7300 and its children (7300-01 … 7300-04) — budget vs realization
+  const caktRows = d.expense_breakdown
+    .filter(r => String(r.code).startsWith("73") && String(r.code) !== "7300")
+    .sort((a, b) => String(a.code).localeCompare(String(b.code)));
+  const caktActual = round2(caktRows.reduce((a, r) => a + r.actual, 0));
+  const caktBudget = round2(caktRows.reduce((a, r) => a + r.budget, 0));
+  const caktUsed = caktBudget ? Math.round(100 * caktActual / caktBudget) : null;
   el.innerHTML = `
     <div class="page-head"><h2>${t("Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}</span></h2>
       <div class="seg-group" id="dashScope">
@@ -633,6 +649,29 @@ async function pageDashboard(el) {
           }).join("") || `<tr><td colspan="4" class="empty">No operating expenses</td></tr>`}</tbody></table></div>
       </div>
     </div>
+    <div class="card mt"><h3>${t("C-AKUN (7300) — Budget vs Realization")}
+        <span class="muted" style="font-weight:500;font-size:13px">· ${t("account 7300 & its sub-accounts")}</span></h3>
+      ${caktRows.length ? chartBars(caktRows.map(r => r.code.replace("7300-", "C-") + " " + r.name.replace(/^C-?\d*\s*/, "")), [
+          { name: t("Budget"), color: "#c87a08", values: caktRows.map(r => r.budget) },
+          { name: t("Realization"), color: C_REV, values: caktRows.map(r => r.actual) },
+        ], { height: 260, valueLabels: true, valueFmt: fmtShort })
+        : `<div class="empty">${t("No C-AKUN (7300) accounts with activity yet.")}</div>`}
+      ${caktRows.length ? `<div style="max-height:220px;overflow:auto" class="mt"><table class="tbl">
+        <thead><tr><th>${t("Account")}</th><th class="num">${t("Budget")}</th><th class="num">${t("Realization")}</th><th class="num">${t("Variance")}</th><th class="num">${t("Used")}</th></tr></thead>
+        <tbody>${caktRows.map(r => {
+          const used = r.budget ? Math.round(100 * r.actual / r.budget) : null;
+          const varc = round2(r.budget - r.actual);
+          return `<tr><td>${esc(r.code)} ${esc(r.name)}</td>
+            <td class="num muted">${fmt(r.budget)}</td>
+            <td class="num">${fmt(r.actual)}</td>
+            <td class="num ${varc < 0 ? "neg" : "pos"}">${fmt(varc)}</td>
+            <td class="num ${used != null && used > 100 ? "neg" : ""}">${used == null ? "—" : used + "%"}</td></tr>`;
+        }).join("")}
+        <tr class="total"><td>${t("TOTAL")} C-AKUN</td><td class="num">${fmt(caktBudget)}</td><td class="num">${fmt(caktActual)}</td>
+          <td class="num ${caktBudget - caktActual < 0 ? "neg" : "pos"}">${fmt(round2(caktBudget - caktActual))}</td>
+          <td class="num ${caktUsed != null && caktUsed > 100 ? "neg" : ""}">${caktUsed == null ? "—" : caktUsed + "%"}</td></tr>
+        </tbody></table></div>` : ""}
+    </div>
     <div class="grid two-col mt">
       <div class="card"><h3>${t("Financial Health Indicators")}</h3>
         <table class="tbl"><thead><tr><th>${t("Metric")}</th><th class="num">${t("Value")}</th><th class="num">${t("Target")}</th><th>${t("Status")}</th></tr></thead>
@@ -649,6 +688,7 @@ async function pageDashboard(el) {
           <tr><td>${t("Total Accounts Receivable")}</td><td class="num"><b>${fmtRp(aa.ar)}</b></td></tr>
           <tr><td>${t("Risky AR (> 90 days)")}</td><td class="num muted">${aa.risky_ar == null ? "— (from AR Aging)" : fmtRp(aa.risky_ar)}</td></tr>
           <tr><td>${t("Total Accounts Payable")}</td><td class="num"><b>${fmtRp(aa.ap)}</b></td></tr>
+          <tr><td>${t("Overdue AP (> 90 days)")}</td><td class="num muted">${aa.risky_ap == null ? "— (from AP Aging)" : fmtRp(aa.risky_ap)}</td></tr>
           <tr class="total"><td>${t("Net Position (AR − AP)")}</td><td class="num ${(aa.net_position || 0) >= 0 ? "pos" : "neg"}"><b>${fmtRp(aa.net_position)}</b></td></tr>
           <tr><td>${t("Free Operating Cash")}</td><td class="num">${fmtRp(aa.free_cash)}</td></tr>
         </tbody></table>
@@ -1625,6 +1665,123 @@ function receivableEditor(r, reload) {
   if ($("#rvDel")) $("#rvDel").onclick = async () => {
     if (!confirm("Delete this invoice from AR aging?")) return;
     try { await api("/api/receivables/" + r.id, { method: "DELETE" }); toast("Deleted"); closeModal(); reload(); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+
+/* ------------------------------------------------------------------ payables (AP aging / Hutang) */
+async function pagePayables(el) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (!state.apAsOf) state.apAsOf = today;
+  const cid = state.companyId === "all" ? "all" : parseInt(state.companyId, 10);
+  el.innerHTML = `
+    <div class="page-head"><h2>${t("Payables")} — ${t("AP Aging (Hutang)")}</h2>
+      <div class="page-actions">
+        <label class="muted">${t("Company")} <select id="apCompany">${companyOptions(cid, { includeAll: true })}</select></label>
+        <label class="muted">${t("As of")} <input type="date" id="apAsOf" value="${state.apAsOf}"></label>
+        <a class="btn btn-sm" id="apExp">&#x2913; ${t("Export Excel")}</a>
+        ${canWrite() ? `<button class="btn btn-sm btn-primary" id="apNew">+ ${t("Add Bill")}</button>` : ""}
+      </div></div>
+    <div id="apBody"><div class="empty">Loading…</div></div>`;
+  const scopeFor = () => $("#apCompany").value;
+  const load = async () => {
+    state.apAsOf = $("#apAsOf").value || today;
+    const qs = `company_id=${scopeFor()}&as_of=${state.apAsOf}`;
+    $("#apExp").href = `/api/export/payables?${qs}`;
+    const d = await api(`/api/payables?${qs}`);
+    $("#scopeBadge").textContent = d.scope;
+    const consol = scopeFor() === "all";
+    const bcell = (it, b) => it.bucket === b ? `<b>${fmt(it.outstanding)}</b>` : `<span class="muted">-</span>`;
+    const rows = d.items.map((it, i) => `<tr>
+      <td>${i + 1}</td>
+      ${consol ? `<td>${esc(it.company_code)}</td>` : ""}
+      <td><b>${esc(it.vendor)}</b></td>
+      <td>${esc(it.bill_no)}</td>
+      <td class="muted">${esc(it.bill_date || "")}</td>
+      <td>${esc(it.due_date || "")}</td>
+      <td class="num">${fmt(it.amount)}</td>
+      <td class="num">${fmt(it.outstanding)}</td>
+      <td class="num">${bcell(it, "not_due")}</td>
+      <td class="num">${bcell(it, "d1_30")}</td>
+      <td class="num">${bcell(it, "d31_60")}</td>
+      <td class="num">${bcell(it, "d61_90")}</td>
+      <td class="num ${it.bucket === "d90" ? "neg" : ""}">${bcell(it, "d90")}</td>
+      <td class="num">${it.days_overdue == null ? "-" : it.days_overdue}</td>
+      <td><span class="pill ${AR_STATUS_PILL[it.status] || "inactive"}">${esc(t(it.status_label))}</span></td>
+      ${canWrite() ? `<td><button class="btn btn-sm" data-edit="${it.id}">Edit</button></td>` : ""}
+    </tr>`).join("") || `<tr><td colspan="${14 + (consol ? 1 : 0) + (canWrite() ? 1 : 0)}" class="empty">No bills yet — add one to start tracking AP aging.</td></tr>`;
+    const totalRow = `<tr class="total"><td colspan="${consol ? 7 : 6}">${t("TOTAL")}</td>
+      <td class="num">${fmt(d.total_outstanding)}</td>
+      <td class="num">${fmt(d.buckets.not_due)}</td><td class="num">${fmt(d.buckets.d1_30)}</td>
+      <td class="num">${fmt(d.buckets.d31_60)}</td><td class="num">${fmt(d.buckets.d61_90)}</td>
+      <td class="num">${fmt(d.buckets.d90)}</td><td colspan="${canWrite() ? 3 : 2}"></td></tr>`;
+    $("#apBody").innerHTML = `
+      <div class="card"><div style="overflow-x:auto"><table class="tbl ar-tbl">
+        <thead><tr><th>No</th>${consol ? "<th>Co.</th>" : ""}<th>${t("Vendor")}</th><th>${t("Bill")}</th>
+          <th>${t("Bill Date")}</th><th>${t("Due Date")}</th><th class="num">${t("Amount")}</th><th class="num">${t("Outstanding")}</th>
+          <th class="num">${t("Not Due")}</th><th class="num">1–30</th><th class="num">31–60</th><th class="num">61–90</th><th class="num">&gt;90</th>
+          <th class="num">${t("Days Late")}</th><th>${t("Status")}</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
+        <tbody>${rows}${totalRow}</tbody></table></div>
+        <p class="muted mt">Outstanding = Amount − Paid. Status &amp; aging are computed from the As-of date vs each Due Date.</p>
+      </div>
+      <div class="grid two-col mt">
+        <div class="card"><h3>${t("Aging Summary")}</h3>
+          <table class="tbl"><thead><tr><th>${t("Bucket")}</th><th class="num">${t("Amount")}</th><th class="num">%</th><th style="width:34%"></th></tr></thead>
+            <tbody>${d.summary.map(s => `<tr>
+              <td>${esc(t(s.label))}</td><td class="num">${fmt(s.amount)}</td><td class="num">${s.pct}%</td>
+              <td><div class="bar"><span style="width:${Math.min(100, s.pct)}%;background:${AR_BUCKET_COLOR[s.bucket]}"></span></div></td></tr>`).join("")}
+              <tr class="total"><td>${t("TOTAL OUTSTANDING")}</td><td class="num">${fmt(d.total_outstanding)}</td><td colspan="2"></td></tr>
+            </tbody></table>
+        </div>
+        <div class="card"><h3>${t("Risk")}</h3>
+          <div class="grid kpis">
+            <div class="kpi"><div class="kpi-label">${t("Total Outstanding")}</div><div class="kpi-value">${fmtShortRp(d.total_outstanding)}</div></div>
+            <div class="kpi ${d.risky > 0 ? "red" : ""}"><div class="kpi-label">${t("Overdue AP (> 90 days)")}</div><div class="kpi-value">${fmtShortRp(d.risky)}</div>
+              <div class="kpi-sub">${d.total_outstanding ? Math.round(100 * d.risky / d.total_outstanding) : 0}% of outstanding</div></div>
+          </div>
+          <p class="muted mt">Enter only the bill fields (vendor, bill, dates, amount, paid) — buckets, days late and status are computed, mirroring the Hutang side of your Excel.</p>
+        </div>
+      </div>`;
+    $$("#apBody [data-edit]").forEach(b => b.onclick = () => payableEditor(d.items.find(x => x.id == b.dataset.edit), load));
+  };
+  $("#apCompany").onchange = load;
+  $("#apAsOf").onchange = load;
+  if ($("#apNew")) $("#apNew").onclick = () => payableEditor(null, load);
+  await load();
+}
+
+function payableEditor(r, reload) {
+  const today = new Date().toISOString().slice(0, 10);
+  const newCompany = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
+  openModal(`<div class="form-grid">
+    ${r ? "" : `<label class="full">Company <select id="pvCompany">${companyOptions(newCompany)}</select></label>`}
+    <label class="full">Vendor <input id="pvVendor" value="${esc(r ? r.vendor : "")}" placeholder="e.g. PT Sumber Rejeki"></label>
+    <label>Bill No <input id="pvBill" value="${esc(r ? r.bill_no : "")}" placeholder="BILL-2026-051"></label>
+    <label>Bill Date <input type="date" id="pvBdate" value="${esc(r ? (r.bill_date || "") : today)}"></label>
+    <label>Due Date <input type="date" id="pvDue" value="${esc(r ? (r.due_date || "") : "")}"></label>
+    <label>Amount (Rp) <input id="pvAmount" inputmode="numeric" value="${r ? fmt(r.amount) : ""}"></label>
+    <label>Paid (Rp) <input id="pvPaid" inputmode="numeric" value="${r ? fmt(r.paid) : "0"}"></label>
+    <label class="full">Notes <input id="pvNotes" value="${esc(r ? r.notes : "")}"></label>
+    </div><div class="form-actions">
+      ${r ? `<button class="btn btn-danger" id="pvDel">Delete</button>` : ""}
+      <button class="btn btn-primary" id="pvSave">Save bill</button></div>`,
+    { title: r ? "Edit payable" : "New payable", small: true });
+  const numv = id => parseInt(($("#" + id).value || "0").replace(/[^\d-]/g, ""), 10) || 0;
+  $("#pvSave").onclick = async () => {
+    const body = {
+      vendor: $("#pvVendor").value, bill_no: $("#pvBill").value,
+      bill_date: $("#pvBdate").value || null, due_date: $("#pvDue").value || null,
+      amount: numv("pvAmount"), paid: numv("pvPaid"), notes: $("#pvNotes").value,
+    };
+    try {
+      if (r) await api("/api/payables/" + r.id, { method: "PUT", json: body });
+      else await api("/api/payables", { json: Object.assign(body, { company_id: parseInt($("#pvCompany").value, 10) }) });
+      toast("Payable saved"); closeModal(); reload();
+    } catch (e) { toast(e.message, true); }
+  };
+  if ($("#pvDel")) $("#pvDel").onclick = async () => {
+    if (!confirm("Delete this bill from AP aging?")) return;
+    try { await api("/api/payables/" + r.id, { method: "DELETE" }); toast("Deleted"); closeModal(); reload(); }
     catch (e) { toast(e.message, true); }
   };
 }

@@ -603,6 +603,67 @@ def receivables_aging(conn, company_ids, as_of):
     }
 
 
+def payables_aging(conn, company_ids, as_of):
+    """Per-bill AP aging (Hutang) as of a report date — the liabilities-side
+    mirror of receivables_aging, on the OUTSTANDING amount (amount − paid)."""
+    ph, ids = _company_filter(company_ids)
+    rows = conn.execute(
+        "SELECT p.*, c.code AS company_code FROM payables p "
+        "JOIN companies c ON c.id = p.company_id "
+        "WHERE p.company_id IN (%s) ORDER BY p.due_date IS NULL, p.due_date, p.id" % ph,
+        ids).fetchall()
+    try:
+        as_of_d = datetime.date.fromisoformat(as_of)
+    except (ValueError, TypeError):
+        as_of_d = datetime.date.today()
+    items, buckets = [], {b: 0.0 for b in AR_BUCKETS}
+    total_amount = total_out = 0.0
+    for r in rows:
+        amount = round(r["amount"] or 0, 2)
+        paid = round(r["paid"] or 0, 2)
+        outstanding = round(amount - paid, 2)
+        total_amount = round(total_amount + amount, 2)
+        bucket, days = None, None
+        if outstanding <= 0.005:
+            status = "paid"
+        else:
+            total_out = round(total_out + outstanding, 2)
+            due = None
+            if r["due_date"]:
+                try:
+                    due = datetime.date.fromisoformat(r["due_date"])
+                except ValueError:
+                    due = None
+            days = (as_of_d - due).days if due else 0
+            if days <= 0:
+                bucket, status = "not_due", "current"
+            elif days <= 30:
+                bucket, status = "d1_30", "late_1_30"
+            elif days <= 60:
+                bucket, status = "d31_60", "late_31_60"
+            elif days <= 90:
+                bucket, status = "d61_90", "late_61_90"
+            else:
+                bucket, status = "d90", "bad"
+            buckets[bucket] = round(buckets[bucket] + outstanding, 2)
+        items.append({
+            "id": r["id"], "company_code": r["company_code"], "vendor": r["vendor"],
+            "bill_no": r["bill_no"], "bill_date": r["bill_date"], "due_date": r["due_date"],
+            "amount": amount, "paid": paid, "outstanding": outstanding,
+            "days_overdue": (max(days, 0) if days is not None else None),
+            "bucket": bucket, "status": status, "status_label": AR_STATUS.get(status, status),
+            "notes": r["notes"],
+        })
+    summary = [{"bucket": b, "label": AR_BUCKET_LABELS[b], "amount": buckets[b],
+                "pct": round(100.0 * buckets[b] / total_out, 1) if total_out else 0.0}
+               for b in AR_BUCKETS]
+    return {
+        "as_of": as_of_d.isoformat(), "items": items, "buckets": buckets, "summary": summary,
+        "total_amount": total_amount, "total_outstanding": total_out, "risky": buckets["d90"],
+        "status_labels": AR_STATUS, "bucket_labels": AR_BUCKET_LABELS,
+    }
+
+
 # ---- Weekly cash flow + cash budget ---------------------------------------
 CASH_WEEKS = 52  # week N = days [(N-1)*7+1 .. N*7]; week 52 absorbs the year-end remainder
 
@@ -801,11 +862,15 @@ def dashboard(conn, company_ids, year, thresholds=None):
                                       % months_elapsed, "amount": cost_overrun})
 
     net_position = round(ar - ap, 2)
-    # risky AR (>90 days outstanding) from the AR Aging module, as of today
+    # risky AR / AP (>90 days outstanding) from the aging modules, as of today
     try:
         risky_ar = receivables_aging(conn, company_ids, today)["risky"]
     except Exception:
         risky_ar = None
+    try:
+        risky_ap = payables_aging(conn, company_ids, today)["risky"]
+    except Exception:
+        risky_ap = None
 
     proj = project_performance(conn, company_ids, year)
     cf = cash_flow(conn, company_ids, year)
@@ -881,6 +946,7 @@ def dashboard(conn, company_ids, year, thresholds=None):
         "ar_ap": {
             "ar": ar, "ap": ap, "net_position": net_position,
             "risky_ar": risky_ar,  # >90-day outstanding from AR Aging
+            "risky_ap": risky_ap,  # >90-day outstanding from AP Aging
             "free_cash": cash,
         },
         "cost_overrun": {"over": cost_overrun, "prorated_budget": budget_prorated,

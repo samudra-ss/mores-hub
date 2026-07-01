@@ -126,6 +126,36 @@ def _db_profile_of(name):
         conn.close()
 
 
+def _db_last_activity(name):
+    """Last data entry/usage summary for a named database (own connection).
+    Returns {last_entry, last_at, entries} — last posting date, last write
+    timestamp and total journal-entry count. Safe on empty/locked files."""
+    try:
+        conn = database.get_db(name)
+    except Exception:
+        return {"last_entry": None, "last_at": None, "entries": 0}
+    try:
+        row = conn.execute(
+            "SELECT MAX(date) AS last_entry, MAX(created_at) AS last_at,"
+            " COUNT(*) AS n FROM journal_entries").fetchone()
+        return {"last_entry": row["last_entry"], "last_at": row["last_at"],
+                "entries": row["n"] or 0}
+    except Exception:
+        return {"last_entry": None, "last_at": None, "entries": 0}
+    finally:
+        conn.close()
+
+
+def _open_named_db(name):
+    """A connection to a named database for admin cross-db operations. Returns
+    (conn, should_close): the active request db is reused (never closed here)."""
+    if name not in database.list_databases():
+        raise ValueError("Database '%s' not found" % name)
+    if name == active_db_name():
+        return db(), False
+    return database.get_db(name), True
+
+
 def _can_enter(prof, role):
     return role == "admin" or (not prof["frozen"] and role in prof["enter_roles"])
 
@@ -1087,6 +1117,77 @@ def export_receivables():
                  "ar_aging_%s.xlsx" % aging["as_of"])
 
 
+# --------------------------------------------------------------------------
+# Accounts Payable aging (Hutang)
+# --------------------------------------------------------------------------
+
+def _payable_fields(d):
+    return (d.get("vendor", "").strip(), d.get("bill_no", "").strip(),
+            (d.get("bill_date") or None), (d.get("due_date") or None),
+            round(float(d.get("amount") or 0), 2), round(float(d.get("paid") or 0), 2),
+            d.get("notes", "").strip())
+
+
+@app.get("/api/payables")
+@login_required
+def list_payables():
+    ids, label = scope_from_request()
+    data = reports.payables_aging(db(), ids, _ar_as_of())
+    data["scope"] = label
+    return jsonify(data)
+
+
+@app.post("/api/payables")
+@role_required("admin", "finance")
+def create_payable():
+    d = request.get_json(force=True)
+    company_id = int(d["company_id"])
+    check_company_access(company_id)
+    if not (d.get("vendor") or "").strip():
+        raise ValueError("Vendor name is required")
+    cur = db().execute(
+        "INSERT INTO payables (company_id, vendor, bill_no, bill_date, due_date, amount, paid, notes)"
+        " VALUES (?,?,?,?,?,?,?,?)", (company_id,) + _payable_fields(d))
+    db().commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.put("/api/payables/<int:pid>")
+@role_required("admin", "finance")
+def update_payable(pid):
+    row = db().execute("SELECT company_id FROM payables WHERE id=?", (pid,)).fetchone()
+    if not row:
+        raise ValueError("Payable not found")
+    check_company_access(row["company_id"])
+    d = request.get_json(force=True)
+    db().execute(
+        "UPDATE payables SET vendor=?, bill_no=?, bill_date=?, due_date=?,"
+        " amount=?, paid=?, notes=? WHERE id=?", _payable_fields(d) + (pid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/payables/<int:pid>")
+@role_required("admin", "finance")
+def delete_payable(pid):
+    row = db().execute("SELECT company_id FROM payables WHERE id=?", (pid,)).fetchone()
+    if not row:
+        raise ValueError("Payable not found")
+    check_company_access(row["company_id"])
+    db().execute("DELETE FROM payables WHERE id=?", (pid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/export/payables")
+@login_required
+def export_payables():
+    ids, label = scope_from_request()
+    aging = reports.payables_aging(db(), ids, _ar_as_of())
+    return _xlsx(excel_io.export_payables(aging, label),
+                 "ap_aging_%s.xlsx" % aging["as_of"])
+
+
 @app.get("/api/reports/pnl")
 @login_required
 def report_pnl():
@@ -1724,11 +1825,14 @@ def list_databases_api():
             # an unreadable/locked file shouldn't blank the whole list — show it
             # as a locked tile rather than 500-ing the picker
             prof = dict(database.DEFAULT_DB_PROFILE, frozen=True)
+        act = _db_last_activity(n)
         dbs.append({
             "name": n, "active": n == active, "deletable": n != database.DEFAULT_DB,
             "icon": prof["icon"], "color": prof["color"], "frozen": prof["frozen"],
             "enter_roles": prof["enter_roles"], "edit_roles": prof["edit_roles"],
             "can_enter": _can_enter(prof, role), "can_edit": _can_edit(prof, role),
+            "last_entry": act["last_entry"], "last_at": act["last_at"],
+            "entries": act["entries"],
         })
     return jsonify({
         "active": active, "default": database.DEFAULT_DB,
@@ -1789,17 +1893,23 @@ def switch_database_api():
     # the same person must exist in the target database with the SAME role —
     # matching on role too prevents a low-privilege user from switching into a
     # database where their username happens to map to a higher-privileged account
+    role = g.user["role"]
     target = database.get_db(name)
     try:
         row = target.execute(
             "SELECT id FROM users WHERE username=? AND is_active=1 AND role=?",
-            (g.user["username"], g.user["role"])).fetchone()
+            (g.user["username"], role)).fetchone()
+        # admins may open every database — if this admin's exact username isn't
+        # provisioned in the target, bind the session to any active admin there
+        if not row and role == "admin":
+            row = target.execute(
+                "SELECT id FROM users WHERE role='admin' AND is_active=1 ORDER BY id"
+            ).fetchone()
         prof = database.get_db_profile(target)
     finally:
         target.close()
     if not row:
-        raise ValueError("Your %s account does not exist in '%s'" % (g.user["role"], name))
-    role = g.user["role"]
+        raise ValueError("Your %s account does not exist in '%s'" % (role, name))
     if not _can_enter(prof, role):
         raise ValueError("'%s' is %s — you don't have access to open it."
                          % (name, "frozen" if prof["frozen"] else "restricted for your role"))
@@ -1852,6 +1962,110 @@ def update_user(uid):
                      (generate_password_hash(d["password"]), uid))
     db().commit()
     return jsonify({"ok": True})
+
+
+# --------------------------------------------------------------------------
+# Per-database user management (admin) — create/edit/remove a login on ANY
+# database straight from the picker, without switching into it first.
+# --------------------------------------------------------------------------
+
+@app.get("/api/databases/<name>/users")
+@role_required("admin")
+def list_db_users(name):
+    conn, close = _open_named_db(name)
+    try:
+        rows = conn.execute(
+            "SELECT id, username, full_name, role, is_active, created_at"
+            " FROM users ORDER BY id").fetchall()
+        return jsonify([dict(r) for r in rows])
+    finally:
+        if close:
+            conn.close()
+
+
+@app.post("/api/databases/<name>/users")
+@role_required("admin")
+def create_db_user(name):
+    d = request.get_json(force=True)
+    if not (d.get("username") or "").strip() or not d.get("password"):
+        raise ValueError("Username and password are required")
+    role = d.get("role", "viewer")
+    if role not in ("admin", "finance", "viewer"):
+        raise ValueError("Invalid role")
+    conn, close = _open_named_db(name)
+    try:
+        exists = conn.execute("SELECT 1 FROM users WHERE username=?",
+                              (d["username"].strip(),)).fetchone()
+        if exists:
+            raise ValueError("Username '%s' already exists in %s" % (d["username"].strip(), name))
+        cur = conn.execute(
+            "INSERT INTO users (username, password_hash, full_name, role, company_access)"
+            " VALUES (?,?,?,?,'all')",
+            (d["username"].strip(), generate_password_hash(d["password"]),
+             d.get("full_name", ""), role))
+        conn.commit()
+        return jsonify({"id": cur.lastrowid}), 201
+    finally:
+        if close:
+            conn.close()
+
+
+@app.put("/api/databases/<name>/users/<int:uid>")
+@role_required("admin")
+def update_db_user(name, uid):
+    d = request.get_json(force=True)
+    role = d.get("role", "viewer")
+    if role not in ("admin", "finance", "viewer"):
+        raise ValueError("Invalid role")
+    conn, close = _open_named_db(name)
+    try:
+        row = conn.execute("SELECT role, is_active FROM users WHERE id=?", (uid,)).fetchone()
+        if not row:
+            raise ValueError("User not found in %s" % name)
+        new_active = 1 if d.get("is_active", True) else 0
+        # never let the last active admin lose admin/active status → lockout guard
+        if row["role"] == "admin" and (role != "admin" or not new_active):
+            others = conn.execute(
+                "SELECT COUNT(*) AS n FROM users WHERE role='admin' AND is_active=1 AND id<>?",
+                (uid,)).fetchone()["n"]
+            if not others:
+                raise ValueError("Cannot demote or disable the last active admin of %s" % name)
+        conn.execute(
+            "UPDATE users SET full_name=?, role=?, is_active=? WHERE id=?",
+            (d.get("full_name", ""), role, new_active, uid))
+        if d.get("password"):
+            conn.execute("UPDATE users SET password_hash=? WHERE id=?",
+                         (generate_password_hash(d["password"]), uid))
+        conn.commit()
+        return jsonify({"ok": True})
+    finally:
+        if close:
+            conn.close()
+
+
+@app.delete("/api/databases/<name>/users/<int:uid>")
+@role_required("admin")
+def delete_db_user(name, uid):
+    conn, close = _open_named_db(name)
+    try:
+        row = conn.execute("SELECT username, role FROM users WHERE id=?", (uid,)).fetchone()
+        if not row:
+            raise ValueError("User not found in %s" % name)
+        if row["role"] == "admin":
+            others = conn.execute(
+                "SELECT COUNT(*) AS n FROM users WHERE role='admin' AND is_active=1 AND id<>?",
+                (uid,)).fetchone()["n"]
+            if not others:
+                raise ValueError("Cannot delete the last active admin of %s" % name)
+        # don't delete the account you are currently signed in as
+        if not close and uid == g.user["id"]:
+            raise ValueError("You cannot delete your own signed-in account")
+        conn.execute("DELETE FROM users WHERE id=?", (uid,))
+        conn.commit()
+        return jsonify({"ok": True})
+    finally:
+        if close:
+            conn.close()
 
 
 # --------------------------------------------------------------------------

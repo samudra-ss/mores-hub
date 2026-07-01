@@ -319,6 +319,19 @@ CREATE TABLE IF NOT EXISTS cash_budget (
     UNIQUE (company_id, year, week)
 );
 
+CREATE TABLE IF NOT EXISTS payables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL REFERENCES companies(id),
+    vendor TEXT NOT NULL DEFAULT '',
+    bill_no TEXT NOT NULL DEFAULT '',
+    bill_date TEXT,
+    due_date TEXT,
+    amount REAL NOT NULL DEFAULT 0,
+    paid REAL NOT NULL DEFAULT 0,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_entry ON journal_lines(entry_id);
 CREATE INDEX IF NOT EXISTS idx_receivables_company ON receivables(company_id);
 CREATE INDEX IF NOT EXISTS idx_lines_account ON journal_lines(account_id);
@@ -738,6 +751,7 @@ def delete_company_cascade(conn, company_id):
                  "(SELECT id FROM investments WHERE company_id=?)", (cid,))
     conn.execute("DELETE FROM investments WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM receivables WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM payables WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM cash_budget WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM journal_lines WHERE entry_id IN "
                  "(SELECT id FROM journal_entries WHERE company_id=?)", (cid,))
@@ -792,6 +806,14 @@ def migrate_database(conn):
         "year INTEGER NOT NULL, week INTEGER NOT NULL,"
         "cash_in REAL NOT NULL DEFAULT 0, cash_out REAL NOT NULL DEFAULT 0,"
         "UNIQUE (company_id, year, week))")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS payables ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "company_id INTEGER NOT NULL REFERENCES companies(id),"
+        "vendor TEXT NOT NULL DEFAULT '', bill_no TEXT NOT NULL DEFAULT '',"
+        "bill_date TEXT, due_date TEXT, amount REAL NOT NULL DEFAULT 0,"
+        "paid REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
     # drop the legacy holding first so the COA top-up only touches survivors
     remove_holding(conn)
     for r in conn.execute("SELECT id FROM companies").fetchall():

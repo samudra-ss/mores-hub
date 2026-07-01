@@ -134,6 +134,37 @@ body::before {
 .btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; box-shadow: 0 8px 22px rgba(0,162,182,.3); }
 .btn.primary:hover { filter: brightness(1.07); }
 .err { color: #ff9d9d; font-size: 12.5px; margin-top: 10px; min-height: 16px; }
+/* last-used line on tile */
+.tile .used { font-family: var(--mono); font-size: 9.5px; color: var(--muted); margin-top: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .used b { color: #b9c2cb; font-weight: 600; }
+/* manage-users button on tile */
+.tile .people { position: absolute; top: 10px; right: 70px; width: 26px; height: 26px; border-radius: 7px;
+  border: none; cursor: pointer; background: rgba(8,11,13,.5); color: #fff; font-size: 13px; line-height: 1;
+  display: none; align-items: center; justify-content: center; }
+.tile:hover .people { display: flex; }
+.tile .people:hover { background: var(--teal); }
+/* users modal */
+.modal input[type=password], .modal select { width: 100%; padding: 11px 13px; font-size: 14px; color: var(--text);
+  font-family: inherit; background: #0f1318; border: 1px solid #262d35; border-radius: 9px; outline: none; }
+.modal input[type=password]:focus, .modal select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.2); }
+.ulist { max-height: 232px; overflow: auto; margin: 4px 0 16px; border: 1px solid var(--border); border-radius: 10px; }
+.urow { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.urow:last-child { border-bottom: none; }
+.urow.inactive { opacity: .55; }
+.urow .un { font-weight: 600; }
+.urow .uf { color: var(--muted); font-size: 11.5px; }
+.urow .sp { flex: 1; }
+.urow .ub { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 7px;
+  padding: 4px 9px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.urow .ub:hover { border-color: var(--muted); color: var(--text); }
+.urow .ub.danger:hover { border-color: #bd362f; color: #ff9d9d; }
+.uform { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+.uform .full { grid-column: 1 / -1; }
+.uform label { margin-bottom: 5px; }
+.uform .uactive { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--muted); }
+.uform .uactive input { width: 15px; height: 15px; accent-color: var(--teal); }
+.section-t { font-size: 12px; font-weight: 700; color: #c2c8cd; margin: 6px 0 8px; letter-spacing: .02em; }
 /* toast */
 .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 40;
   background: #12161b; border: 1px solid var(--border); color: var(--text); padding: 11px 18px; border-radius: 10px;
@@ -213,6 +244,35 @@ body::before {
       <div class="err" id="pErr"></div>
     </div>
   </div>
+
+  <!-- per-database user management modal — admin only -->
+  <div class="backdrop" id="uBackdrop">
+    <div class="modal" style="width:min(520px,100%)">
+      <h3>Manage Users</h3>
+      <p id="uName" style="font-family:var(--mono);color:var(--teal-bright);margin-bottom:14px"></p>
+      <div class="section-t">Accounts in this database</div>
+      <div class="ulist" id="uList"><div class="empty" style="padding:20px 12px">Loading…</div></div>
+      <div class="section-t" id="uFormTitle">Add a new user</div>
+      <div class="uform">
+        <label class="full">Username <input type="text" id="uUsername" placeholder="e.g. andi.finance" autocomplete="off"></label>
+        <label>Full name <input type="text" id="uFullName" placeholder="Andi Wijaya" autocomplete="off"></label>
+        <label>Role
+          <select id="uRole">
+            <option value="viewer">Viewer / Auditor</option>
+            <option value="finance">Accountant</option>
+            <option value="admin">Administrator</option>
+          </select></label>
+        <label class="full">Password <input type="password" id="uPassword" placeholder="set a password" autocomplete="new-password"></label>
+        <label class="full uactive" id="uActiveWrap" style="display:none"><input type="checkbox" id="uActive" checked> Active (can sign in)</label>
+      </div>
+      <div class="acts" style="margin-top:16px">
+        <button class="btn" id="uReset" style="display:none">Cancel edit</button>
+        <button class="btn" id="uClose">Close</button>
+        <button class="btn primary" id="uSave">Add user</button>
+      </div>
+      <div class="err" id="uErr"></div>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
 
 <script>
@@ -255,6 +315,11 @@ function roleBadges(roles) {
   if (!roles || !roles.length) return '<span class="rb rb-none">none</span>';
   return roles.map(r => `<span class="rb rb-${r}">${ROLE_SHORT[r] || r}</span>`).join(' ');
 }
+function usedText(db) {
+  if (!db.entries) return 'No entries yet';
+  const when = db.last_entry || (db.last_at || '').slice(0, 10) || '—';
+  return `Last entry <b>${esc(when)}</b> · ${Number(db.entries).toLocaleString()} entries`;
+}
 
 function render(d) {
   dbList = d.databases;
@@ -265,6 +330,7 @@ function render(d) {
     const chip = db.active ? 'ACTIVE' : (frozen ? 'FROZEN' : (isGroup ? 'LIVE · GROUP' : 'SANDBOX'));
     const meta = db.active ? 'Currently open' : (frozen ? 'Locked by admin' : (isGroup ? 'Your live group data' : 'Separate data store'));
     const gear = canManage ? `<button class="gear" data-cfg="${esc(db.name)}" title="Database settings">&#9881;</button>` : '';
+    const people = canManage ? `<button class="people" data-usr="${esc(db.name)}" title="Manage users">&#128100;</button>` : '';
     const del = (canManage && db.deletable && !db.active)
       ? `<button class="del" data-del="${esc(db.name)}" title="Delete database">&times;</button>` : '';
     const art = db.icon
@@ -272,10 +338,11 @@ function render(d) {
       : `<div class="art">${SHOP}</div>`;
     return `<div class="tile ${db.active ? 'active' : ''} ${frozen ? 'frozen' : ''} ${locked ? 'locked' : ''}"
         data-open="${esc(db.name)}" data-enter="${db.can_enter ? 1 : 0}">
-      <div class="chip ${frozen ? 'frozenchip' : ''}">${chip}</div>${gear}${del}
+      <div class="chip ${frozen ? 'frozenchip' : ''}">${chip}</div>${people}${gear}${del}
       ${art}
       <div class="label"><div class="name" title="${esc(db.name)}">${esc(db.name)}</div>
         <div class="meta">${meta}</div>
+        <div class="used">${usedText(db)}</div>
         <div class="access">
           <span class="acc-row"><span class="acc-k">Enter</span> ${roleBadges(db.enter_roles)}</span>
           <span class="acc-row"><span class="acc-k">Edit</span> ${roleBadges(db.edit_roles)}</span>
@@ -289,11 +356,12 @@ function render(d) {
   grid.innerHTML = tiles + createTile;
 
   grid.querySelectorAll('[data-open]').forEach(t => t.onclick = (e) => {
-    if (e.target.closest('[data-del]') || e.target.closest('[data-cfg]')) return;
+    if (e.target.closest('[data-del]') || e.target.closest('[data-cfg]') || e.target.closest('[data-usr]')) return;
     if (t.dataset.enter !== '1') { toast('You don\'t have access to open this database.', true); return; }
     open(t.dataset.open, t.classList.contains('active'));
   });
   grid.querySelectorAll('[data-cfg]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openProfile(b.dataset.cfg); });
+  grid.querySelectorAll('[data-usr]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openUsers(b.dataset.usr); });
   grid.querySelectorAll('[data-del]').forEach(b => b.onclick = async (e) => {
     e.stopPropagation();
     const name = b.dataset.del;
@@ -344,6 +412,108 @@ document.getElementById('pSave').onclick = async () => {
     closeProfile(); toast('Database settings saved'); load();
   } catch (e) { document.getElementById('pErr').textContent = e.message; }
 };
+
+/* per-database user management modal — admin only */
+const uBackdrop = document.getElementById('uBackdrop');
+const uState = { name: '', editId: null, users: [] };
+function openUsers(name) {
+  uState.name = name;
+  document.getElementById('uName').textContent = name;
+  document.getElementById('uErr').textContent = '';
+  resetUserForm();
+  document.getElementById('uList').innerHTML = '<div class="empty" style="padding:20px 12px">Loading…</div>';
+  uBackdrop.classList.add('show');
+  loadUsers();
+}
+function closeUsers() { uBackdrop.classList.remove('show'); }
+async function loadUsers() {
+  try {
+    uState.users = await jget('/api/databases/' + encodeURIComponent(uState.name) + '/users');
+    renderUsers();
+  } catch (e) { document.getElementById('uList').innerHTML = `<div class="empty" style="padding:20px 12px">${esc(e.message)}</div>`; }
+}
+function renderUsers() {
+  const list = document.getElementById('uList');
+  if (!uState.users.length) { list.innerHTML = '<div class="empty" style="padding:20px 12px">No users yet.</div>'; return; }
+  list.innerHTML = uState.users.map(u => `<div class="urow ${u.is_active ? '' : 'inactive'}">
+      <span class="rb rb-${u.role}">${ROLE_SHORT[u.role] || u.role}</span>
+      <span class="un">${esc(u.username)}</span>
+      ${u.full_name ? `<span class="uf">${esc(u.full_name)}</span>` : ''}
+      ${u.is_active ? '' : '<span class="uf">(disabled)</span>'}
+      <span class="sp"></span>
+      <button class="ub" data-euser="${u.id}">Edit</button>
+      <button class="ub danger" data-duser="${u.id}">Delete</button>
+    </div>`).join('');
+  list.querySelectorAll('[data-euser]').forEach(b => b.onclick = () => editUser(uState.users.find(x => x.id == b.dataset.euser)));
+  list.querySelectorAll('[data-duser]').forEach(b => b.onclick = () => deleteUser(uState.users.find(x => x.id == b.dataset.duser)));
+}
+function resetUserForm() {
+  uState.editId = null;
+  document.getElementById('uUsername').value = '';
+  document.getElementById('uUsername').disabled = false;
+  document.getElementById('uFullName').value = '';
+  document.getElementById('uPassword').value = '';
+  document.getElementById('uPassword').placeholder = 'set a password';
+  document.getElementById('uRole').value = 'viewer';
+  document.getElementById('uActive').checked = true;
+  document.getElementById('uActiveWrap').style.display = 'none';
+  document.getElementById('uFormTitle').textContent = 'Add a new user';
+  document.getElementById('uSave').textContent = 'Add user';
+  document.getElementById('uReset').style.display = 'none';
+  document.getElementById('uErr').textContent = '';
+}
+function editUser(u) {
+  if (!u) return;
+  uState.editId = u.id;
+  document.getElementById('uUsername').value = u.username;
+  document.getElementById('uUsername').disabled = true;
+  document.getElementById('uFullName').value = u.full_name || '';
+  document.getElementById('uPassword').value = '';
+  document.getElementById('uPassword').placeholder = 'leave blank to keep current';
+  document.getElementById('uRole').value = u.role;
+  document.getElementById('uActive').checked = !!u.is_active;
+  document.getElementById('uActiveWrap').style.display = 'flex';
+  document.getElementById('uFormTitle').textContent = 'Edit user — ' + u.username;
+  document.getElementById('uSave').textContent = 'Save changes';
+  document.getElementById('uReset').style.display = '';
+  document.getElementById('uErr').textContent = '';
+}
+async function deleteUser(u) {
+  if (!u) return;
+  if (!confirm(`Delete user "${u.username}" from ${uState.name}? This cannot be undone.`)) return;
+  try {
+    await jpost('/api/databases/' + encodeURIComponent(uState.name) + '/users/' + u.id, null, 'DELETE');
+    toast('User deleted'); if (uState.editId === u.id) resetUserForm(); loadUsers();
+  } catch (e) { document.getElementById('uErr').textContent = e.message; }
+}
+document.getElementById('uSave').onclick = async () => {
+  const username = document.getElementById('uUsername').value.trim();
+  const password = document.getElementById('uPassword').value;
+  const body = {
+    full_name: document.getElementById('uFullName').value.trim(),
+    role: document.getElementById('uRole').value,
+  };
+  const err = document.getElementById('uErr'); err.textContent = '';
+  try {
+    if (uState.editId) {
+      body.is_active = document.getElementById('uActive').checked;
+      if (password) body.password = password;
+      await jpost('/api/databases/' + encodeURIComponent(uState.name) + '/users/' + uState.editId, body, 'PUT');
+      toast('User updated');
+    } else {
+      if (!username) { err.textContent = 'Username is required.'; return; }
+      if (!password) { err.textContent = 'Password is required for a new user.'; return; }
+      body.username = username; body.password = password;
+      await jpost('/api/databases/' + encodeURIComponent(uState.name) + '/users', body);
+      toast('User created');
+    }
+    resetUserForm(); loadUsers();
+  } catch (e) { err.textContent = e.message; }
+};
+document.getElementById('uReset').onclick = resetUserForm;
+document.getElementById('uClose').onclick = closeUsers;
+uBackdrop.addEventListener('mousedown', e => { if (e.target === uBackdrop) closeUsers(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeUsers(); });
 
 async function open(name, isActive) {
   try {
