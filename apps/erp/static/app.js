@@ -82,7 +82,7 @@ function healthTarget(h) {
 // entry-source pill colour (label text comes from the server's source_label)
 const SOURCE_CLASS = {
   manual: "inactive", bca_bank: "active", bca_csv: "active",
-  bca_pdf: "active", monit_wallet: "completed", excel: "draft",
+  bca_pdf: "active", monit_wallet: "completed", excel: "draft", custom: "posted",
 };
 
 function renderTbDetailed(d, consolidated) {
@@ -390,6 +390,11 @@ const TR = {
   "account 7300 & its sub-accounts": "akun 7300 & sub-akunnya",
   "No C-AKUN (7300) accounts with activity yet.": "Belum ada akun C-AKUN (7300) dengan aktivitas.",
   "Account": "Akun",
+  // dashboard revenue/COGS attribution toggle
+  "By project company": "Per perusahaan proyek",
+  "By booking entity": "Per entitas pembukuan",
+  "Revenue & COGS follow the project's company (management view) or stay with the booking entity (legal view).":
+    "Pendapatan & HPP mengikuti perusahaan proyek (tampilan manajemen) atau tetap di entitas pembukuan (tampilan legal).",
   // weekly cash flow + cash budget
   "Monthly": "Bulanan", "Weekly": "Mingguan",
   "Weekly Cash — Actual vs Budget": "Kas Mingguan — Aktual vs Anggaran",
@@ -561,7 +566,8 @@ async function render() {
 
 /* ------------------------------------------------------------------ dashboard */
 async function pageDashboard(el) {
-  const d = await api(`/api/reports/dashboard?${scopeQS()}`);
+  if (!state.dashAttr) state.dashAttr = "project";
+  const d = await api(`/api/reports/dashboard?${scopeQS()}&attribution=${state.dashAttr}`);
   $("#scopeBadge").textContent = d.scope;
   const k = d.kpis;
   const kpi = (label, value, cls, sub) => `<div class="kpi ${cls || ""}">
@@ -594,10 +600,16 @@ async function pageDashboard(el) {
   const caktUsed = caktBudget ? Math.round(100 * caktActual / caktBudget) : null;
   el.innerHTML = `
     <div class="page-head"><h2>${t("Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}</span></h2>
-      <div class="seg-group" id="dashScope">
-        ${seg(t("Consolidated"), "all")}
-        ${holding ? seg("Holding", holding.id) : ""}
-        ${state.me.companies.filter(c => !c.is_holding).map(c => seg(c.code, c.id)).join("")}
+      <div class="page-actions" style="gap:14px;flex-wrap:wrap">
+        <div class="seg-group" id="dashAttr" title="${t("Revenue & COGS follow the project's company (management view) or stay with the booking entity (legal view).")}">
+          <button class="seg ${state.dashAttr === "project" ? "active" : ""}" data-attr="project">${t("By project company")}</button>
+          <button class="seg ${state.dashAttr === "entity" ? "active" : ""}" data-attr="entity">${t("By booking entity")}</button>
+        </div>
+        <div class="seg-group" id="dashScope">
+          ${seg(t("Consolidated"), "all")}
+          ${holding ? seg("Holding", holding.id) : ""}
+          ${state.me.companies.filter(c => !c.is_holding).map(c => seg(c.code, c.id)).join("")}
+        </div>
       </div></div>
     ${(d.warnings && d.warnings.length) ? `<div class="warn-banner">
       ${d.warnings.map(w => `<div class="warn ${w.level === "danger" ? "danger" : "watch"}">
@@ -745,6 +757,10 @@ async function pageDashboard(el) {
     state.companyId = b.dataset.scope;
     localStorage.setItem("erp.company", b.dataset.scope);
     renderCompanyChoice();  // keep topbar choice in sync
+    render();
+  });
+  $$("#dashAttr .seg").forEach(b => b.onclick = () => {
+    state.dashAttr = b.dataset.attr;
     render();
   });
   $$("#content tr[data-proj]").forEach(tr => tr.onclick = () =>
@@ -1309,7 +1325,7 @@ function customFieldInput(f, value) {
 
 /* ------------------------------------------------------------------ bank import */
 // which entry source each bank-import mode books under
-const BANK_SOURCE_BY_MODE = { paste: "bca_bank", csv: "bca_csv", pdf: "bca_pdf", wallet: "monit_wallet" };
+const BANK_SOURCE_BY_MODE = { paste: "bca_bank", csv: "bca_csv", pdf: "bca_pdf", wallet: "monit_wallet", custom: "custom" };
 
 async function pageBank(el) {
   if (!canWrite()) {
@@ -1328,6 +1344,7 @@ async function pageBank(el) {
         <button data-m="csv">CSV file — mutasi rekening</button>
         <button data-m="pdf">PDF e-statement (BCA)</button>
         <button data-m="wallet">Wallet / Card Excel (petty cash)</button>
+        <button data-m="custom">Custom format (import/export)</button>
       </div>
       <div id="bkPasteBox">
         <p class="muted" style="margin-top:-2px">Copy one or more transfer confirmations from KlikBCA / myBCA and paste them below.
@@ -1371,12 +1388,32 @@ async function pageBank(el) {
           <span class="muted" id="bkWalletInfo"></span>
         </div>
       </div>
+      <div id="bkCustomBox" hidden>
+        <p class="muted" style="margin-top:-2px">Use a <b>custom format profile</b> to import a CSV/Excel from any other bank —
+        the profile maps that bank's columns (date, description, amount, direction, balance) onto ours. <b>Export</b> a built-in
+        format as a starting point, edit the column names to match your file, then <b>Import</b> it back and pick it here.</p>
+        <div class="filters" style="flex-wrap:wrap;gap:10px">
+          <label>Format <select id="bkFmtSel" style="min-width:220px"></select></label>
+          <label>File <input type="file" id="bkFmtFile" accept=".csv,.txt,.xlsx,.xlsm"></label>
+          <button class="btn btn-primary" id="bkFmtParse">Upload &amp; parse</button>
+          <span class="muted" id="bkFmtInfo"></span>
+        </div>
+        <div class="filters" style="flex-wrap:wrap;gap:10px;margin-top:6px">
+          <label>Export a template <select id="bkFmtTpl" style="min-width:180px"></select></label>
+          <a class="btn btn-sm" id="bkFmtExportTpl">&#x2913; Download template JSON</a>
+          <a class="btn btn-sm" id="bkFmtExportSel">&#x2913; Export selected format</a>
+          <label class="btn btn-sm" style="cursor:pointer">&#x2912; Import format JSON
+            <input type="file" id="bkFmtImport" accept=".json" hidden></label>
+          <button class="btn btn-sm btn-danger" id="bkFmtDelete">Delete selected</button>
+        </div>
+      </div>
     </div>
     <div class="card mt" id="bkStage2" hidden>
       <h3>2. Assign accounts &amp; book entries</h3>
       <p class="muted" style="margin-top:-6px">Each transfer is booked as: <b>debit</b> the account you choose below (cost/expense by default) and <b>credit</b> the bank account. Duplicates (same No Referensi already booked) are unticked automatically.</p>
       <div class="filters">
         <label id="bkBankLabel">Cash / Bank account (the cash side) <select id="bkBank" style="min-width:240px"></select></label>
+        <button class="btn btn-sm" id="bkSetDefault" title="Remember this cash/bank account as the default contra for imports in this database">&#9733; Set as default</button>
         <label>Book as <select id="bkStatus"><option value="draft">Draft</option><option value="posted" selected>Posted</option></select></label>
       </div>
       <div style="overflow-x:auto"><table class="tbl bk-compact" id="bkTable"></table></div>
@@ -1387,20 +1424,24 @@ async function pageBank(el) {
       <div id="bkResults" class="mt"></div>
     </div>`;
 
-  let txs = [], accounts = [], projects = [], mode = "paste";
+  let txs = [], accounts = [], projects = [], mode = "paste", bankCfg = { default_cash_code: "" };
 
   async function loadCompanyData() {
     // accounts must belong to the import company; projects span the whole
     // database (a bank line can be tagged to any project, in any company)
-    [accounts, projects] = await Promise.all([
+    [accounts, projects, bankCfg] = await Promise.all([
       api("/api/accounts?company_id=" + $("#bkCompany").value),
       api("/api/projects?company_id=all"),
+      api("/api/settings/bank-config").catch(() => ({ default_cash_code: "" })),
     ]);
     accounts = accounts.filter(a => a.is_active);
     const banks = accounts.filter(a => a.type === "asset" && a.code.startsWith("11"));
-    const cashDefault = mode === "wallet" ? "1130" : "1120";  // wallet -> Petty Cash Monit
+    // configurable default cash/bank contra account (Settings); wallet keeps
+    // Petty Cash Monit, everything else falls back to the saved default or 1120
+    const cashDefault = mode === "wallet" ? "1130" : (bankCfg.default_cash_code || "1120");
+    const has = banks.some(a => a.code === cashDefault);
     $("#bkBank").innerHTML = banks.map(a =>
-      `<option value="${a.id}" ${a.code === cashDefault ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("");
+      `<option value="${a.id}" ${a.code === (has ? cashDefault : "1120") ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("");
   }
 
   function debitOptions(sel, direction) {
@@ -1410,8 +1451,13 @@ async function pageBank(el) {
       : "";
     const exp = grp("Costs / Expenses", accounts.filter(a => a.type === "expense"));
     const rev = grp("Revenue", accounts.filter(a => a.type === "revenue"));
+    // cash/bank (11xx) accounts are offered as a contra so an interbank / cash
+    // transfer (bank ↔ bank, bank ↔ petty cash) can be booked
+    const interbank = grp("Cash / Bank (interbank transfer)",
+      accounts.filter(a => a.type === "asset" && a.code.startsWith("11")));
     return `<option value="">— choose account —</option>`
       + (direction === "in" ? rev + exp : exp + rev)
+      + interbank
       + grp("Assets", accounts.filter(a => a.type === "asset" && !a.code.startsWith("11")))
       + grp("Liabilities", accounts.filter(a => a.type === "liability"));
   }
@@ -1466,13 +1512,27 @@ async function pageBank(el) {
     $("#bkCsvBox").hidden = mode !== "csv";
     $("#bkPdfBox").hidden = mode !== "pdf";
     $("#bkWalletBox").hidden = mode !== "wallet";
-    // default the cash side: Petty Cash Monit for wallet, Bank for the rest
-    const wantCode = mode === "wallet" ? "1130" : "1120";
-    const opt = Array.from($("#bkBank").options).find(o => o.textContent.trim().startsWith(wantCode));
+    $("#bkCustomBox").hidden = mode !== "custom";
+    if (mode === "custom") loadFormats();
+    // default the cash side: Petty Cash Monit for wallet, else the configured
+    // default cash/bank account (falls back to Bank 1120)
+    const wantCode = mode === "wallet" ? "1130" : (bankCfg.default_cash_code || "1120");
+    let opt = Array.from($("#bkBank").options).find(o => o.textContent.trim().startsWith(wantCode + " "));
+    if (!opt && mode !== "wallet") opt = Array.from($("#bkBank").options).find(o => o.textContent.trim().startsWith("1120 "));
     if (opt) $("#bkBank").value = opt.value;
     $("#bkBankLabel").firstChild.textContent = mode === "wallet"
       ? "Petty Cash account (deducted from this) " : "Cash / Bank account (the cash side) ";
   });
+  $("#bkSetDefault").onclick = async () => {
+    const sel = $("#bkBank").selectedOptions[0];
+    if (!sel) return;
+    const code = sel.textContent.trim().split(" ")[0];
+    try {
+      await api("/api/settings/bank-config", { json: { default_cash_code: code } });
+      bankCfg.default_cash_code = code;
+      toast(`Default cash/bank account set to ${code} for this database`);
+    } catch (e) { toast(e.message, true); }
+  };
   const showParsed = (res, infoEl) => {
     txs = res.transactions;
     const dups = txs.filter(t => t.duplicate).length;
@@ -1507,6 +1567,58 @@ async function pageBank(el) {
   $("#bkCsvParse").onclick = () => uploadParse($("#bkCsvFile"), "/api/bank/parse-csv", $("#bkCsvInfo"));
   $("#bkPdfParse").onclick = () => uploadParse($("#bkPdfFile"), "/api/bank/parse-pdf", $("#bkPdfInfo"));
   $("#bkWalletParse").onclick = () => uploadParse($("#bkWalletFile"), "/api/bank/parse-wallet", $("#bkWalletInfo"));
+
+  // ---- custom format profiles (import / export) ----
+  let fmtLoaded = false;
+  async function loadFormats() {
+    let data;
+    try { data = await api("/api/bank/formats"); } catch (e) { toast(e.message, true); return; }
+    fmtLoaded = true;
+    $("#bkFmtSel").innerHTML = data.profiles.length
+      ? data.profiles.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.format_type)})</option>`).join("")
+      : `<option value="">— no custom formats yet — import one below —</option>`;
+    $("#bkFmtTpl").innerHTML = data.templates.map(tp =>
+      `<option value="${esc(tp.key)}">${esc(tp.name)}</option>`).join("");
+    const selId = () => $("#bkFmtSel").value;
+    $("#bkFmtExportTpl").href = `/api/bank/formats/export?template=${encodeURIComponent($("#bkFmtTpl").value || "")}`;
+    $("#bkFmtTpl").onchange = () => { $("#bkFmtExportTpl").href = `/api/bank/formats/export?template=${encodeURIComponent($("#bkFmtTpl").value)}`; };
+    const syncExportSel = () => { $("#bkFmtExportSel").href = selId() ? `/api/bank/formats/export?id=${selId()}` : "#"; };
+    $("#bkFmtSel").onchange = syncExportSel; syncExportSel();
+  }
+  $("#bkFmtParse").onclick = async () => {
+    const f = $("#bkFmtFile").files[0];
+    const fid = $("#bkFmtSel").value;
+    if (!fid) { toast("Pick a custom format (import one first)", true); return; }
+    if (!f) { toast("Choose the file to parse", true); return; }
+    const fd = new FormData();
+    fd.append("company_id", $("#bkCompany").value);
+    fd.append("format_id", fid);
+    fd.append("file", f);
+    $("#bkFmtInfo").textContent = "Parsing…";
+    try { showParsed(await api("/api/bank/parse-custom", { method: "POST", body: fd }), $("#bkFmtInfo")); }
+    catch (e) { $("#bkFmtInfo").textContent = ""; toast(e.message, true); }
+  };
+  $("#bkFmtImport").onchange = async () => {
+    const f = $("#bkFmtImport").files[0];
+    if (!f) return;
+    try {
+      const profile = JSON.parse(await f.text());
+      const r = await api("/api/bank/formats", { json: profile });
+      toast(`Format "${r.name}" imported`);
+      await loadFormats();
+      const opt = Array.from($("#bkFmtSel").options).find(o => o.value == r.id);
+      if (opt) $("#bkFmtSel").value = r.id;
+      $("#bkFmtSel").dispatchEvent(new Event("change"));
+    } catch (e) { toast("Import failed: " + e.message, true); }
+    $("#bkFmtImport").value = "";
+  };
+  $("#bkFmtDelete").onclick = async () => {
+    const fid = $("#bkFmtSel").value;
+    if (!fid) { toast("No custom format selected", true); return; }
+    if (!confirm("Delete this custom format profile?")) return;
+    try { await api("/api/bank/formats/" + fid, { method: "DELETE" }); toast("Format deleted"); await loadFormats(); }
+    catch (e) { toast(e.message, true); }
+  };
   $("#bkBook").onclick = async () => {
     const bankAcc = parseInt($("#bkBank").value, 10);
     const status = $("#bkStatus").value;
@@ -1514,6 +1626,8 @@ async function pageBank(el) {
     if (!rows.length) { toast("No transfers selected", true); return; }
     const missing = rows.filter(tr => !$(".bk-acc", tr).value);
     if (missing.length) { toast(`${missing.length} selected transfer(s) have no debit account chosen`, true); return; }
+    const selfTransfer = rows.filter(tr => parseInt($(".bk-acc", tr).value, 10) === bankAcc);
+    if (selfTransfer.length) { toast(`${selfTransfer.length} selected transfer(s) use the same account for both sides — pick a different contra account`, true); return; }
     $("#bkBook").disabled = true;
     let okCount = 0; const results = [];
     for (const tr of rows) {
@@ -2376,14 +2490,19 @@ async function pageReports(el) {
     const body = $("#rBody");
     body.innerHTML = `<div class="empty">Loading…</div>`;
     if (tab === "pnl") {
+      if (!state.pnlAttr) state.pnlAttr = "project";
       body.innerHTML = `<div class="filters">${dateRangeFilters()}
+        <div class="seg-group" id="pnlAttr" title="${t("Revenue & COGS follow the project's company (management view) or stay with the booking entity (legal view).")}">
+          <button class="seg ${state.pnlAttr === "project" ? "active" : ""}" data-attr="project">${t("By project company")}</button>
+          <button class="seg ${state.pnlAttr === "entity" ? "active" : ""}" data-attr="entity">${t("By booking entity")}</button>
+        </div>
         <span class="muted" id="rPeriod"></span></div><div id="rTable"></div>`;
       const run = async () => {
-        const d = await api(`/api/reports/pnl?${scopeQS()}&${rangeQS()}`);
+        const d = await api(`/api/reports/pnl?${scopeQS()}&${rangeQS()}&attribution=${state.pnlAttr}`);
         $("#rScope").textContent = d.scope;
         $("#rPeriod").textContent = periodLabel(d);
-        $("#rExp").href = `/api/export/pnl?${scopeQS()}&${rangeQS()}`;
-        $("#rExpPdf").href = `/api/export/pdf/pnl?${scopeQS()}&${rangeQS()}`;
+        $("#rExp").href = `/api/export/pnl?${scopeQS()}&${rangeQS()}&attribution=${state.pnlAttr}`;
+        $("#rExpPdf").href = `/api/export/pdf/pnl?${scopeQS()}&${rangeQS()}&attribution=${state.pnlAttr}`;
         const row = r => `<tr><td>${esc(r.code)}</td><td>${esc(r.name)}</td><td class="num">${fmt(r.balance)}</td></tr>`;
         $("#rTable").innerHTML = `<table class="tbl"><thead><tr><th style="width:80px">Code</th><th>Account</th><th class="num">Amount</th></tr></thead><tbody>
           <tr class="section"><td colspan="3">Revenue</td></tr>${d.revenue.map(row).join("")}
@@ -2394,6 +2513,7 @@ async function pageReports(el) {
             <td class="num ${d.net_profit >= 0 ? "pos" : "neg"}">${fmt(d.net_profit)}</td></tr></tbody></table>`;
       };
       $("#rGo").onclick = run;
+      $$("#pnlAttr .seg").forEach(b => b.onclick = () => { state.pnlAttr = b.dataset.attr; show(); });
       await run();
     } else if (tab === "bs") {
       body.innerHTML = `<div class="filters">
@@ -2433,14 +2553,28 @@ async function pageReports(el) {
         $("#rExp").href = `/api/export/trial-balance?${scopeQS()}&${rangeQS()}`;
         $("#rExpPdf").href = `/api/export/pdf/trial-balance?${scopeQS()}&${rangeQS()}`;
         if (!detailed) {
+          // grouped by parent account: parent rows are bold subtotals, leaf
+          // rows are indented and clickable through to their ledger
+          const disp = (d.grouped && d.grouped.length)
+            ? d.grouped : d.rows.map(r => Object.assign({ level: 0, is_group: false }, r));
+          const body = disp.map(r => {
+            const pad = 8 + r.level * 18;
+            const nameCell = r.is_group
+              ? `<b>${esc(r.name)}</b>`
+              : `<a href="#" class="tb-name" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.name)}</a>`;
+            return `<tr class="${r.is_group ? "tb-group" : ""}">
+              <td style="padding-left:${pad}px">${esc(r.code)}</td>
+              <td>${nameCell}</td><td class="muted">${r.type}</td>
+              <td class="num">${r.debit ? fmt(r.debit) : ""}</td>
+              <td class="num">${r.credit ? fmt(r.credit) : ""}</td>
+              <td class="num">${fmt(r.balance)}</td></tr>`;
+          }).join("");
           $("#rTable").innerHTML = `<table class="tbl"><thead><tr><th>Code</th><th>Account</th><th>Type</th>
             <th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
-            <tbody>${d.rows.map(r => `<tr><td>${esc(r.code)}</td>
-              <td><a href="#" class="tb-name" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.name)}</a></td><td>${r.type}</td>
-              <td class="num">${fmt(r.debit)}</td><td class="num">${fmt(r.credit)}</td><td class="num">${fmt(r.balance)}</td></tr>`).join("")}
+            <tbody>${body}
             <tr class="total"><td colspan="3">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
               <td class="num">${fmt(d.total_credit)}</td><td></td></tr></tbody></table>
-            <p class="muted mt">Click an account name to see its detailed journal entries and each entry&rsquo;s source.</p>`;
+            <p class="muted mt">Grouped by parent account — <b>bold</b> rows are roll-up subtotals. Click a child account to see its journal entries and each entry&rsquo;s source.</p>`;
           $$("#rTable .tb-name").forEach(a => a.onclick = e => {
             e.preventDefault(); openAccountLedger(a.dataset.code, a.dataset.name);
           });

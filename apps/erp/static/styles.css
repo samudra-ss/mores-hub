@@ -210,6 +210,8 @@ html[data-theme="dark"] .warn.watch { background: rgba(200,122,8,.16); border-co
 .tbl tr:hover td { background: #f7f9fa; }
 .tbl tr.total td { font-weight: 700; border-top: 2px solid var(--text); background: #fafbfc; }
 .tbl tr.section td { font-weight: 700; background: #eef3f4; }
+.tbl tr.tb-group td { font-weight: 600; background: rgba(0,162,182,.06); }
+html[data-theme="dark"] .tbl tr.tb-group td { background: rgba(0,162,182,.10); }
 .tbl .pos { color: var(--green); } .tbl .neg { color: var(--red); }
 .clickable { cursor: pointer; }
 

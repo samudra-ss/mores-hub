@@ -62,15 +62,23 @@ def export_trial_balance(tb, scope_label, period_label):
     wb = Workbook()
     ws = _sheet(wb, "Trial Balance", "Trial Balance — %s" % scope_label, period_label)
     _header_row(ws, 4, ["Code", "Account", "Type", "Debit", "Credit", "Balance"],
-                [10, 38, 12, 18, 18, 18])
+                [14, 40, 12, 18, 18, 18])
     r = 5
-    for row in tb["rows"]:
-        ws.cell(row=r, column=1, value=row["code"])
-        ws.cell(row=r, column=2, value=row["name"])
+    # grouped by parent account when available: parent rows bold, children
+    # indented; balances still reconcile because only leaf rows carry raw amounts
+    display = tb.get("grouped") or [dict(x, level=0, is_group=False) for x in tb["rows"]]
+    for row in display:
+        is_group = row.get("is_group")
+        indent = "    " * row.get("level", 0)
+        c1 = ws.cell(row=r, column=1, value=row["code"])
+        c2 = ws.cell(row=r, column=2, value=indent + row["name"])
         ws.cell(row=r, column=3, value=row["type"].title())
-        _num(ws, r, 4, row["debit"])
-        _num(ws, r, 5, row["credit"])
-        _num(ws, r, 6, row["balance"])
+        _num(ws, r, 4, row["debit"], bold=is_group)
+        _num(ws, r, 5, row["credit"], bold=is_group)
+        _num(ws, r, 6, row["balance"], bold=is_group)
+        if is_group:
+            c1.font = BOLD
+            c2.font = BOLD
         r += 1
     ws.cell(row=r, column=2, value="TOTAL").font = BOLD
     _num(ws, r, 4, tb["total_debit"], bold=True)

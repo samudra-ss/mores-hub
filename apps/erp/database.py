@@ -332,6 +332,15 @@ CREATE TABLE IF NOT EXISTS payables (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS bank_format_profiles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    format_type TEXT NOT NULL DEFAULT 'csv',
+    config_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (name)
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_entry ON journal_lines(entry_id);
 CREATE INDEX IF NOT EXISTS idx_receivables_company ON receivables(company_id);
 CREATE INDEX IF NOT EXISTS idx_lines_account ON journal_lines(account_id);
@@ -814,6 +823,11 @@ def migrate_database(conn):
         "bill_date TEXT, due_date TEXT, amount REAL NOT NULL DEFAULT 0,"
         "paid REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '',"
         "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS bank_format_profiles ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,"
+        "format_type TEXT NOT NULL DEFAULT 'csv', config_json TEXT NOT NULL DEFAULT '{}',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE (name))")
     # drop the legacy holding first so the COA top-up only touches survivors
     remove_holding(conn)
     for r in conn.execute("SELECT id FROM companies").fetchall():

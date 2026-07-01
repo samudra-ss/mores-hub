@@ -57,15 +57,29 @@ def _consolidated(company_ids):
     return len(list(company_ids)) > 1
 
 
+# When a revenue/expense line carries a project_id, project attribution books
+# it to the PROJECT's owning company instead of the entry's company. This is the
+# management view: cash landed in (say) KMA, but the revenue/COGS belongs to the
+# project's company (MDA). Only revenue/expense lines with a project are moved;
+# balance-sheet lines (cash, AR, AP) stay with the entry's legal company.
+_ATTRIB_COMPANY = ("CASE WHEN jl.project_id IS NOT NULL AND a.type IN ('revenue','expense') "
+                   "THEN p.company_id ELSE je.company_id END")
+
+
 def account_balances(conn, company_ids, date_from=None, date_to=None,
-                     only_types=None, exclude_intercompany=False):
+                     only_types=None, exclude_intercompany=False,
+                     project_attribution=False):
     """Aggregated (debit, credit) per account code over posted entries.
 
     Returns list of dicts {code, name, type, debit, credit, balance} where
-    balance is signed by the account's natural side.
+    balance is signed by the account's natural side. With project_attribution,
+    revenue/expense lines tagged to a project are attributed to the project's
+    company (see _ATTRIB_COMPANY).
     """
     ph, ids = _company_filter(company_ids)
-    where = ["je.status = 'posted'", "je.company_id IN (%s)" % ph]
+    company_col = _ATTRIB_COMPANY if project_attribution else "je.company_id"
+    proj_join = "LEFT JOIN projects p ON p.id = jl.project_id" if project_attribution else ""
+    where = ["je.status = 'posted'", "%s IN (%s)" % (company_col, ph)]
     params = list(ids)
     if date_from:
         where.append("je.date >= ?")
@@ -85,10 +99,11 @@ def account_balances(conn, company_ids, date_from=None, date_to=None,
         FROM journal_lines jl
         JOIN journal_entries je ON je.id = jl.entry_id
         JOIN accounts a ON a.id = jl.account_id
+        %s
         WHERE %s
         GROUP BY a.code, a.type
         ORDER BY a.code
-        """ % " AND ".join(where),
+        """ % (proj_join, " AND ".join(where)),
         params,
     ).fetchall()
     out = []
@@ -102,12 +117,101 @@ def account_balances(conn, company_ids, date_from=None, date_to=None,
     return out
 
 
+def _account_hierarchy(conn, company_ids):
+    """code -> {code, name, type, parent_code} for every account in scope
+    (deduped by code, since the COA is uniform across companies)."""
+    ph, ids = _company_filter(company_ids)
+    rows = conn.execute(
+        "SELECT code, MIN(name) AS name, MIN(type) AS type, MIN(parent_code) AS parent_code "
+        "FROM accounts WHERE company_id IN (%s) GROUP BY code" % ph, ids).fetchall()
+    return {r["code"]: {"code": r["code"], "name": r["name"], "type": r["type"],
+                        "parent_code": r["parent_code"]} for r in rows}
+
+
+def group_by_parent(nodes, leaf_amounts):
+    """Flatten the account tree into an ordered display list under parent
+    accounts, each parent carrying the rolled-up subtotal of its descendants.
+
+    nodes: code -> {code, name, type, parent_code}
+    leaf_amounts: code -> {debit, credit} (only accounts with activity)
+    Returns [{code, name, type, level, is_group, debit, credit, balance}] in
+    reading order. Empty branches are omitted; a parent that ALSO has its own
+    direct postings gets an extra indented "(direct)" line.
+    """
+    children = {}
+    for code, n in nodes.items():
+        children.setdefault(n["parent_code"], []).append(code)
+    for k in children:
+        children[k].sort()
+    roll = {}
+
+    def compute(code, path):
+        if code in roll:
+            return roll[code]
+        if code in path:            # defensive: break any accidental cycle
+            return (0.0, 0.0)
+        path = path | {code}
+        la = leaf_amounts.get(code) or {}
+        d = la.get("debit", 0) or 0
+        c = la.get("credit", 0) or 0
+        for ch in children.get(code, []):
+            cd, cc = compute(ch, path)
+            d += cd
+            c += cc
+        roll[code] = (round(d, 2), round(c, 2))
+        return roll[code]
+
+    # roots = no parent, or a parent code that isn't itself an account (orphans)
+    roots = sorted(code for code, n in nodes.items()
+                   if n["parent_code"] is None or n["parent_code"] not in nodes)
+    for r in roots:
+        compute(r, frozenset())
+
+    display = []
+
+    def has_activity(code):
+        d, c = roll.get(code, (0, 0))
+        return abs(d) >= 0.005 or abs(c) >= 0.005
+
+    def emit(code, level):
+        if not has_activity(code):
+            return
+        n = nodes[code]
+        d, c = roll[code]
+        kids = [k for k in children.get(code, []) if has_activity(k)]
+        own = leaf_amounts.get(code) or {}
+        is_group = bool(kids)
+        display.append({
+            "code": code, "name": n["name"], "type": n["type"], "level": level,
+            "is_group": is_group, "debit": d, "credit": c,
+            "balance": round(SIGN.get(n["type"], 1) * (d - c), 2),
+        })
+        od, oc = round(own.get("debit", 0) or 0, 2), round(own.get("credit", 0) or 0, 2)
+        if is_group and (abs(od) >= 0.005 or abs(oc) >= 0.005):
+            display.append({
+                "code": code, "name": n["name"] + " (direct)", "type": n["type"],
+                "level": level + 1, "is_group": False, "debit": od, "credit": oc,
+                "balance": round(SIGN.get(n["type"], 1) * (od - oc), 2),
+            })
+        for k in kids:
+            emit(k, level + 1)
+
+    for r in roots:
+        emit(r, 0)
+    return display
+
+
 def trial_balance(conn, company_ids, date_from, date_to):
     rows = account_balances(conn, company_ids, date_from, date_to)
     rows = [r for r in rows if r["debit"] or r["credit"]]
     total_debit = round(sum(r["debit"] for r in rows), 2)
     total_credit = round(sum(r["credit"] for r in rows), 2)
-    return {"rows": rows, "total_debit": total_debit, "total_credit": total_credit}
+    # parent-account grouping for the report view (rolled-up subtotals)
+    nodes = _account_hierarchy(conn, company_ids)
+    leaf_amounts = {r["code"]: {"debit": r["debit"], "credit": r["credit"]} for r in rows}
+    grouped = group_by_parent(nodes, leaf_amounts)
+    return {"rows": rows, "grouped": grouped,
+            "total_debit": total_debit, "total_credit": total_credit}
 
 
 # entry source -> human label (kept in sync with the frontend SOURCE_LABELS)
@@ -118,6 +222,7 @@ SOURCE_LABELS = {
     "bca_pdf": "BCA e-statement PDF",
     "monit_wallet": "Monit wallet / petty cash",
     "excel": "Excel import",
+    "custom": "Custom format import",
 }
 
 
@@ -204,9 +309,10 @@ def account_ledger(conn, company_ids, code, date_from, date_to):
             "total_debit": round(total_d, 2), "total_credit": round(total_c, 2)}
 
 
-def profit_and_loss(conn, company_ids, date_from, date_to):
+def profit_and_loss(conn, company_ids, date_from, date_to, project_attribution=False):
     rows = account_balances(conn, company_ids, date_from, date_to,
-                            only_types=["revenue", "expense"])
+                            only_types=["revenue", "expense"],
+                            project_attribution=project_attribution)
     revenue = [r for r in rows if r["type"] == "revenue" and r["balance"] != 0]
     expense = [r for r in rows if r["type"] == "expense" and r["balance"] != 0]
     total_rev = round(sum(r["balance"] for r in revenue), 2)
@@ -241,10 +347,12 @@ def balance_sheet(conn, company_ids, as_of_date):
     }
 
 
-def monthly_pnl_series(conn, company_ids, year):
+def monthly_pnl_series(conn, company_ids, year, project_attribution=False):
     """[{month, revenue, expense, profit}] for the 12 months of a year."""
     ph, ids = _company_filter(company_ids)
     ic = " AND a.is_intercompany = 0" if _consolidated(company_ids) else ""
+    company_col = _ATTRIB_COMPANY if project_attribution else "je.company_id"
+    proj_join = "LEFT JOIN projects p ON p.id = jl.project_id" if project_attribution else ""
     rows = conn.execute(
         """
         SELECT CAST(strftime('%%m', je.date) AS INTEGER) AS month, a.type,
@@ -252,10 +360,11 @@ def monthly_pnl_series(conn, company_ids, year):
         FROM journal_lines jl
         JOIN journal_entries je ON je.id = jl.entry_id
         JOIN accounts a ON a.id = jl.account_id
-        WHERE je.status='posted' AND je.company_id IN (%s)
+        %s
+        WHERE je.status='posted' AND %s IN (%s)
           AND strftime('%%Y', je.date) = ? AND a.type IN ('revenue','expense')%s
         GROUP BY month, a.type
-        """ % (ph, ic),
+        """ % (proj_join, company_col, ph, ic),
         ids + [str(year)],
     ).fetchall()
     series = {m: {"month": m, "revenue": 0, "expense": 0, "profit": 0} for m in range(1, 13)}
@@ -734,10 +843,15 @@ def weekly_cash_flow(conn, company_ids, year):
     }
 
 
-def dashboard(conn, company_ids, year, thresholds=None):
+def dashboard(conn, company_ids, year, thresholds=None, project_attribution=True):
+    # project_attribution defaults ON for the dashboard: revenue & COGS follow
+    # the project's company (management view). Cash / AR / AP / working capital
+    # below stay by booking entity (the legal balance sheet).
     date_from, date_to = "%d-01-01" % year, "%d-12-31" % year
-    pnl = profit_and_loss(conn, company_ids, date_from, date_to)
-    monthly = monthly_pnl_series(conn, company_ids, year)
+    pnl = profit_and_loss(conn, company_ids, date_from, date_to,
+                          project_attribution=project_attribution)
+    monthly = monthly_pnl_series(conn, company_ids, year,
+                                 project_attribution=project_attribution)
     bva = budget_vs_actual(conn, company_ids, year)
 
     balances = account_balances(conn, company_ids, None, date_to)
@@ -943,6 +1057,7 @@ def dashboard(conn, company_ids, year, thresholds=None):
         },
         "health": health,
         "warnings": warnings,
+        "project_attribution": project_attribution,
         "ar_ap": {
             "ar": ar, "ap": ap, "net_position": net_position,
             "risky_ar": risky_ar,  # >90-day outstanding from AR Aging

@@ -119,8 +119,11 @@ def reconcile_balances(records):
 
 
 def parse_amount(s):
-    """'Rp 1,970,100.00' / 'Rp1.970.100,00' / '1970100' -> float."""
-    s = re.sub(r"(?i)rp\.?", "", str(s)).strip()
+    """'Rp 1,970,100.00' / 'Rp1.970.100,00' / '1970100' / '(15000)' -> float.
+    A value wrapped in parentheses is treated as an accounting negative."""
+    raw = str(s).strip()
+    neg_paren = raw.startswith("(") and raw.endswith(")")
+    s = re.sub(r"(?i)rp\.?", "", raw).strip()
     s = re.sub(r"[^\d.,-]", "", s)
     if not s:
         return 0.0
@@ -139,9 +142,10 @@ def parse_amount(s):
         if len(tail) == 3:  # 1.970.100 style thousands
             s = s.replace(".", "")
     try:
-        return round(float(s), 2)
+        val = round(float(s), 2)
     except ValueError:
         return 0.0
+    return -abs(val) if neg_paren else val
 
 
 def parse_date(s):
@@ -544,3 +548,186 @@ def parse_wallet_xlsx(data):
     meta = {"account": str(rows[1][c_acct]) if c_acct is not None and len(rows) > 1 else "",
             "rows": len(records)}
     return records, warnings, meta
+
+
+# ---------------------------------------------------------------------------
+# Custom, user-definable tabular formats (CSV / Excel) via a JSON "profile"
+# ---------------------------------------------------------------------------
+# A profile maps the columns of an arbitrary bank export onto the fields we
+# need, so a NEW bank format can be added by importing a JSON profile instead
+# of writing code. Only tabular formats (CSV / Excel) are profile-driven; the
+# freeform BCA text/PDF parsers stay built-in.
+
+# Exportable starting points — download one, edit the column names to match a
+# new bank's export, then import it back as a custom format.
+BUILTIN_FORMAT_TEMPLATES = {
+    "bca_csv": {
+        "name": "BCA Mutasi CSV", "type": "csv", "delimiter": ",",
+        "header_contains": "Tanggal", "date_format": "auto", "amount_locale": "auto",
+        "columns": {"date": "Tanggal Transaksi", "description": "Keterangan",
+                    "amount": "Jumlah", "direction": "Jumlah", "balance": "Saldo"},
+        "direction_rule": {"type": "suffix", "in_tokens": ["CR"], "out_tokens": ["DB"]},
+        "description": "BCA Informasi Rekening — Mutasi Rekening CSV export.",
+    },
+    "wallet_excel": {
+        "name": "Wallet / Card Excel", "type": "excel", "header_contains": "Amount",
+        "date_format": "auto", "amount_locale": "auto",
+        "columns": {"date": "Transaction Datetime", "description": "Description",
+                    "amount": "Amount", "reference": "Reference ID"},
+        "direction_rule": {"type": "sign"},
+        "description": "Wallet / card platform Excel export; a negative Amount is money out.",
+    },
+    "generic_csv": {
+        "name": "Generic CSV (edit me)", "type": "csv", "delimiter": ",",
+        "header_contains": "Date", "date_format": "auto", "amount_locale": "auto",
+        "columns": {"date": "Date", "description": "Description", "amount": "Amount",
+                    "direction": "Amount", "balance": "Balance", "reference": "Reference"},
+        "direction_rule": {"type": "sign"},
+        "description": "Starting point — rename the columns to match your bank's CSV headers, then import.",
+    },
+}
+
+
+def validate_format_profile(p):
+    """Returns (ok, errors). A profile needs a name, a tabular type and at
+    least date + amount column mappings."""
+    errors = []
+    if not isinstance(p, dict):
+        return False, ["Profile must be a JSON object"]
+    if not str(p.get("name", "")).strip():
+        errors.append("Profile needs a 'name'")
+    if p.get("type") not in ("csv", "excel"):
+        errors.append("'type' must be 'csv' or 'excel'")
+    cols = p.get("columns")
+    if not isinstance(cols, dict):
+        errors.append("'columns' must be an object mapping fields to columns")
+    else:
+        for req in ("date", "amount"):
+            if cols.get(req) in (None, ""):
+                errors.append("'columns.%s' is required" % req)
+    return (not errors), errors
+
+
+def _col_index(spec, header_lc):
+    """Resolve a column spec (0-based int, numeric string, or header name)."""
+    if spec is None or spec == "":
+        return None
+    if isinstance(spec, bool):
+        return None
+    if isinstance(spec, int):
+        return spec
+    s = str(spec).strip()
+    if s.isdigit():
+        return int(s)
+    return header_lc.get(s.lower())
+
+
+def _direction_of(profile, dir_value, amount_signed):
+    rule = profile.get("direction_rule") or {}
+    kind = rule.get("type", "suffix")
+    if kind == "sign":
+        return "out" if amount_signed < 0 else "in"
+    if kind == "none":
+        return "in"
+    v = str(dir_value or "").upper().rstrip()
+    for tok in (t.upper() for t in rule.get("out_tokens", ["DB", "D"]) if t):
+        if v.endswith(tok):
+            return "out"
+    for tok in (t.upper() for t in rule.get("in_tokens", ["CR", "C", "K"]) if t):
+        if v.endswith(tok):
+            return "in"
+    return "out" if amount_signed < 0 else "in"  # fall back to sign
+
+
+def _find_header(all_rows, profile):
+    token = str(profile.get("header_contains") or "").strip().lower()
+    if not token:
+        return 0, None
+    for i, row in enumerate(all_rows):
+        if token in " ".join(str(c or "") for c in row).lower():
+            return i, None
+    return None, "Header row containing '%s' not found." % profile.get("header_contains")
+
+
+def _profile_records(all_rows, header_idx, profile, ref_prefix):
+    header = [str(c or "").strip() for c in all_rows[header_idx]]
+    header_lc = {h.lower(): i for i, h in enumerate(header)}
+    cols = profile.get("columns", {})
+    ci = {k: _col_index(cols.get(k), header_lc)
+          for k in ("date", "description", "amount", "direction", "balance", "reference")}
+    records, warnings = [], []
+
+    def cell(row, key):
+        i = ci.get(key)
+        if i is None or i < 0 or i >= len(row):
+            return ""
+        v = row[i]
+        return "" if v is None else str(v).strip()
+
+    for n, row in enumerate(all_rows[header_idx + 1:], start=header_idx + 2):
+        if not row or not any(c not in (None, "") for c in row):
+            continue
+        raw_date = cell(row, "date")
+        date = raw_date[:10] if re.match(r"\d{4}-\d{2}-\d{2}", raw_date) else parse_date(raw_date)
+        amt_raw = cell(row, "amount")
+        signed = parse_amount(amt_raw)   # already signed (− prefix or (parens))
+        amount = round(abs(signed), 2)   # store a positive magnitude, like the other parsers
+        if not date or not amount:
+            if raw_date or amt_raw:
+                warnings.append("Row %d skipped (missing/invalid date or amount)" % n)
+            continue
+        direction = _direction_of(profile, cell(row, "direction") or amt_raw, signed)
+        desc = re.sub(r"\s+", " ", cell(row, "description")).strip() or "Bank transaction"
+        bal_raw = cell(row, "balance")
+        balance = parse_amount(bal_raw) if bal_raw else None
+        ref = cell(row, "reference") or (
+            ref_prefix + hashlib.sha1(
+                ("%s|%s|%s|%s" % (date, desc, amount, balance)).encode()).hexdigest()[:12].upper())
+        records.append({
+            "date": date, "time": "", "tx_type": desc.split("  ")[0][:60],
+            "from_account": "", "va_number": "", "name": "", "merchant": "",
+            "amount": amount, "transfer_type": "", "reference": ref,
+            "status": (profile.get("name") or "custom")[:24], "note": "", "ok": True,
+            "description": desc, "direction": direction, "balance": balance,
+            "suggested_code": suggest_bank_account(desc),
+        })
+    return records, warnings
+
+
+def parse_csv_with_profile(data, profile):
+    all_rows = list(csv.reader(io.StringIO(_decode(data)), delimiter=(profile.get("delimiter") or ",")))
+    if not all_rows:
+        return [], ["The file is empty."], {"format": profile.get("name")}
+    header_idx, err = _find_header(all_rows, profile)
+    if header_idx is None:
+        return [], [err], {"format": profile.get("name")}
+    records, warnings = _profile_records(all_rows, header_idx, profile, "CSV-")
+    warnings.extend(reconcile_balances(records))
+    if not records:
+        warnings.append("No transactions parsed with format '%s'." % profile.get("name"))
+    return records, warnings, {"format": profile.get("name")}
+
+
+def parse_excel_with_profile(data, profile):
+    import io as _io
+    from openpyxl import load_workbook
+    wb = load_workbook(_io.BytesIO(data) if isinstance(data, (bytes, bytearray)) else data, data_only=True)
+    ws = wb.active
+    all_rows = [list(r) for r in ws.iter_rows(values_only=True)]
+    if not all_rows:
+        return [], ["The spreadsheet is empty."], {"format": profile.get("name")}
+    header_idx, err = _find_header(all_rows, profile)
+    if header_idx is None:
+        header_idx = 0  # excel: default to the first row as header
+    records, warnings = _profile_records(all_rows, header_idx, profile, "XLS-")
+    warnings.extend(reconcile_balances(records))
+    if not records:
+        warnings.append("No transactions parsed with format '%s'." % profile.get("name"))
+    return records, warnings, {"format": profile.get("name")}
+
+
+def parse_with_profile(data, profile):
+    """Dispatch a file to the profile-driven csv/excel parser."""
+    if profile.get("type") == "excel":
+        return parse_excel_with_profile(data, profile)
+    return parse_csv_with_profile(data, profile)

@@ -33,7 +33,7 @@ app.permanent_session_lifetime = timedelta(days=30)  # "Remember me" duration
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 # where a journal entry came from (shown in the detailed trial balance)
-ENTRY_SOURCES = {"manual", "bca_bank", "bca_csv", "bca_pdf", "monit_wallet", "excel"}
+ENTRY_SOURCES = {"manual", "bca_bank", "bca_csv", "bca_pdf", "monit_wallet", "excel", "custom"}
 
 
 # --------------------------------------------------------------------------
@@ -212,6 +212,17 @@ def year_param(default=2026):
         return int(request.args.get("year", default))
     except (TypeError, ValueError):
         return default
+
+
+def _attribution_from_request(default=True):
+    """?attribution=project (revenue/COGS follow the project's company) or
+    ?attribution=entity (legal booking company). Defaults to project view."""
+    v = (request.args.get("attribution") or "").strip().lower()
+    if v in ("entity", "legal", "booking", "0", "false", "off"):
+        return False
+    if v in ("project", "1", "true", "on"):
+        return True
+    return default
 
 
 def _valid_date(s):
@@ -907,11 +918,51 @@ def set_thresholds_api():
     return jsonify({"ok": True, "thresholds": get_thresholds()})
 
 
+def get_bank_config():
+    """Per-database bank-import config. default_cash_code is the cash/bank
+    (contra) account new imports default to; blank means fall back to the UI
+    default (1120 for bank, 1130 for wallet)."""
+    cfg = {"default_cash_code": ""}
+    try:
+        row = db().execute("SELECT value FROM app_settings WHERE key='bank_parse_config'").fetchone()
+        parsed = json.loads(row["value"]) if row and row["value"] else {}
+        if isinstance(parsed, dict) and isinstance(parsed.get("default_cash_code"), str):
+            cfg["default_cash_code"] = parsed["default_cash_code"]
+    except Exception:
+        pass
+    return cfg
+
+
+@app.get("/api/settings/bank-config")
+@login_required
+def get_bank_config_api():
+    return jsonify(get_bank_config())
+
+
+@app.post("/api/settings/bank-config")
+@role_required("admin", "finance")
+def set_bank_config_api():
+    d = request.get_json(force=True)
+    code = (d.get("default_cash_code") or "").strip()
+    if code:
+        row = db().execute(
+            "SELECT 1 FROM accounts WHERE code=? AND type='asset' AND is_active=1 LIMIT 1",
+            (code,)).fetchone()
+        if not row:
+            raise ValueError("Account %s is not an active asset account in this database" % code)
+    db().execute("INSERT INTO app_settings (key, value) VALUES ('bank_parse_config', ?)"
+                 " ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                 (json.dumps({"default_cash_code": code}),))
+    db().commit()
+    return jsonify({"ok": True, "default_cash_code": code})
+
+
 @app.get("/api/reports/dashboard")
 @login_required
 def report_dashboard():
     ids, label = scope_from_request()
-    data = reports.dashboard(db(), ids, year_param(), thresholds=get_thresholds())
+    data = reports.dashboard(db(), ids, year_param(), thresholds=get_thresholds(),
+                             project_attribution=_attribution_from_request(True))
     data["scope"] = label
     return jsonify(data)
 
@@ -1193,8 +1244,11 @@ def export_payables():
 def report_pnl():
     ids, label = scope_from_request()
     date_from, date_to = date_range_from_request()
-    data = reports.profit_and_loss(db(), ids, date_from, date_to)
-    data.update(scope=label, date_from=date_from, date_to=date_to)
+    attribution = _attribution_from_request(True)
+    data = reports.profit_and_loss(db(), ids, date_from, date_to,
+                                   project_attribution=attribution)
+    data.update(scope=label, date_from=date_from, date_to=date_to,
+                project_attribution=attribution)
     return jsonify(data)
 
 
@@ -1299,7 +1353,8 @@ def _pdf(buf, name):
 def export_pnl_pdf():
     ids, label = scope_from_request()
     date_from, date_to = date_range_from_request()
-    pnl = reports.profit_and_loss(db(), ids, date_from, date_to)
+    pnl = reports.profit_and_loss(db(), ids, date_from, date_to,
+                                  project_attribution=_attribution_from_request(True))
     return _pdf(pdf_export.export_pnl_pdf(pnl, label, "Period %s to %s" % (date_from, date_to)),
                 "profit_loss_%s_to_%s.pdf" % (date_from, date_to))
 
@@ -1365,7 +1420,8 @@ def export_tb():
 def export_pnl():
     ids, label = scope_from_request()
     date_from, date_to = date_range_from_request()
-    pnl = reports.profit_and_loss(db(), ids, date_from, date_to)
+    pnl = reports.profit_and_loss(db(), ids, date_from, date_to,
+                                  project_attribution=_attribution_from_request(True))
     return _xlsx(excel_io.export_pnl(pnl, label, "Period %s to %s" % (date_from, date_to)),
                  "profit_loss_%s_to_%s.xlsx" % (date_from, date_to))
 
@@ -1593,6 +1649,98 @@ def parse_wallet():
     if not f.filename.lower().endswith((".xlsx", ".xlsm")):
         raise ValueError("Please upload the wallet/card transaction .xlsx file")
     txs, warnings, meta = bank_import.parse_wallet_xlsx(f.read())
+    _flag_duplicates(company_id, txs)
+    _resolve_suggested_accounts(company_id, txs)
+    return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
+
+
+# --------------------------------------------------------------------------
+# Custom bank format profiles (import / export tabular formats)
+# --------------------------------------------------------------------------
+
+@app.get("/api/bank/formats")
+@login_required
+def list_bank_formats():
+    """Saved custom profiles + built-in templates you can export as a starting
+    point for a new bank format."""
+    rows = db().execute(
+        "SELECT id, name, format_type, created_at FROM bank_format_profiles ORDER BY name"
+    ).fetchall()
+    templates = [{"key": k, "name": v["name"], "type": v["type"],
+                  "description": v.get("description", "")}
+                 for k, v in bank_import.BUILTIN_FORMAT_TEMPLATES.items()]
+    return jsonify({"profiles": [dict(r) for r in rows], "templates": templates})
+
+
+@app.get("/api/bank/formats/export")
+@login_required
+def export_bank_format():
+    """Download a profile JSON — either a saved profile (?id=) or a built-in
+    template (?template=key)."""
+    tkey = request.args.get("template")
+    if tkey:
+        prof = bank_import.BUILTIN_FORMAT_TEMPLATES.get(tkey)
+        if not prof:
+            raise ValueError("Unknown template '%s'" % tkey)
+        fname = "bank_format_%s.json" % tkey
+        body = dict(prof)
+    else:
+        pid = int(request.args.get("id"))
+        row = db().execute("SELECT name, config_json FROM bank_format_profiles WHERE id=?",
+                           (pid,)).fetchone()
+        if not row:
+            raise ValueError("Format profile not found")
+        body = json.loads(row["config_json"])
+        safe = "".join(c if (c.isalnum() or c in "-_") else "_" for c in row["name"])[:40]
+        fname = "bank_format_%s.json" % (safe or "profile")
+    resp = app.response_class(json.dumps(body, indent=2, ensure_ascii=False),
+                              mimetype="application/json")
+    resp.headers["Content-Disposition"] = 'attachment; filename="%s"' % fname
+    return resp
+
+
+@app.post("/api/bank/formats")
+@role_required("admin", "finance")
+def save_bank_format():
+    """Import / save a custom format profile (upsert by name)."""
+    prof = request.get_json(force=True)
+    ok, errors = bank_import.validate_format_profile(prof)
+    if not ok:
+        raise ValueError("Invalid format profile: " + "; ".join(errors))
+    name = str(prof["name"]).strip()
+    db().execute(
+        "INSERT INTO bank_format_profiles (name, format_type, config_json) VALUES (?,?,?)"
+        " ON CONFLICT(name) DO UPDATE SET format_type=excluded.format_type,"
+        " config_json=excluded.config_json",
+        (name, prof.get("type", "csv"), json.dumps(prof, ensure_ascii=False)))
+    db().commit()
+    row = db().execute("SELECT id FROM bank_format_profiles WHERE name=?", (name,)).fetchone()
+    return jsonify({"ok": True, "id": row["id"], "name": name}), 201
+
+
+@app.delete("/api/bank/formats/<int:pid>")
+@role_required("admin", "finance")
+def delete_bank_format(pid):
+    db().execute("DELETE FROM bank_format_profiles WHERE id=?", (pid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.post("/api/bank/parse-custom")
+@role_required("admin", "finance")
+def parse_bank_custom():
+    """Parse an uploaded CSV/Excel file with a saved custom format profile."""
+    company_id = int(request.form.get("company_id"))
+    check_company_access(company_id)
+    pid = int(request.form.get("format_id"))
+    row = db().execute("SELECT config_json FROM bank_format_profiles WHERE id=?", (pid,)).fetchone()
+    if not row:
+        raise ValueError("Format profile not found")
+    profile = json.loads(row["config_json"])
+    f = request.files.get("file")
+    if f is None or not f.filename:
+        raise ValueError("No file uploaded")
+    txs, warnings, meta = bank_import.parse_with_profile(f.read(), profile)
     _flag_duplicates(company_id, txs)
     _resolve_suggested_accounts(company_id, txs)
     return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})

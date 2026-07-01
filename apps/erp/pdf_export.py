@@ -301,14 +301,17 @@ def export_trial_balance_pdf(tb, scope, period):
     debit_x, credit_x, bal_x = 360, 458, PAGE_W - MARGIN
     d.col_header([("CODE", cx, "l"), ("ACCOUNT", nx, "l"), ("TYPE", tx, "l"),
                   ("DEBIT", debit_x, "r"), ("CREDIT", credit_x, "r"), ("BALANCE", bal_x, "r")])
-    for r in tb["rows"]:
+    display = tb.get("grouped") or [dict(x, level=0, is_group=False) for x in tb["rows"]]
+    for r in display:
         d.ensure()
-        d.text(cx, d.y, r["code"], 8.5)
-        d.text(nx, d.y, d.fit(r["name"], tx - nx - 4, 8.5), 8.5)
-        d.text(tx, d.y, r["type"], 8.5)
-        d.rtext(debit_x, d.y, money(r["debit"]), 8.5)
-        d.rtext(credit_x, d.y, money(r["credit"]), 8.5)
-        d.rtext(bal_x, d.y, money(r["balance"]), 8.5)
+        grp = bool(r.get("is_group"))
+        ind = 9 * r.get("level", 0)
+        d.text(cx, d.y, r["code"], 8.5, grp)
+        d.text(nx + ind, d.y, d.fit(r["name"], tx - (nx + ind) - 4, 8.5), 8.5, grp)
+        d.text(tx, d.y, r["type"], 8.5, grp)
+        d.rtext(debit_x, d.y, money(r["debit"]) if r["debit"] else "", 8.5, grp)
+        d.rtext(credit_x, d.y, money(r["credit"]) if r["credit"] else "", 8.5, grp)
+        d.rtext(bal_x, d.y, money(r["balance"]), 8.5, grp)
         d.y -= 13
     d.line(cx, d.y + 4, bal_x, d.y + 4, 0.6, 0.6)
     d.text(cx, d.y - 8, "TOTAL", 9, True)
