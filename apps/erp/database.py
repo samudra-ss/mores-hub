@@ -353,9 +353,12 @@ CREATE INDEX IF NOT EXISTS idx_budgets_lookup ON budgets(company_id, year);
 def get_db(name=None):
     """Open the named database (defaults to MORES-GROUP)."""
     path = db_file(name) if name else db_file(DEFAULT_DB)
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(path, timeout=15)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # wait up to 15s for a lock instead of failing instantly — matters when
+    # several web workers run the startup migration on the same file at once
+    conn.execute("PRAGMA busy_timeout = 15000")
     return conn
 
 

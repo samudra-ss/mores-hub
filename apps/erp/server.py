@@ -2217,9 +2217,33 @@ def delete_db_user(name, uid):
 
 
 # --------------------------------------------------------------------------
+# Run schema migrations at IMPORT time, not just under __main__. A production
+# WSGI server (gunicorn/uwsgi) imports `server:app` and never runs the __main__
+# block, so without this the additive migrations (receivables, payables,
+# bank_format_profiles, …) would never execute on the web and those endpoints
+# would 500 with "no such table". init_db() is idempotent and additive — it
+# only CREATEs missing tables and tops up the COA; it never resets existing
+# data. Guarded so a transient hiccup can't take down app import.
+_MIGRATED = False
+
+
+def _ensure_migrated():
+    global _MIGRATED
+    if _MIGRATED:
+        return
+    try:
+        database.init_db()
+        _MIGRATED = True
+    except Exception as exc:  # pragma: no cover
+        import sys
+        print("WARN: startup schema migration failed: %s" % exc, file=sys.stderr)
+
+
+_ensure_migrated()
+
 
 if __name__ == "__main__":
-    database.init_db()
+    _ensure_migrated()
     port = int(os.environ.get("PORT", 8000))
     # HOST=0.0.0.0 makes the app reachable from other devices on the network.
     # Default stays localhost-only for safety.
