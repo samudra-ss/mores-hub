@@ -93,7 +93,8 @@ def role_required(*roles):
 
 
 # writes that must keep working even in a frozen/read-only database
-WRITE_GUARD_ALLOW = {"/api/login", "/api/logout", "/api/databases/switch", "/api/me/password"}
+WRITE_GUARD_ALLOW = {"/api/login", "/api/logout", "/api/databases/switch",
+                     "/api/me/password", "/api/site-content"}
 
 
 @app.before_request
@@ -295,9 +296,205 @@ def login_page():
     return send_from_directory(STATIC_DIR, "login.html")
 
 
+@app.get("/product")
+def product_page():
+    # Public marketing page (SEO-focused; hero video + insights are CMS-driven).
+    return send_from_directory(STATIC_DIR, "product.html")
+
+
+@app.get("/blog/<slug>")
+def blog_post_page(slug):
+    # Public single insight/news article; the article is rendered client-side
+    # from /api/site-content using the slug in the URL.
+    return send_from_directory(STATIC_DIR, "blog.html")
+
+
+@app.get("/admin/content")
+def content_admin_page():
+    # Lightweight CMS: edit the hero video + insights shown on /product.
+    if not session.get("user_id"):
+        return redirect("/?login=1")
+    user = current_user()
+    if user is None or user["role"] != "admin":
+        return redirect("/app")
+    return send_from_directory(STATIC_DIR, "content-admin.html")
+
+
 @app.get("/static/<path:path>")
 def static_files(path):
     return send_from_directory(STATIC_DIR, path)
+
+
+# --------------------------------------------------------------------------
+# Marketing site content (lightweight CMS: hero video + insights/news)
+# Stored as a single JSON file in the data/ folder so it is self-hosted and
+# backed up alongside the databases. Public read; admin-only write.
+# --------------------------------------------------------------------------
+
+SITE_CONTENT_FILE = os.path.join(database.DATA_DIR, "site_content.json")
+
+
+def _default_site_content():
+    return {
+        "hero": {
+            # Paste a YouTube/Vimeo link or a direct .mp4 URL here (or via the
+            # admin panel at /admin/content). Empty = show the poster mockup.
+            "video_url": "",
+            "poster": "/static/assets/hero-poster.svg",
+            "caption": "See MORES HV in ninety seconds",
+        },
+        "insights": [
+            {
+                "slug": "closing-five-companies-in-two-days",
+                "tag": "Client story",
+                "date": "2026-06-18",
+                "title": "How one Jakarta group cut its month-end close from seven days to two",
+                "excerpt": "Their finance team wasn't slow — their tools were. Here is what "
+                           "changed when consolidation stopped being a copy-paste job.",
+                "image": "",
+                "author": "MORES HV Team",
+                "body": "When we first sat down with the group's finance manager, she "
+                        "wasn't asking for software. She was asking for her evenings back.\n\n"
+                        "Every month-end looked the same: five companies, five workbooks, one "
+                        "very long night stitching them together by hand. Intercompany sales "
+                        "were reconciled from memory. A single mistyped bank reference could "
+                        "throw the whole consolidation out.\n\n"
+                        "We didn't rebuild how they work. We removed the manual steps. Books "
+                        "stayed per company; the group view assembled itself. Bank mutations "
+                        "were pasted in and posted in a couple of clicks. By the second close, "
+                        "the number the board needed was ready before lunch — not after "
+                        "midnight.",
+            },
+            {
+                "slug": "consolidation-without-the-spreadsheet-tax",
+                "tag": "Point of view",
+                "date": "2026-05-30",
+                "title": "The hidden cost of running a group on spreadsheets",
+                "excerpt": "Spreadsheets feel free. The real bill arrives at month-end, in "
+                           "hours lost and decisions delayed.",
+                "image": "",
+                "author": "MORES HV Team",
+                "body": "Every growing group reaches the same fork in the road. The "
+                        "spreadsheet that carried you from one company to three quietly "
+                        "becomes the thing holding you back at five.\n\n"
+                        "It isn't dramatic. There's no outage. Just a slow tax — a day here "
+                        "reconciling intercompany, an afternoon there hunting a duplicate "
+                        "transfer, a board number that lands a week late and half-trusted.\n\n"
+                        "Consolidation should be a byproduct of doing the books, not a "
+                        "second job after them. That is the whole idea behind MORES HV.",
+            },
+            {
+                "slug": "reading-project-profit-the-honest-way",
+                "tag": "Guide",
+                "date": "2026-05-12",
+                "title": "You can't manage a project's margin you can't see",
+                "excerpt": "Pooled costs hide your best and worst work. Here's how "
+                           "project-level truth changes the conversation.",
+                "image": "",
+                "author": "MORES HV Team",
+                "body": "Ask a project-based business which of its jobs made money last "
+                        "year and you'll usually get a confident answer — and a wrong one.\n\n"
+                        "When cost sits at company level, margin per project is a guess "
+                        "dressed up as a number. Sometimes the 'flagship' account is quietly "
+                        "subsidised by the small, unglamorous jobs nobody talks about.\n\n"
+                        "Tag entries to a project and the picture sharpens: revenue, cost, "
+                        "profit and margin, side by side, over time. The meeting stops being "
+                        "about opinions and starts being about evidence.",
+            },
+            {
+                "slug": "built-for-indonesian-groups",
+                "tag": "Product",
+                "date": "2026-04-21",
+                "title": "Why we built MORES HV for Indonesian groups first",
+                "excerpt": "Rupiah-native, Bahasa-aware, and fluent in a BCA statement — "
+                           "because localisation isn't a setting, it's the point.",
+                "image": "",
+                "author": "MORES HV Team",
+                "body": "Most finance tools treat Indonesia as a translation and a currency "
+                        "symbol. Groups here know the difference the moment they import a "
+                        "bank statement.\n\n"
+                        "We started from the local reality: the way a BCA mutation reads, the "
+                        "way a group of PTs is actually structured, the way a board here talks "
+                        "about cuan. The result is software that feels less like it was "
+                        "adapted for you, and more like it was built where you work.",
+            },
+        ],
+    }
+
+
+def read_site_content():
+    """Site content merged over defaults, so new default keys always appear even
+    if the on-disk file is older."""
+    data = _default_site_content()
+    try:
+        with open(SITE_CONTENT_FILE, "r", encoding="utf-8") as f:
+            saved = json.load(f)
+        if isinstance(saved, dict):
+            if isinstance(saved.get("hero"), dict):
+                data["hero"].update(saved["hero"])
+            if isinstance(saved.get("insights"), list):
+                data["insights"] = saved["insights"]
+    except (FileNotFoundError, ValueError, OSError):
+        pass
+    return data
+
+
+def write_site_content(data):
+    os.makedirs(database.DATA_DIR, exist_ok=True)
+    with open(SITE_CONTENT_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _slugify(text):
+    keep = [c.lower() if c.isalnum() else "-" for c in (text or "").strip()]
+    slug = "".join(keep)
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return slug.strip("-") or "post"
+
+
+@app.get("/api/site-content")
+def api_site_content_get():
+    # Public: powers the /product hero video and insights carousel.
+    return jsonify(read_site_content())
+
+
+@app.post("/api/site-content")
+@role_required("admin")
+def api_site_content_save():
+    payload = request.get_json(silent=True) or {}
+    current = read_site_content()
+
+    hero = payload.get("hero")
+    if isinstance(hero, dict):
+        for key in ("video_url", "poster", "caption"):
+            if key in hero:
+                current["hero"][key] = str(hero[key] or "").strip()
+
+    insights = payload.get("insights")
+    if isinstance(insights, list):
+        cleaned = []
+        for item in insights[:24]:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "").strip()
+            if not title:
+                continue
+            slug = _slugify(item.get("slug") or title)
+            cleaned.append({
+                "slug": slug,
+                "tag": str(item.get("tag") or "Insight").strip(),
+                "date": str(item.get("date") or "").strip(),
+                "title": title,
+                "excerpt": str(item.get("excerpt") or "").strip(),
+                "image": str(item.get("image") or "").strip(),
+                "author": str(item.get("author") or "MORES HV Team").strip(),
+                "body": str(item.get("body") or "").strip(),
+            })
+        current["insights"] = cleaned
+
+    write_site_content(current)
+    return jsonify({"ok": True, "content": current})
 
 
 # --------------------------------------------------------------------------
@@ -1982,6 +2179,10 @@ def list_databases_api():
             "last_entry": act["last_entry"], "last_at": act["last_at"],
             "entries": act["entries"],
         })
+    # non-admins only see databases they can actually open — everything else is
+    # hidden from the picker entirely; only admins see the full list
+    if role != "admin":
+        dbs = [d for d in dbs if d["can_enter"]]
     return jsonify({
         "active": active, "default": database.DEFAULT_DB,
         "can_manage": role == "admin", "role": role, "databases": dbs,

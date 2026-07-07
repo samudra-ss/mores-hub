@@ -986,6 +986,27 @@ def dashboard(conn, company_ids, year, thresholds=None, project_attribution=True
     except Exception:
         risky_ap = None
 
+    # newest data input in scope (journal entry, AR invoice or AP bill) — shown
+    # at the top of the dashboard as "Last input: 13 June 2026 14.23"
+    ph_li, ids_li = _company_filter(company_ids)
+    last_row = conn.execute(
+        "SELECT entry_no, date, created_at FROM journal_entries "
+        "WHERE company_id IN (%s) ORDER BY created_at DESC, id DESC LIMIT 1" % ph_li,
+        ids_li).fetchone()
+    last_input = ({"ref": last_row["entry_no"], "date": last_row["date"],
+                   "created_at": last_row["created_at"]} if last_row else None)
+    for tbl in ("receivables", "payables"):
+        try:
+            r = conn.execute(
+                "SELECT created_at FROM %s WHERE company_id IN (%s) "
+                "ORDER BY created_at DESC, id DESC LIMIT 1" % (tbl, ph_li),
+                ids_li).fetchone()
+        except Exception:
+            r = None
+        if r and (last_input is None
+                  or (r["created_at"] or "") > (last_input["created_at"] or "")):
+            last_input = {"ref": "", "date": None, "created_at": r["created_at"]}
+
     proj = project_performance(conn, company_ids, year)
     cf = cash_flow(conn, company_ids, year)
     # weekly cash trajectory — actual vs budgeted ending balance (dashboard chart)
@@ -1058,6 +1079,7 @@ def dashboard(conn, company_ids, year, thresholds=None, project_attribution=True
         "health": health,
         "warnings": warnings,
         "project_attribution": project_attribution,
+        "last_input": last_input,
         "ar_ap": {
             "ar": ar, "ap": ap, "net_position": net_position,
             "risky_ar": risky_ar,  # >90-day outstanding from AR Aging

@@ -390,6 +390,9 @@ const TR = {
   "account 7300 & its sub-accounts": "akun 7300 & sub-akunnya",
   "No C-AKUN (7300) accounts with activity yet.": "Belum ada akun C-AKUN (7300) dengan aktivitas.",
   "Account": "Akun",
+  // account parsing (renamed from Bank Import) + dashboard last-input stamp
+  "Account Parsing": "Parsing Akun",
+  "Last input": "Input terakhir",
   // dashboard revenue/COGS attribution toggle
   "By project company": "Per perusahaan proyek",
   "By booking entity": "Per entitas pembukuan",
@@ -428,9 +431,24 @@ const TR = {
 function t(s) { return state.lang === "id" ? (TR[s] || s) : s; }
 
 // nav routes -> [icon glyph, English label]
+// "13 June 2026 14.23" — created_at is stored in UTC, shown in local time
+const MONTHS_FULL = {
+  en: ["January", "February", "March", "April", "May", "June", "July",
+       "August", "September", "October", "November", "December"],
+  id: ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli",
+       "Agustus", "September", "Oktober", "November", "Desember"],
+};
+function fmtInputStamp(ts) {
+  if (!ts) return "";
+  const d = new Date(String(ts).replace(" ", "T") + (String(ts).endsWith("Z") ? "" : "Z"));
+  if (isNaN(d)) return String(ts);
+  const m = (MONTHS_FULL[state.lang] || MONTHS_FULL.en)[d.getMonth()];
+  return `${d.getDate()} ${m} ${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}.${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 const NAV_ITEMS = [
   ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
-  ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Bank Import"],
+  ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Account Parsing"],
   ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
   ["budgets", "◎", "Budgets"], ["investments", "✦", "Investments"],
   ["projects", "△", "Projects"], ["reports", "▤", "Reports"],
@@ -599,7 +617,7 @@ async function pageDashboard(el) {
   const caktBudget = round2(caktRows.reduce((a, r) => a + r.budget, 0));
   const caktUsed = caktBudget ? Math.round(100 * caktActual / caktBudget) : null;
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}</span></h2>
+    <div class="page-head"><h2>${t("Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}${d.last_input ? ` · ${t("Last input")}: <b>${esc(fmtInputStamp(d.last_input.created_at))}</b>${d.last_input.ref ? ` (${esc(d.last_input.ref)})` : ""}` : ""}</span></h2>
       <div class="page-actions" style="gap:14px;flex-wrap:wrap">
         <div class="seg-group" id="dashAttr" title="${t("Revenue & COGS follow the project's company (management view) or stay with the booking entity (legal view).")}">
           <button class="seg ${state.dashAttr === "project" ? "active" : ""}" data-attr="project">${t("By project company")}</button>
@@ -1329,12 +1347,12 @@ const BANK_SOURCE_BY_MODE = { paste: "bca_bank", csv: "bca_csv", pdf: "bca_pdf",
 
 async function pageBank(el) {
   if (!canWrite()) {
-    el.innerHTML = `<div class="card"><div class="empty">Bank import requires the Admin or Accountant role.</div></div>`;
+    el.innerHTML = `<div class="card"><div class="empty">Account Parsing requires the Admin or Accountant role.</div></div>`;
     return;
   }
   const cid = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Bank Import — BCA")}</h2>
+    <div class="page-head"><h2>${t("Account Parsing")}</h2>
       <div class="page-actions"><label class="muted">Company <select id="bkCompany">${companyOptions(cid)}</select></label></div>
     </div>
     <div class="card">
@@ -1449,6 +1467,13 @@ async function pageBank(el) {
       ? `<optgroup label="${label}">` + list.map(a =>
           `<option value="${a.id}" ${String(sel) === String(a.id) ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("") + "</optgroup>"
       : "";
+    // Wallet/card Excel and custom-format parses book strictly:
+    // DEBIT an expense account (5000–8000) · CREDIT the Cash & Bank account
+    if (mode === "wallet" || mode === "custom") {
+      return `<option value="">— choose account —</option>`
+        + grp("Costs / Expenses (5000–8000)",
+              accounts.filter(a => a.type === "expense" && /^[5-8]/.test(a.code)));
+    }
     const exp = grp("Costs / Expenses", accounts.filter(a => a.type === "expense"));
     const rev = grp("Revenue", accounts.filter(a => a.type === "revenue"));
     // cash/bank (11xx) accounts are offered as a contra so an interbank / cash

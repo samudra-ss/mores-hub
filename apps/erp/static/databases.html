@@ -353,7 +353,8 @@ function render(d) {
     ? `<div class="tile create" id="createTile">
          <div class="art"><div class="plus">+</div><div class="ct">Click to create database</div></div>
        </div>` : '';
-  grid.innerHTML = tiles + createTile;
+  grid.innerHTML = (tiles + createTile)
+    || '<div class="empty">No databases are available for your account — ask an administrator for access.</div>';
 
   grid.querySelectorAll('[data-open]').forEach(t => t.onclick = (e) => {
     if (e.target.closest('[data-del]') || e.target.closest('[data-cfg]') || e.target.closest('[data-usr]')) return;
