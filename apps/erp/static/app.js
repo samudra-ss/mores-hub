@@ -393,6 +393,12 @@ const TR = {
   // account parsing (renamed from Bank Import) + dashboard last-input stamp
   "Account Parsing": "Parsing Akun",
   "Last input": "Input terakhir",
+  // wallet/card Excel template + format guide
+  "Download Excel template": "Unduh Template Excel",
+  "Format guide": "Panduan Format",
+  "The template has the exact columns plus a Format Guide sheet.": "Template berisi kolom yang tepat plus lembar Panduan Format.",
+  "Wallet / Card Excel — Format guide": "Excel Wallet / Kartu — Panduan Format",
+  "Booking rules": "Aturan Pembukuan",
   // dashboard revenue/COGS attribution toggle
   "By project company": "Per perusahaan proyek",
   "By booking entity": "Per entitas pembukuan",
@@ -1345,6 +1351,45 @@ function customFieldInput(f, value) {
 // which entry source each bank-import mode books under
 const BANK_SOURCE_BY_MODE = { paste: "bca_bank", csv: "bca_csv", pdf: "bca_pdf", wallet: "monit_wallet", custom: "custom" };
 
+// wallet/card Excel format documentation — mirrors the Format Guide sheet in
+// the downloadable template (excel_io.WALLET_TEMPLATE_COLUMNS)
+const WALLET_FORMAT_DOC = [
+  ["Transaction Type", "Optional", "PAYMENT · INTERNAL_TRANSFER · CARD_ADD_BALANCE · CARD_REFUND_BALANCE", "Internal types (moves between your own wallets/cards) are left unticked."],
+  ["Reference ID", "Recommended", "Any unique text, e.g. WLT-2026-0001", "Duplicate detection — already-booked refs are flagged. Blank = auto fingerprint."],
+  ["Status", "Optional", "SUCCESS · SETTLED · COMPLETED — anything else is skipped", "Only successful transactions import."],
+  ["Category", "Optional", "FOOD_AND_BEVERAGE · TRANSPORTATION · EXPEDITION_EXPENSES · OFFICE_SUPPLIES · SOFTWARE · TELECOMMUNICATION · MISCELLANEOUS", "Suggests the expense account: OFFICE_SUPPLIES→6600, SOFTWARE/TELECOM→6300, others→6900."],
+  ["Transaction Datetime", "REQUIRED", "YYYY-MM-DD HH:MM:SS or DD/MM/YYYY", "The journal entry date."],
+  ["Amount", "REQUIRED", "Number — NEGATIVE = money out (spending), positive = money in", "Spending books: debit expense (5000–8000) · credit Petty Cash / Cash & Bank."],
+  ["Description", "Optional", "Free text", "Journal entry description."],
+  ["Account Name", "Optional", "Wallet / account label", "Shown as the source account."],
+  ["Card Name", "Optional", "Card label", "Shown with the transaction."],
+  ["Recipient Holder Name", "Optional", "Counterparty name", "Merged into the description."],
+  ["Notes", "Optional", "Free text", "Merged into the description."],
+];
+
+function walletFormatGuide() {
+  openModal(`
+    <p class="muted" style="margin-top:-4px">Column <b>names</b> must match exactly; column <b>order</b> doesn't matter
+      (lookup is by header name) and extra columns are ignored. The downloadable template contains these columns
+      plus example rows and this guide as a second sheet.</p>
+    <div style="max-height:46vh;overflow:auto"><table class="tbl">
+      <thead><tr><th>Column</th><th>Required</th><th>Format / accepted values</th><th>How it is used</th></tr></thead>
+      <tbody>${WALLET_FORMAT_DOC.map(r => `<tr>
+        <td><b>${esc(r[0])}</b></td><td>${r[1] === "REQUIRED" ? `<span class="pill bad">REQUIRED</span>` : esc(r[1])}</td>
+        <td>${esc(r[2])}</td><td class="muted">${esc(r[3])}</td></tr>`).join("")}
+      </tbody></table></div>
+    <h3 style="margin-top:14px">${t("Booking rules")}</h3>
+    <ul class="muted" style="margin:6px 0 0 18px;line-height:1.7">
+      <li>Money <b>OUT</b> (negative Amount): <b>debit</b> the expense account you pick (5000–8000 only) · <b>credit</b> the Petty Cash / Cash &amp; Bank account.</li>
+      <li>Money <b>IN</b> (positive Amount): debit Petty Cash / Cash &amp; Bank · credit the account you pick.</li>
+      <li>Internal transaction types are detected as own-wallet moves and left unticked.</li>
+      <li>Rows whose Status is not SUCCESS / SETTLED / COMPLETED are skipped.</li>
+      <li>Re-uploading the same file is safe — booked rows (same Reference ID) are flagged as duplicates.</li>
+    </ul>
+    <div class="form-actions"><a class="btn btn-primary" href="/api/bank/wallet-template">&#x2913; ${t("Download Excel template")}</a></div>`,
+    { title: t("Wallet / Card Excel — Format guide") });
+}
+
 async function pageBank(el) {
   if (!canWrite()) {
     el.innerHTML = `<div class="card"><div class="empty">Account Parsing requires the Admin or Accountant role.</div></div>`;
@@ -1404,6 +1449,11 @@ async function pageBank(el) {
           <label>Excel file <input type="file" id="bkWalletFile" accept=".xlsx,.xlsm"></label>
           <button class="btn btn-primary" id="bkWalletParse">Upload &amp; parse</button>
           <span class="muted" id="bkWalletInfo"></span>
+        </div>
+        <div class="filters" style="margin-top:6px">
+          <a class="btn btn-sm" id="bkWalletTpl" href="/api/bank/wallet-template">&#x2913; ${t("Download Excel template")}</a>
+          <button class="btn btn-sm" id="bkWalletGuide">&#x25A4; ${t("Format guide")}</button>
+          <span class="muted">${t("The template has the exact columns plus a Format Guide sheet.")}</span>
         </div>
       </div>
       <div id="bkCustomBox" hidden>
@@ -1592,6 +1642,7 @@ async function pageBank(el) {
   $("#bkCsvParse").onclick = () => uploadParse($("#bkCsvFile"), "/api/bank/parse-csv", $("#bkCsvInfo"));
   $("#bkPdfParse").onclick = () => uploadParse($("#bkPdfFile"), "/api/bank/parse-pdf", $("#bkPdfInfo"));
   $("#bkWalletParse").onclick = () => uploadParse($("#bkWalletFile"), "/api/bank/parse-wallet", $("#bkWalletInfo"));
+  $("#bkWalletGuide").onclick = walletFormatGuide;
 
   // ---- custom format profiles (import / export) ----
   let fmtLoaded = false;

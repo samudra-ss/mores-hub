@@ -1851,6 +1851,13 @@ def parse_wallet():
     return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
 
 
+@app.get("/api/bank/wallet-template")
+@login_required
+def wallet_template():
+    """Downloadable wallet/card import template (Transactions + Format Guide)."""
+    return _xlsx(excel_io.export_wallet_template(), "wallet_card_import_template.xlsx")
+
+
 # --------------------------------------------------------------------------
 # Custom bank format profiles (import / export tabular formats)
 # --------------------------------------------------------------------------

@@ -476,7 +476,14 @@ def parse_wallet_xlsx(data):
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         return [], ["The spreadsheet is empty."], {}
-    header = [str(c).strip() if c is not None else "" for c in rows[0]]
+    # header row = first row carrying an "Amount" column; tolerates a title /
+    # preamble block above the table (real exports have it on row 1)
+    header_idx = 0
+    for i, row in enumerate(rows[:10]):
+        if any(str(c).strip().lower() == "amount" for c in row if c is not None):
+            header_idx = i
+            break
+    header = [str(c).strip() if c is not None else "" for c in rows[header_idx]]
     idx = {h.lower(): i for i, h in enumerate(header)}
 
     def col(*names):
@@ -500,8 +507,8 @@ def parse_wallet_xlsx(data):
         return [], ["Could not find the Amount / Transaction Datetime columns — is this the wallet export?"], {}
 
     records, warnings = [], []
-    for n, row in enumerate(rows[1:], start=2):
-        if not row or row[c_amt] in (None, "", "-"):
+    for n, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
+        if not row or len(row) <= c_amt or row[c_amt] in (None, "", "-"):
             continue
         status = str(row[c_status]).strip().upper() if c_status is not None else "SUCCESS"
         if status and status not in ("SUCCESS", "SETTLED", "COMPLETED"):
@@ -545,7 +552,10 @@ def parse_wallet_xlsx(data):
         })
     if not records:
         warnings.append("No usable transactions found in the spreadsheet.")
-    meta = {"account": str(rows[1][c_acct]) if c_acct is not None and len(rows) > 1 else "",
+    first_data = rows[header_idx + 1] if len(rows) > header_idx + 1 else None
+    meta = {"account": (str(first_data[c_acct])
+                        if c_acct is not None and first_data is not None
+                        and len(first_data) > c_acct and first_data[c_acct] is not None else ""),
             "rows": len(records)}
     return records, warnings, meta
 

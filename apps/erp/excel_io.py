@@ -170,6 +170,95 @@ def export_payables(aging, scope_label):
     return _to_bytes(wb)
 
 
+# Wallet / card Excel import — downloadable template + format documentation.
+# Column names must match exactly (any column ORDER is fine — lookup is by
+# header name); extra columns are ignored.
+WALLET_TEMPLATE_COLUMNS = [
+    # (header, required, format / accepted values, how it is used)
+    ("Transaction Type", "Optional",
+     "e.g. PAYMENT · INTERNAL_TRANSFER · CARD_ADD_BALANCE · CARD_REFUND_BALANCE",
+     "Internal types (transfers between your own wallets/cards) are detected and left unticked."),
+    ("Reference ID", "Recommended", "Any unique text, e.g. WLT-2026-0001",
+     "Duplicate detection — a Reference ID already booked is flagged. Blank = auto fingerprint."),
+    ("Status", "Optional", "SUCCESS · SETTLED · COMPLETED (anything else = row skipped)",
+     "Only successful transactions are imported."),
+    ("Category", "Optional",
+     "FOOD_AND_BEVERAGE · TRANSPORTATION · EXPEDITION_EXPENSES · OFFICE_SUPPLIES · "
+     "SOFTWARE · TELECOMMUNICATION · MISCELLANEOUS",
+     "Suggests the expense account: OFFICE_SUPPLIES→6600, SOFTWARE/TELECOMMUNICATION→6300, others→6900."),
+    ("Transaction Datetime", "REQUIRED", "YYYY-MM-DD HH:MM:SS or DD/MM/YYYY",
+     "The journal entry date."),
+    ("Amount", "REQUIRED", "Number. NEGATIVE = money out (spending), positive = money in",
+     "Spending is booked: DEBIT the expense account (5000–8000) · CREDIT the Petty Cash / Cash & Bank account."),
+    ("Description", "Optional", "Free text", "Journal entry description."),
+    ("Account Name", "Optional", "Wallet/account label", "Shown as the source account."),
+    ("Card Name", "Optional", "Card label", "Shown with the transaction."),
+    ("Recipient Holder Name", "Optional", "Counterparty name", "Merged into the description."),
+    ("Notes", "Optional", "Free text", "Merged into the description."),
+]
+
+WALLET_TEMPLATE_EXAMPLES = [
+    ("PAYMENT", "WLT-2026-0001", "SUCCESS", "FOOD_AND_BEVERAGE",
+     "2026-06-10 12:30:00", -150000, "Team lunch", "Ops Wallet", "", "Warung Padang Jaya", ""),
+    ("PAYMENT", "WLT-2026-0002", "SUCCESS", "TRANSPORTATION",
+     "2026-06-11 09:15:00", -85000, "Ride to client meeting", "Ops Wallet", "Corporate Card", "", ""),
+    ("PAYMENT", "WLT-2026-0003", "SETTLED", "OFFICE_SUPPLIES",
+     "13/06/2026", -230000, "Printer paper & toner", "Ops Wallet", "", "Toko ATK Sentosa", "Q2 restock"),
+    ("INTERNAL_TRANSFER", "WLT-2026-0004", "SUCCESS", "",
+     "2026-06-14 10:00:00", 5000000, "Top-up from bank", "Ops Wallet", "", "", "left unticked automatically"),
+]
+
+
+def export_wallet_template():
+    """The wallet/card import template: a Transactions sheet ready to fill in
+    plus a Format Guide sheet documenting every column and the booking rules."""
+    wb = Workbook()
+    # Transactions sheet: headers on ROW 1 (exactly like the real wallet
+    # export) so the filled-in template parses without any preamble handling
+    ws = wb.active
+    ws.title = "Transactions"
+    headers = [c[0] for c in WALLET_TEMPLATE_COLUMNS]
+    _header_row(ws, 1, headers, [20, 16, 12, 22, 21, 14, 28, 14, 14, 22, 20])
+    r = 2
+    for row in WALLET_TEMPLATE_EXAMPLES:
+        for col, val in enumerate(row, start=1):
+            cell = ws.cell(row=r, column=col, value=val)
+            if headers[col - 1] == "Amount":
+                cell.number_format = NUM_FMT
+        r += 1
+
+    gd = _sheet(wb, "Format Guide", "Wallet / Card Excel — Format Guide",
+                "Fill the Transactions sheet (delete the example rows) and upload it in "
+                "Account Parsing → Wallet / Card Excel. Column ORDER does not matter "
+                "(lookup is by header name); extra columns are ignored.")
+    _header_row(gd, 4, ["Column", "Required", "Format / accepted values", "How it is used"],
+                [22, 14, 52, 62])
+    r = 5
+    for name, req, fmt, use in WALLET_TEMPLATE_COLUMNS:
+        gd.cell(row=r, column=1, value=name).font = BOLD
+        gd.cell(row=r, column=2, value=req)
+        gd.cell(row=r, column=3, value=fmt)
+        gd.cell(row=r, column=4, value=use)
+        r += 1
+    r += 1
+    gd.cell(row=r, column=1, value="BOOKING RULES").font = BOLD
+    for rule in (
+        "Money OUT (negative Amount): DEBIT the expense account you pick (5000–8000 only) "
+        "· CREDIT the Petty Cash / Cash & Bank account selected above the table.",
+        "Money IN (positive Amount): DEBIT Petty Cash / Cash & Bank · CREDIT the account you pick.",
+        "Internal types (INTERNAL_TRANSFER, CARD_ADD_BALANCE, CARD_REFUND_BALANCE) are "
+        "detected as moves between your own wallets and left unticked.",
+        "Rows whose Status is not SUCCESS / SETTLED / COMPLETED are skipped.",
+        "Re-uploading the same file is safe — rows already booked (same Reference ID) are "
+        "flagged as duplicates and unticked.",
+    ):
+        r += 1
+        gd.cell(row=r, column=1, value="•")
+        gd.cell(row=r, column=2, value=rule)
+        gd.merge_cells(start_row=r, start_column=2, end_row=r, end_column=4)
+    return _to_bytes(wb)
+
+
 def export_pnl(pnl, scope_label, period_label):
     wb = Workbook()
     ws = _sheet(wb, "Profit & Loss", "Profit & Loss — %s" % scope_label, period_label)
