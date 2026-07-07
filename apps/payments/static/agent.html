@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MORES PAY — Agent</title>
+<script>
+document.documentElement.dataset.theme = localStorage.getItem('mp-theme') || 'dark';
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0d0f; --panel: #15191e; --field: #0f1318; --field-border: #262d35;
+  --text: #f4f6f8; --text-strong: #f7f9fa; --text-soft: #c2c8cd;
+  --text-dim: #8b95a0; --text-faint: #6b7480;
+  --muted: #93a0ab; --line: #1a1f25;
+  --card-bg: rgba(255,255,255,.03); --card-border: #1f242a;
+  --hover: rgba(255,255,255,.06); --btn-border: #2b323a;
+  --teal: #00a2b6; --teal-bright: #00bcd2; --teal-link: #33c2d2;
+  --green: #2fd584; --amber: #e8b23e; --red: #e0655f; --blue: #5b9cf5;
+  --glow: rgba(0,162,182,.14);
+  --track: rgba(255,255,255,.08);
+  --navbg: rgba(13,16,19,.96);
+  --balgrad1: rgba(0,162,182,.22); --balgrad2: rgba(0,162,182,.05);
+  --err-txt: #ff9d9d; --ok-txt: #7fe6b2;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+[data-theme="light"] {
+  --bg: #eef2f4; --panel: #ffffff; --field: #f4f7f8; --field-border: #cfd9de;
+  --text: #162026; --text-strong: #0e161b; --text-soft: #33424c;
+  --text-dim: #55656f; --text-faint: #68767f;
+  --muted: #5b6a74; --line: #dde4e8;
+  --card-bg: #ffffff; --card-border: #dbe2e7;
+  --hover: rgba(0,0,0,.05); --btn-border: #c4cfd6;
+  --teal: #008ea0; --teal-bright: #0093a6; --teal-link: #00798a;
+  --green: #158f57; --amber: #9c7410; --red: #c2453e; --blue: #2f66c4;
+  --glow: rgba(0,162,182,.10);
+  --track: rgba(0,0,0,.09);
+  --navbg: rgba(255,255,255,.96);
+  --balgrad1: rgba(0,162,182,.14); --balgrad2: rgba(0,162,182,.03);
+  --err-txt: #b0433c; --ok-txt: #127548;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: Arial, "Helvetica Neue", Helvetica, system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  background:
+    radial-gradient(900px 520px at 80% -10%, var(--glow), transparent 60%),
+    var(--bg);
+  color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased;
+  display: flex; justify-content: center;
+  transition: background .2s, color .2s;
+}
+.phone { width: min(430px, 100vw); min-height: 100vh; background: var(--bg);
+  border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; position: relative; }
+header.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+header.bar img { height: 24px; }
+[data-theme="light"] .logo-dark { display: none; }
+[data-theme="dark"] .logo-light { display: none; }
+header.bar .who { font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text-faint); margin-left: auto; }
+.tgl { font-family: var(--mono); font-size: 11.5px; font-weight: 600; cursor: pointer;
+  border-radius: 99px; padding: 6px 10px; border: 1px solid var(--btn-border);
+  background: transparent; color: var(--text-dim); }
+.tgl:active { background: var(--hover); }
+main { flex: 1; overflow-y: auto; padding: 18px 18px 96px; }
+h2.section { font-family: var(--mono); font-size: 11.5px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--text-faint); margin: 20px 0 10px; }
+
+.balcard { background: linear-gradient(135deg, var(--balgrad1), var(--balgrad2) 65%), var(--panel);
+  border: 1px solid rgba(0,162,182,.35); border-radius: 16px; padding: 20px; }
+.balcard .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--teal-link); }
+.balcard .amt { font-size: 36px; font-weight: 800; letter-spacing: -1px; margin: 6px 0 14px; color: var(--text-strong); }
+.quota-track { height: 8px; background: var(--track); border-radius: 99px; overflow: hidden; }
+.quota-fill { height: 100%; background: var(--teal-bright); border-radius: 99px; transition: width .4s; }
+.quota-fill.hot { background: var(--amber); }
+.balcard .qmeta { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+.actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+.act { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 13px;
+  padding: 15px 8px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.act:hover { border-color: rgba(0,162,182,.5); background: rgba(0,162,182,.06); }
+.act .ic { font-size: 23px; color: var(--teal-bright); display: block; margin-bottom: 7px; }
+.act .t { font-size: 13px; font-weight: 600; color: var(--text-soft); }
+
+.txn { display: flex; align-items: center; gap: 12px; padding: 13px 4px; border-bottom: 1px solid var(--line); }
+.txn .ic { width: 38px; height: 38px; border-radius: 10px; background: rgba(0,162,182,.1);
+  border: 1px solid rgba(0,162,182,.25); display: flex; align-items: center; justify-content: center;
+  color: var(--teal-bright); font-size: 16px; flex-shrink: 0; }
+.txn .mid { flex: 1; min-width: 0; }
+.txn .t1 { font-size: 15px; font-weight: 600; color: var(--text-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.txn .t2 { font-size: 12px; color: var(--text-dim); margin-top: 2px; font-family: var(--mono); }
+.txn .right { text-align: right; }
+.txn .amt { font-size: 14.5px; font-weight: 700; color: var(--text-strong); }
+.txn .amt.plus { color: var(--green); }
+.chip { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 99px; margin-top: 4px; }
+.chip.pending    { color: var(--amber); background: rgba(232,178,62,.12); border: 1px solid rgba(232,178,62,.4); }
+.chip.approved   { color: var(--teal-link); background: rgba(0,162,182,.12); border: 1px solid rgba(0,162,182,.4); }
+.chip.disbursing { color: var(--blue); background: rgba(91,156,245,.12); border: 1px solid rgba(91,156,245,.4); }
+.chip.paid       { color: var(--green); background: rgba(47,213,132,.1); border: 1px solid rgba(47,213,132,.35); }
+.chip.rejected, .chip.failed { color: var(--red); background: rgba(224,101,95,.12); border: 1px solid rgba(224,101,95,.4); }
+
+.fld { margin-bottom: 14px; }
+.fld label { display: block; font-size: 13px; font-weight: 600; color: var(--text-soft); margin-bottom: 6px; }
+.fld input, .fld select, .fld textarea { width: 100%; padding: 13px 14px; font-size: 15.5px; color: var(--text);
+  font-family: inherit; background: var(--field); border: 1px solid var(--field-border); border-radius: 9px;
+  outline: none; transition: border-color .15s, box-shadow .15s; }
+.fld input:focus, .fld select:focus, .fld textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.2); }
+.fld input[type=file] { padding: 10px; font-size: 13.5px; }
+.fld .help { font-size: 12.5px; color: var(--text-faint); margin-top: 5px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btn { width: 100%; padding: 14px; font-weight: 600; font-size: 16px; font-family: inherit;
+  color: #fff; border: none; border-radius: 10px; background: var(--teal);
+  box-shadow: 0 10px 26px rgba(0,162,182,.3); cursor: pointer; transition: filter .15s; }
+.btn:hover { filter: brightness(1.07); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.ghost { background: transparent; border: 1px solid var(--btn-border); box-shadow: none; color: var(--text); }
+.msg { display: none; padding: 12px 14px; border-radius: 9px; font-size: 14.5px; margin-bottom: 14px; }
+.msg.err { background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: var(--err-txt); }
+.msg.ok  { background: rgba(47,213,132,.1); border: 1px solid rgba(47,213,132,.4); color: var(--ok-txt); }
+.back { font-size: 14.5px; color: var(--teal-link); cursor: pointer; margin-bottom: 14px; display: inline-block; }
+
+.qr-preview { background: var(--panel); border: 1px solid var(--field-border); border-radius: 13px;
+  padding: 16px; margin-bottom: 14px; }
+.qr-preview .m { font-size: 19px; font-weight: 700; color: var(--text-strong); }
+.qr-preview .c { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+.qr-preview .a { font-size: 27px; font-weight: 800; color: var(--teal-bright); margin-top: 10px; letter-spacing: -.5px; }
+.pinrow { display: flex; gap: 8px; justify-content: center; margin: 14px 0; }
+.pinrow input { width: 44px; height: 54px; text-align: center; font-size: 22px; font-weight: 700;
+  background: var(--field); border: 1px solid var(--field-border); border-radius: 10px; color: var(--text); outline: none; }
+.pinrow input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.2); }
+.paid-splash { text-align: center; padding: 34px 10px; }
+.paid-splash .big { width: 78px; height: 78px; margin: 0 auto 18px; border-radius: 50%;
+  background: rgba(47,213,132,.12); border: 2px solid var(--green); color: var(--green);
+  font-size: 36px; display: flex; align-items: center; justify-content: center; }
+
+nav.bottom { position: fixed; bottom: 0; width: min(430px, 100vw); display: flex;
+  background: var(--navbg); backdrop-filter: blur(8px); border-top: 1px solid var(--line); z-index: 10; }
+nav.bottom button { flex: 1; background: none; border: none; color: var(--text-faint); padding: 11px 4px 13px;
+  cursor: pointer; font-family: inherit; }
+nav.bottom button .i { display: block; font-size: 20px; margin-bottom: 3px; }
+nav.bottom button .l { font-size: 10.5px; font-family: var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+nav.bottom button.on { color: var(--teal-bright); }
+.view { display: none; }
+.view.on { display: block; animation: fade .18s ease-out; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.empty { text-align: center; color: var(--text-faint); font-size: 14.5px; padding: 34px 0; }
+.profrow { display: flex; justify-content: space-between; padding: 14px 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
+.profrow .k { color: var(--muted); }
+/* login view */
+body.logged-out nav.bottom, body.logged-out header.bar .who { display: none; }
+.login-hero { padding: 40px 6px 10px; text-align: center; }
+.login-hero .t { font-size: 25px; font-weight: 800; letter-spacing: -.6px; color: var(--text-strong); }
+.login-hero .s { color: var(--muted); font-size: 14.5px; margin-top: 6px; }
+.divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--text-faint);
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.bio-ic { font-size: 19px; vertical-align: -2px; margin-right: 8px; }
+/* small modal (add vendor) */
+.modal-bd { position: fixed; inset: 0; background: rgba(5,7,9,.74); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; padding: 20px; z-index: 60; }
+[data-theme="light"] .modal-bd { background: rgba(20,35,42,.45); }
+.modal-bd.show { display: flex; }
+.modal { width: min(400px, 100%); background: var(--panel); border: 1px solid var(--field-border);
+  border-radius: 16px; padding: 24px; position: relative; }
+.modal .close { position: absolute; top: 10px; right: 14px; background: none; border: none;
+  color: var(--muted); font-size: 23px; cursor: pointer; }
+.modal h3 { font-size: 18px; font-weight: 800; margin-bottom: 14px; color: var(--text-strong); }
+.chk { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--text-soft);
+  margin: 2px 0 16px; cursor: pointer; }
+.chk input { accent-color: var(--teal); width: 17px; height: 17px; }
+.vrow { display: flex; gap: 8px; }
+.vrow select { flex: 1; }
+.vrow .btn { width: auto; padding: 0 16px; font-size: 20px; line-height: 1; }
+.scheme-chip { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 99px; margin-top: 8px;
+  color: var(--teal-link); background: rgba(0,162,182,.12); border: 1px solid rgba(0,162,182,.4); }
+</style>
+</head>
+<body>
+<div class="phone">
+  <header class="bar">
+    <span>
+      <img class="logo-dark" src="/static/assets/mores-logo-ondark.png" alt="MORES">
+      <img class="logo-light" src="/static/assets/mores-logo-onlight.png" alt="MORES">
+    </span>
+    <span class="who" id="whoami">…</span>
+    <button class="tgl" id="tglLang">ID</button>
+    <button class="tgl" id="tglTheme">☾</button>
+  </header>
+  <main>
+    <div class="msg err" id="gErr"></div>
+    <div class="msg ok" id="gOk"></div>
+
+    <!-- LOGIN (shown when not authenticated) -->
+    <section class="view" id="v-login">
+      <div class="login-hero">
+        <div class="t" data-i="loginTitle">Agent sign-in</div>
+        <div class="s" data-i="loginSub">Field access to MORES PAY</div>
+      </div>
+      <form id="fLogin">
+        <div class="fld"><label data-i="usernameLbl">Username</label><input id="loginUser" autocomplete="username" required></div>
+        <div class="fld"><label data-i="password">Password</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
+        <button class="btn" type="submit" data-i="signIn">Sign In</button>
+      </form>
+      <div class="divider" data-i="orDivider">or</div>
+      <button class="btn ghost" id="btnBioLogin"><span class="bio-ic">◉</span><span data-i="bioSignIn">Sign in with biometrics</span></button>
+      <div class="help" style="text-align:center;margin-top:12px" data-i="bioNote">Biometric sign-in uses this device's fingerprint / face sensor (WebAuthn).</div>
+      <div style="text-align:center;margin-top:24px"><a href="/" style="color:var(--teal-link);font-size:14.5px;text-decoration:none" data-i="backPortal">‹ Main portal</a></div>
+    </section>
+
+    <!-- HOME -->
+    <section class="view on" id="v-home">
+      <div class="balcard">
+        <div class="lbl" data-i="walletBalance">Wallet balance</div>
+        <div class="amt" id="bal">Rp —</div>
+        <div class="quota-track"><div class="quota-fill" id="qfill" style="width:0%"></div></div>
+        <div class="qmeta"><span id="qspend">—</span><span id="qquota">—</span></div>
+      </div>
+      <div class="actions">
+        <div class="act" data-go="qris"><span class="ic">▣</span><span class="t" data-i="qrisPay">QRIS Pay</span></div>
+        <div class="act" data-go="reimburse"><span class="ic">⇪</span><span class="t" data-i="reimburse">Reimburse</span></div>
+        <div class="act" data-go="order"><span class="ic">⇨</span><span class="t" data-i="payVendor">Pay Vendor</span></div>
+      </div>
+      <h2 class="section" data-i="recentActivity">Recent activity</h2>
+      <div id="recent"></div>
+    </section>
+
+    <!-- QRIS -->
+    <section class="view" id="v-qris">
+      <span class="back" data-go="home" data-i="back">‹ Back</span>
+      <h2 class="section" data-i="qrisPayment">QRIS payment</h2>
+      <div class="fld">
+        <label data-i="qrPayloadLbl">QRIS code payload</label>
+        <textarea id="qrPayload" rows="3" data-i-ph="qrPayloadPh" placeholder="Paste the QRIS string here (camera scanner replaces this in production)"></textarea>
+        <div class="help" data-i="qrHelp">Sandbox: no camera — use the demo scan button, or paste any EMVCo QRIS string.</div>
+      </div>
+      <div class="row2" style="margin-bottom:10px">
+        <button class="btn ghost" id="qrDemoDyn" data-i="demoScanDyn">▣ Demo — dynamic</button>
+        <button class="btn ghost" id="qrDemoStat" data-i="demoScanStat">▣ Demo — static</button>
+      </div>
+      <button class="btn" id="qrCheck" data-i="readCode">Read code</button>
+      <div id="qrStage2" style="display:none; margin-top:16px">
+        <div class="qr-preview">
+          <div class="m" id="qmName">—</div>
+          <div class="c" id="qmCity"></div>
+          <div class="a" id="qmAmt"></div>
+          <span class="scheme-chip" id="qmScheme"></span>
+        </div>
+        <div class="fld" id="qrAmtFld" style="display:none">
+          <label data-i="openAmountLbl">Amount (Rp) — open-amount code</label>
+          <input id="qrAmount" type="number" min="1" placeholder="e.g. 50000">
+        </div>
+        <div class="fld">
+          <label data-i="category">Category</label>
+          <select id="qrCat"></select>
+        </div>
+        <label style="font-size:13px;font-weight:600;color:var(--text-soft);display:block;text-align:center" data-i="enterPin">Enter your 6-digit PIN</label>
+        <div class="pinrow" id="pinrow">
+          <input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric">
+          <input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric">
+        </div>
+        <button class="btn" id="qrPay" data-i="payNow">Pay now</button>
+      </div>
+      <div id="qrDone" style="display:none">
+        <div class="paid-splash">
+          <div class="big">✓</div>
+          <div style="font-size:21px;font-weight:800;color:var(--text-strong)" id="doneAmt"></div>
+          <div style="color:var(--muted);font-size:14.5px;margin-top:5px" id="doneMerchant"></div>
+          <div style="font-family:var(--mono);font-size:12px;color:var(--text-faint);margin-top:10px" id="doneRef"></div>
+          <button class="btn ghost" style="margin-top:22px" data-go="home" data-i="done">Done</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- REIMBURSEMENT -->
+    <section class="view" id="v-reimburse">
+      <span class="back" data-go="home" data-i="back">‹ Back</span>
+      <h2 class="section" data-i="newReimb">New reimbursement</h2>
+      <form id="fReimburse">
+        <div class="row2">
+          <div class="fld"><label data-i="amount">Amount (Rp)</label><input name="amount" type="number" min="1" required></div>
+          <div class="fld"><label data-i="category">Category</label><select name="category" class="catsel"></select></div>
+        </div>
+        <div class="fld"><label data-i="description">Description</label><input name="description" data-i-ph="reimbDescPh" placeholder="What was this expense for?" required></div>
+        <div class="fld"><label data-i="receiptPhoto">Receipt photo</label><input name="receipt" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.svg" required>
+          <div class="help" data-i="receiptHelp">JPG / PNG / PDF, max 6 MB. On a phone this opens the camera.</div></div>
+        <div class="row2">
+          <div class="fld"><label data-i="yourBank">Your bank</label><select name="bank_code" class="banksel"></select></div>
+          <div class="fld"><label data-i="accountNumber">Account number</label><input name="bank_account" required placeholder="e.g. 8830125577"></div>
+        </div>
+        <button class="btn" type="submit" data-i="submitApproval">Submit for approval</button>
+      </form>
+    </section>
+
+    <!-- DIRECT PAYMENT ORDER -->
+    <section class="view" id="v-order">
+      <span class="back" data-go="home" data-i="back">‹ Back</span>
+      <h2 class="section" data-i="newOrder">Direct payment order</h2>
+      <form id="fOrder">
+        <div class="fld"><label data-i="savedVendor">Saved vendor</label>
+          <div class="vrow">
+            <select id="vendSel"></select>
+            <button type="button" class="btn ghost" id="btnAddVendor" title="Add vendor">＋</button>
+          </div>
+        </div>
+        <div class="fld"><label data-i="vendorName">Vendor / payee name</label><input name="merchant" required placeholder="e.g. CV Berkah Catering"></div>
+        <div class="row2">
+          <div class="fld"><label data-i="amount">Amount (Rp)</label><input name="amount" type="number" min="1" required></div>
+          <div class="fld"><label data-i="category">Category</label><select name="category" class="catsel"></select></div>
+        </div>
+        <div class="fld"><label data-i="description">Description</label><input name="description" data-i-ph="orderDescPh" placeholder="What is being paid?" required></div>
+        <div class="fld"><label data-i="invoiceDoc">Invoice / supporting doc</label><input name="invoice" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.svg" required></div>
+        <div class="row2">
+          <div class="fld"><label data-i="vendorBank">Vendor bank</label><select name="bank_code" class="banksel"></select></div>
+          <div class="fld"><label data-i="accountNumber">Account number</label><input name="bank_account" required></div>
+        </div>
+        <div class="fld"><label data-i="accountHolder">Account holder</label><input name="bank_holder" data-i-ph="holderPh" placeholder="Defaults to vendor name"></div>
+        <label class="chk"><input type="checkbox" name="save_vendor" value="1" id="saveVendorChk"><span data-i="saveVendor">Save this vendor for next time</span></label>
+        <button class="btn" type="submit" data-i="submitApproval">Submit for approval</button>
+      </form>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="view" id="v-history">
+      <h2 class="section" data-i="txnHistory">Transaction history</h2>
+      <div id="histList"></div>
+    </section>
+
+    <!-- PROFILE -->
+    <section class="view" id="v-profile">
+      <h2 class="section" data-i="profile">Profile</h2>
+      <div class="profrow"><span class="k" data-i="name">Name</span><span id="pName">—</span></div>
+      <div class="profrow"><span class="k" data-i="usernameLbl">Username</span><span id="pUser">—</span></div>
+      <div class="profrow"><span class="k" data-i="role">Role</span><span data-i="fieldAgent">Field agent</span></div>
+      <div class="profrow"><span class="k" data-i="perTxnLimit">Per-transaction limit</span><span id="pLimit">—</span></div>
+      <div class="profrow"><span class="k" data-i="monthlyQuota">Monthly quota</span><span id="pQuota">—</span></div>
+      <h2 class="section" id="pinTitle" data-i="setPin">Set transaction PIN</h2>
+      <form id="fPin">
+        <div class="fld" id="oldPinFld" style="display:none"><label data-i="currentPin">Current PIN</label><input id="oldPin" type="password" inputmode="numeric" maxlength="6"></div>
+        <div class="fld"><label data-i="newPin">New 6-digit PIN</label><input id="newPin" type="password" inputmode="numeric" maxlength="6" required></div>
+        <button class="btn ghost" type="submit" data-i="savePin">Save PIN</button>
+      </form>
+      <h2 class="section" data-i="biometric">Biometric sign-in</h2>
+      <div class="profrow"><span class="k" data-i="bioDevices">Enrolled devices</span><span id="bioCount">—</span></div>
+      <button class="btn ghost" id="btnBioEnroll" style="margin-top:12px"><span class="bio-ic">◉</span><span data-i="bioEnroll">Enable biometrics on this device</span></button>
+      <button class="btn ghost" id="logout" style="margin-top:26px;color:var(--red);border-color:rgba(224,101,95,.4)" data-i="signOut">Sign out</button>
+    </section>
+  </main>
+
+  <!-- add-vendor modal -->
+  <div class="modal-bd" id="vendModalBd">
+    <div class="modal">
+      <button class="close" type="button" id="vendClose">&times;</button>
+      <h3 data-i="addVendorTitle">Add vendor</h3>
+      <form id="fVendor">
+        <div class="fld"><label data-i="vendorName">Vendor / payee name</label><input name="name" required></div>
+        <div class="row2">
+          <div class="fld"><label data-i="vendorBank">Vendor bank</label><select name="bank_code" class="banksel"></select></div>
+          <div class="fld"><label data-i="accountNumber">Account number</label><input name="bank_account" required></div>
+        </div>
+        <div class="fld"><label data-i="accountHolder">Account holder</label><input name="bank_holder" data-i-ph="holderPh" placeholder="Defaults to vendor name"></div>
+        <div class="fld"><label data-i="category">Category</label><select name="category" class="catsel"></select></div>
+        <button class="btn" type="submit" data-i="saveVendorBtn">Save vendor</button>
+      </form>
+    </div>
+  </div>
+
+  <nav class="bottom">
+    <button data-go="home" class="on"><span class="i">⌂</span><span class="l" data-i="navHome">Home</span></button>
+    <button data-go="qris"><span class="i">▣</span><span class="l" data-i="navPay">Pay</span></button>
+    <button data-go="history"><span class="i">≡</span><span class="l" data-i="navHistory">History</span></button>
+    <button data-go="profile"><span class="i">◉</span><span class="l" data-i="navProfile">Profile</span></button>
+  </nav>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
+let ME = null, META = {categories: [], banks: []}, SUMMARY = null;
+
+// ---------------------------------------------------------------- i18n + theme
+const I18N = {
+  en: {
+    walletBalance: 'Wallet balance', qrisPay: 'QRIS Pay', reimburse: 'Reimburse',
+    payVendor: 'Pay Vendor', recentActivity: 'Recent activity', back: '‹ Back',
+    qrisPayment: 'QRIS payment', qrPayloadLbl: 'QRIS code payload',
+    qrPayloadPh: 'Paste the QRIS string here (camera scanner replaces this in production)',
+    qrHelp: 'Sandbox: no camera — use the demo scan button, or paste any EMVCo QRIS string.',
+    demoScan: '▣ Simulate camera scan', readCode: 'Read code',
+    openAmountLbl: 'Amount (Rp) — open-amount code', category: 'Category',
+    enterPin: 'Enter your 6-digit PIN', payNow: 'Pay now', done: 'Done',
+    newReimb: 'New reimbursement', amount: 'Amount (Rp)', description: 'Description',
+    reimbDescPh: 'What was this expense for?', receiptPhoto: 'Receipt photo',
+    receiptHelp: 'JPG / PNG / PDF, max 6 MB. On a phone this opens the camera.',
+    yourBank: 'Your bank', accountNumber: 'Account number',
+    submitApproval: 'Submit for approval', newOrder: 'Direct payment order',
+    vendorName: 'Vendor / payee name', orderDescPh: 'What is being paid?',
+    invoiceDoc: 'Invoice / supporting doc', vendorBank: 'Vendor bank',
+    accountHolder: 'Account holder', holderPh: 'Defaults to vendor name',
+    txnHistory: 'Transaction history', profile: 'Profile', name: 'Name',
+    usernameLbl: 'Username', role: 'Role', fieldAgent: 'Field agent',
+    perTxnLimit: 'Per-transaction limit', monthlyQuota: 'Monthly quota',
+    setPin: 'Set transaction PIN', changePin: 'Change transaction PIN',
+    currentPin: 'Current PIN', newPin: 'New 6-digit PIN', savePin: 'Save PIN',
+    signOut: 'Sign out', navHome: 'Home', navPay: 'Pay', navHistory: 'History',
+    navProfile: 'Profile', noActivity: 'No activity yet', noTxns: 'No transactions yet',
+    spent: 'Spent', quota: 'Quota', openAmount: 'Open amount',
+    freeText: 'free-text code (unparsed)', newBalance: 'new balance',
+    submitted: r => `Submitted — ${r} is waiting for Finance approval.`,
+    pinSaved: 'PIN saved', pinNeed6: 'Enter your 6-digit PIN',
+    pasteFirst: 'Paste or scan a QRIS code first',
+    st: {pending: 'pending', approved: 'approved', disbursing: 'disbursing',
+         paid: 'paid', rejected: 'rejected', failed: 'failed'},
+    ty: {qris: 'QRIS payment', reimbursement: 'Reimbursement',
+         direct_payment: 'Direct payment', topup: 'Top-up', funding: 'Funding'},
+    loginTitle: 'Agent sign-in', loginSub: 'Field access to MORES PAY',
+    password: 'Password', signIn: 'Sign In', orDivider: 'or',
+    bioSignIn: 'Sign in with biometrics',
+    bioNote: "Biometric sign-in uses this device's fingerprint / face sensor (WebAuthn).",
+    backPortal: '‹ Main portal', loginFailed: 'Login failed',
+    bioNeedUser: 'Enter your username first, then tap the biometric button',
+    bioUnsupported: 'No biometric authenticator available (needs a fingerprint/face device on localhost or HTTPS)',
+    bioEnrolledOk: 'Biometric enrolled on this device',
+    bioFailed: 'Biometric sign-in failed',
+    biometric: 'Biometric sign-in', bioDevices: 'Enrolled devices',
+    bioEnroll: 'Enable biometrics on this device',
+    savedVendor: 'Saved vendor', pickVendor: '— pick a saved vendor —',
+    saveVendor: 'Save this vendor for next time',
+    addVendorTitle: 'Add vendor', saveVendorBtn: 'Save vendor', vendorSaved: 'Vendor saved',
+    demoScanDyn: '▣ Demo — dynamic', demoScanStat: '▣ Demo — static',
+    schemeDynamic: 'Dynamic QRIS — amount locked',
+    schemeStatic: 'Static QRIS — enter the amount',
+  },
+  id: {
+    walletBalance: 'Saldo dompet', qrisPay: 'Bayar QRIS', reimburse: 'Reimburs',
+    payVendor: 'Bayar Vendor', recentActivity: 'Aktivitas terbaru', back: '‹ Kembali',
+    qrisPayment: 'Pembayaran QRIS', qrPayloadLbl: 'Isi kode QRIS',
+    qrPayloadPh: 'Tempel string QRIS di sini (di produksi diganti pemindai kamera)',
+    qrHelp: 'Sandbox: tanpa kamera — pakai tombol simulasi scan, atau tempel string QRIS EMVCo apa pun.',
+    demoScan: '▣ Simulasi scan kamera', readCode: 'Baca kode',
+    openAmountLbl: 'Nominal (Rp) — kode nominal bebas', category: 'Kategori',
+    enterPin: 'Masukkan PIN 6 digit Anda', payNow: 'Bayar sekarang', done: 'Selesai',
+    newReimb: 'Reimburs baru', amount: 'Nominal (Rp)', description: 'Keterangan',
+    reimbDescPh: 'Pengeluaran ini untuk apa?', receiptPhoto: 'Foto struk',
+    receiptHelp: 'JPG / PNG / PDF, maks 6 MB. Di ponsel ini membuka kamera.',
+    yourBank: 'Bank Anda', accountNumber: 'Nomor rekening',
+    submitApproval: 'Ajukan persetujuan', newOrder: 'Perintah bayar langsung',
+    vendorName: 'Nama vendor / penerima', orderDescPh: 'Apa yang dibayar?',
+    invoiceDoc: 'Invoice / dokumen pendukung', vendorBank: 'Bank vendor',
+    accountHolder: 'Pemilik rekening', holderPh: 'Default: nama vendor',
+    txnHistory: 'Riwayat transaksi', profile: 'Profil', name: 'Nama',
+    usernameLbl: 'Nama pengguna', role: 'Peran', fieldAgent: 'Agen lapangan',
+    perTxnLimit: 'Limit per transaksi', monthlyQuota: 'Kuota bulanan',
+    setPin: 'Atur PIN transaksi', changePin: 'Ubah PIN transaksi',
+    currentPin: 'PIN saat ini', newPin: 'PIN baru 6 digit', savePin: 'Simpan PIN',
+    signOut: 'Keluar', navHome: 'Beranda', navPay: 'Bayar', navHistory: 'Riwayat',
+    navProfile: 'Profil', noActivity: 'Belum ada aktivitas', noTxns: 'Belum ada transaksi',
+    spent: 'Terpakai', quota: 'Kuota', openAmount: 'Nominal bebas',
+    freeText: 'kode teks bebas (tak terurai)', newBalance: 'saldo baru',
+    submitted: r => `Terkirim — ${r} menunggu persetujuan Finance.`,
+    pinSaved: 'PIN tersimpan', pinNeed6: 'Masukkan PIN 6 digit Anda',
+    pasteFirst: 'Tempel atau scan kode QRIS dulu',
+    st: {pending: 'menunggu', approved: 'disetujui', disbursing: 'dicairkan',
+         paid: 'lunas', rejected: 'ditolak', failed: 'gagal'},
+    ty: {qris: 'Pembayaran QRIS', reimbursement: 'Reimburs',
+         direct_payment: 'Pembayaran langsung', topup: 'Top-up', funding: 'Pendanaan'},
+    loginTitle: 'Masuk agen', loginSub: 'Akses lapangan MORES PAY',
+    password: 'Kata sandi', signIn: 'Masuk', orDivider: 'atau',
+    bioSignIn: 'Masuk dengan biometrik',
+    bioNote: 'Masuk biometrik memakai sensor sidik jari / wajah perangkat ini (WebAuthn).',
+    backPortal: '‹ Portal utama', loginFailed: 'Gagal masuk',
+    bioNeedUser: 'Isi nama pengguna dulu, lalu tekan tombol biometrik',
+    bioUnsupported: 'Tidak ada autentikator biometrik (butuh sensor sidik jari/wajah di localhost atau HTTPS)',
+    bioEnrolledOk: 'Biometrik terdaftar di perangkat ini',
+    bioFailed: 'Gagal masuk dengan biometrik',
+    biometric: 'Masuk biometrik', bioDevices: 'Perangkat terdaftar',
+    bioEnroll: 'Aktifkan biometrik di perangkat ini',
+    savedVendor: 'Vendor tersimpan', pickVendor: '— pilih vendor tersimpan —',
+    saveVendor: 'Simpan vendor ini untuk lain kali',
+    addVendorTitle: 'Tambah vendor', saveVendorBtn: 'Simpan vendor', vendorSaved: 'Vendor tersimpan',
+    demoScanDyn: '▣ Demo — dinamis', demoScanStat: '▣ Demo — statis',
+    schemeDynamic: 'QRIS Dinamis — nominal terkunci',
+    schemeStatic: 'QRIS Statis — masukkan nominal',
+  }
+};
+let LANG = localStorage.getItem('mp-lang') || 'en';
+const t = k => (I18N[LANG] && I18N[LANG][k]) ?? I18N.en[k] ?? k;
+const st = s => t('st')[s] || s;
+const ty = s => t('ty')[s] || s;
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
+  document.querySelectorAll('[data-i-ph]').forEach(el => el.placeholder = t(el.dataset.iPh));
+  $('tglLang').textContent = LANG === 'en' ? 'ID' : 'EN';
+  if (ME) syncPinUI();
+  if (SUMMARY) renderSummary();      // re-render dynamic text
+  const hist = $('v-history');
+  if (hist.classList.contains('on')) loadHistory();
+}
+$('tglLang').onclick = () => {
+  LANG = LANG === 'en' ? 'id' : 'en';
+  localStorage.setItem('mp-lang', LANG);
+  applyLang();
+};
+function applyTheme() {
+  $('tglTheme').textContent = document.documentElement.dataset.theme === 'dark' ? '☀' : '☾';
+}
+$('tglTheme').onclick = () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('mp-theme', next);
+  applyTheme();
+};
+applyTheme();
+
+// ---------------------------------------------------------------- plumbing
+async function api(url, opts) {
+  const res = await fetch(url, opts);
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { showLogin(); throw new Error(t('loginFailed')); }
+  if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+  return data;
+}
+function showLogin() {
+  document.body.classList.add('logged-out');
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
+  $('v-login').classList.add('on');
+}
+function flash(ok, text) {
+  const el = ok ? $('gOk') : $('gErr');
+  el.textContent = text; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4200);
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// ---------------------------------------------------------------- navigation
+function go(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
+  $('v-' + view).classList.add('on');
+  document.querySelectorAll('nav.bottom button').forEach(b =>
+    b.classList.toggle('on', b.dataset.go === view));
+  if (view === 'home') loadHome();
+  if (view === 'history') loadHistory();
+  if (view === 'qris') resetQris();
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-go]');
+  if (el) go(el.dataset.go);
+});
+
+// ---------------------------------------------------------------- home
+const TYPE_ICONS = {qris: '▣', reimbursement: '⇪', direct_payment: '⇨', topup: '＋'};
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function txnRow(x) {
+  const title = x.merchant || x.description || ty(x.type);
+  const plus = x.type === 'topup';
+  return `<div class="txn">
+    <div class="ic">${TYPE_ICONS[x.type] || '·'}</div>
+    <div class="mid"><div class="t1">${esc(title)}</div>
+      <div class="t2">${x.ref || ''} · ${(x.created_at || '').slice(0, 16)}</div></div>
+    <div class="right"><div class="amt${plus ? ' plus' : ''}">${plus ? '+' : '−'} ${fmt(x.amount)}</div>
+      <span class="chip ${x.status}">${st(x.status)}</span></div>
+  </div>`;
+}
+function monthLabel(ym) {
+  const [y, m] = (ym || '').split('-').map(Number);
+  if (!y) return ym;
+  return new Date(y, m - 1, 1).toLocaleDateString(
+    LANG === 'id' ? 'id-ID' : 'en-US', {month: 'long', year: 'numeric'});
+}
+function renderSummary() {
+  const s = SUMMARY;
+  $('bal').textContent = fmt(s.balance);
+  const pct = s.monthly_quota ? Math.min(100, 100 * s.month_spend / s.monthly_quota) : 0;
+  const fill = $('qfill');
+  fill.style.width = pct + '%';
+  fill.classList.toggle('hot', pct > 80);
+  $('qspend').textContent = t('spent') + ' ' + fmt(s.month_spend) + ' · ' + monthLabel(s.month);
+  $('qquota').textContent = t('quota') + ' ' + fmt(s.monthly_quota);
+  $('pLimit').textContent = fmt(s.per_txn_limit);
+  $('pQuota').textContent = fmt(s.monthly_quota);
+  $('recent').innerHTML = s.recent.length
+    ? s.recent.map(txnRow).join('') : `<div class="empty">${t('noActivity')}</div>`;
+}
+async function loadHome() {
+  SUMMARY = await api('/api/agent/summary');
+  renderSummary();
+}
+async function loadHistory() {
+  const rows = await api('/api/agent/transactions');
+  $('histList').innerHTML = rows.length
+    ? rows.map(txnRow).join('') : `<div class="empty">${t('noTxns')}</div>`;
+}
+
+// ---------------------------------------------------------------- forms
+async function submitForm(formEl, url) {
+  const btn = formEl.querySelector('button[type=submit]');
+  btn.disabled = true;
+  try {
+    const data = await api(url, {method: 'POST', body: new FormData(formEl)});
+    formEl.reset();
+    flash(true, t('submitted')(data.ref));
+    go('home');
+  } catch (err) { flash(false, err.message); }
+  btn.disabled = false;
+}
+$('fReimburse').onsubmit = e => { e.preventDefault(); submitForm(e.target, '/api/agent/reimbursements'); };
+$('fOrder').onsubmit = e => { e.preventDefault(); submitForm(e.target, '/api/agent/payment-orders'); };
+
+// ---------------------------------------------------------------- QRIS
+let qrParsed = null;
+function resetQris() {
+  $('qrPayload').value = ''; qrParsed = null;
+  $('qrStage2').style.display = 'none';
+  $('qrDone').style.display = 'none';
+  $('qrCheck').style.display = '';
+  $('qrDemoDyn').style.display = ''; $('qrDemoStat').style.display = '';
+  $('qrAmount').value = '';
+  document.querySelectorAll('#pinrow input').forEach(i => i.value = '');
+}
+async function demoScan(scheme) {
+  const d = await api('/api/agent/qris/demo?scheme=' + scheme);
+  $('qrPayload').value = d.payload;
+  $('qrCheck').click();
+}
+$('qrDemoDyn').onclick = () => demoScan('dynamic');
+$('qrDemoStat').onclick = () => demoScan('static');
+$('qrCheck').onclick = async () => {
+  const payload = $('qrPayload').value.trim();
+  if (!payload) return flash(false, t('pasteFirst'));
+  qrParsed = await api('/api/agent/qris/parse',
+    {method: 'POST', headers: {'Content-Type': 'application/json'},
+     body: JSON.stringify({payload})});
+  $('qmName').textContent = qrParsed.merchant;
+  $('qmCity').textContent = qrParsed.city || (qrParsed.parsed ? '' : t('freeText'));
+  $('qmAmt').textContent = qrParsed.amount ? fmt(qrParsed.amount) : t('openAmount');
+  $('qmScheme').textContent = qrParsed.scheme === 'dynamic' ? t('schemeDynamic') : t('schemeStatic');
+  $('qrAmtFld').style.display = qrParsed.amount ? 'none' : 'block';
+  $('qrStage2').style.display = 'block';
+  const focusEl = qrParsed.amount ? document.querySelector('#pinrow input') : $('qrAmount');
+  focusEl.focus();
+};
+document.querySelectorAll('#pinrow input').forEach((box, i, all) => {
+  box.addEventListener('input', () => {
+    box.value = box.value.replace(/\D/g, '');
+    if (box.value && i < all.length - 1) all[i + 1].focus();
+  });
+  box.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !box.value && i > 0) all[i - 1].focus();
+  });
+});
+$('qrPay').onclick = async () => {
+  const pin = [...document.querySelectorAll('#pinrow input')].map(i => i.value).join('');
+  if (pin.length !== 6) return flash(false, t('pinNeed6'));
+  $('qrPay').disabled = true;
+  try {
+    const body = {payload: $('qrPayload').value.trim(), pin,
+                  category: $('qrCat').value,
+                  amount: $('qrAmount') ? $('qrAmount').value : null};
+    const r = await api('/api/agent/qris/pay',
+      {method: 'POST', headers: {'Content-Type': 'application/json'},
+       body: JSON.stringify(body)});
+    $('doneAmt').textContent = fmt(r.amount);
+    $('doneMerchant').textContent = r.merchant;
+    $('doneRef').textContent = r.ref + ' · ' + t('newBalance') + ' ' + fmt(r.balance);
+    $('qrStage2').style.display = 'none';
+    $('qrCheck').style.display = 'none';
+    $('qrDemoDyn').style.display = 'none'; $('qrDemoStat').style.display = 'none';
+    $('qrDone').style.display = 'block';
+  } catch (err) { flash(false, err.message); }
+  $('qrPay').disabled = false;
+};
+
+// ---------------------------------------------------------------- vendor book
+let VENDORS = [];
+async function loadVendors(selectId) {
+  VENDORS = await api('/api/vendors');
+  const sel = $('vendSel');
+  sel.innerHTML = `<option value="">${t('pickVendor')}</option>` +
+    VENDORS.map(v => `<option value="${v.id}">${esc(v.name)} · ${esc(v.bank_code)}</option>`).join('');
+  if (selectId) { sel.value = String(selectId); sel.onchange(); }
+}
+$('vendSel').onchange = () => {
+  const v = VENDORS.find(x => String(x.id) === $('vendSel').value);
+  if (!v) return;
+  const f = $('fOrder');
+  f.merchant.value = v.name; f.bank_code.value = v.bank_code;
+  f.bank_account.value = v.bank_account; f.bank_holder.value = v.bank_holder;
+  f.category.value = v.category;
+};
+$('btnAddVendor').onclick = () => $('vendModalBd').classList.add('show');
+$('vendClose').onclick = () => $('vendModalBd').classList.remove('show');
+$('vendModalBd').addEventListener('click', e => {
+  if (e.target === $('vendModalBd')) $('vendModalBd').classList.remove('show');
+});
+$('fVendor').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const v = await api('/api/vendors', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(Object.fromEntries(new FormData(e.target)))});
+    e.target.reset();
+    $('vendModalBd').classList.remove('show');
+    flash(true, t('vendorSaved'));
+    loadVendors(v.id);   // pick the new vendor so the order form is pre-filled
+  } catch (err) { flash(false, err.message); }
+};
+
+// ---------------------------------------------------------------- WebAuthn (biometrics)
+const b2a = buf => btoa(String.fromCharCode(...new Uint8Array(buf)))
+  .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const a2b = s => Uint8Array.from(
+  atob(String(s).replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')),
+  c => c.charCodeAt(0));
+
+async function loadBioCount() {
+  try { $('bioCount').textContent = (await api('/api/webauthn/devices')).length; } catch {}
+}
+$('btnBioEnroll').onclick = async () => {
+  if (!window.PublicKeyCredential) return flash(false, t('bioUnsupported'));
+  try {
+    const o = await api('/api/webauthn/register/options', {method: 'POST'});
+    o.challenge = a2b(o.challenge);
+    o.user.id = a2b(o.user.id);
+    const cred = await navigator.credentials.create({publicKey: o});
+    const resp = cred.response;
+    await api('/api/webauthn/register/verify', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        credentialId: b2a(cred.rawId),
+        publicKey: b2a(resp.getPublicKey()),
+        alg: resp.getPublicKeyAlgorithm(),
+        clientDataJSON: b2a(resp.clientDataJSON),
+        label: (navigator.userAgentData && navigator.userAgentData.platform) ||
+               navigator.platform || 'device'})});
+    flash(true, t('bioEnrolledOk'));
+    loadBioCount();
+  } catch (err) {
+    flash(false, err.name === 'NotAllowedError' ? t('bioFailed') : (err.message || t('bioFailed')));
+  }
+};
+// raw fetch (not api()) on the login screen: a 401 here must not loop showLogin
+const rawJson = (url, body) => fetch(url, {method: 'POST',
+  headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})
+  .then(async r => { const d = await r.json().catch(() => ({}));
+                     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+                     return d; });
+$('btnBioLogin').onclick = async () => {
+  const username = $('loginUser').value.trim();
+  if (!username) return flash(false, t('bioNeedUser'));
+  if (!window.PublicKeyCredential) return flash(false, t('bioUnsupported'));
+  try {
+    const o = await rawJson('/api/webauthn/login/options', {username});
+    const cred = await navigator.credentials.get({publicKey: {
+      challenge: a2b(o.challenge), rpId: o.rpId, timeout: o.timeout,
+      userVerification: o.userVerification,
+      allowCredentials: o.allowCredentials.map(c => ({type: c.type, id: a2b(c.id)}))}});
+    const resp = cred.response;
+    const me = await rawJson('/api/webauthn/login/verify', {
+      credentialId: b2a(cred.rawId),
+      clientDataJSON: b2a(resp.clientDataJSON),
+      authenticatorData: b2a(resp.authenticatorData),
+      signature: b2a(resp.signature)});
+    if (me.role !== 'agent') { location.href = '/admin'; return; }
+    ME = me; initApp();
+  } catch (err) {
+    flash(false, err.name === 'NotAllowedError' ? t('bioFailed') : (err.message || t('bioFailed')));
+  }
+};
+
+// ---------------------------------------------------------------- login
+$('fLogin').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    const me = await rawJson('/api/auth/login',
+      {username: $('loginUser').value, password: $('loginPass').value});
+    if (me.role !== 'agent') { location.href = '/admin'; return; }
+    ME = me;
+    e.target.reset();
+    initApp();
+  } catch (err) { flash(false, err.message || t('loginFailed')); }
+};
+
+// ---------------------------------------------------------------- profile / PIN
+$('fPin').onsubmit = async e => {
+  e.preventDefault();
+  const pin = $('newPin').value;
+  try {
+    await api('/api/auth/pin', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pin, old_pin: $('oldPin').value})});
+    flash(true, t('pinSaved'));
+    ME.has_pin = true; syncPinUI();
+    e.target.reset();
+  } catch (err) { flash(false, err.message); }
+};
+function syncPinUI() {
+  $('pinTitle').textContent = ME.has_pin ? t('changePin') : t('setPin');
+  $('oldPinFld').style.display = ME.has_pin ? 'block' : 'none';
+}
+$('logout').onclick = async () => {
+  await fetch('/api/auth/logout', {method: 'POST'});
+  location.href = '/';
+};
+
+// ---------------------------------------------------------------- boot
+async function initApp() {
+  document.body.classList.remove('logged-out');
+  $('whoami').textContent = ME.full_name;
+  $('pName').textContent = ME.full_name;
+  $('pUser').textContent = ME.username;
+  syncPinUI();
+  META = await api('/api/meta');
+  const catOpts = META.categories.map(c => `<option>${c}</option>`).join('');
+  document.querySelectorAll('.catsel, #qrCat').forEach(s => s.innerHTML = catOpts);
+  const bankOpts = META.banks.map(b => `<option>${b}</option>`).join('');
+  document.querySelectorAll('.banksel').forEach(s => s.innerHTML = bankOpts);
+  loadVendors();
+  loadBioCount();
+  go('home');
+}
+(async () => {
+  applyLang();
+  const me = await fetch('/api/auth/me').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!me) { showLogin(); return; }
+  if (me.role !== 'agent') { location.href = '/admin'; return; }
+  ME = me;
+  initApp();
+})();
+</script>
+</body>
+</html>

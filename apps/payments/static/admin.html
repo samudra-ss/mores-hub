@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MORES PAY — Control Panel</title>
+<script>
+document.documentElement.dataset.theme = localStorage.getItem('mp-theme') || 'dark';
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0d0f; --panel: #15191e; --field: #0f1318; --field-border: #262d35;
+  --text: #f4f6f8; --text-strong: #f7f9fa; --text-soft: #c2c8cd;
+  --text-dim: #8b95a0; --text-faint: #6b7480;
+  --muted: #93a0ab; --line: #1a1f25;
+  --card-bg: rgba(255,255,255,.03); --card-border: #1f242a;
+  --hover: rgba(255,255,255,.06); --btn-border: #2b323a;
+  --teal: #00a2b6; --teal-bright: #00bcd2; --teal-link: #33c2d2;
+  --green: #2fd584; --amber: #e8b23e; --red: #e0655f; --blue: #5b9cf5;
+  --glow: rgba(0,162,182,.13);
+  --asidebg: rgba(10,13,15,.6);
+  --err-txt: #ff9d9d; --ok-txt: #7fe6b2;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+[data-theme="light"] {
+  --bg: #eef2f4; --panel: #ffffff; --field: #f4f7f8; --field-border: #cfd9de;
+  --text: #162026; --text-strong: #0e161b; --text-soft: #33424c;
+  --text-dim: #55656f; --text-faint: #68767f;
+  --muted: #5b6a74; --line: #dde4e8;
+  --card-bg: #ffffff; --card-border: #dbe2e7;
+  --hover: rgba(0,0,0,.05); --btn-border: #c4cfd6;
+  --teal: #008ea0; --teal-bright: #0093a6; --teal-link: #00798a;
+  --green: #158f57; --amber: #9c7410; --red: #c2453e; --blue: #2f66c4;
+  --glow: rgba(0,162,182,.08);
+  --asidebg: rgba(255,255,255,.75);
+  --err-txt: #b0433c; --ok-txt: #127548;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: Arial, "Helvetica Neue", Helvetica, system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  background:
+    radial-gradient(1100px 620px at 86% -12%, var(--glow), transparent 60%),
+    var(--bg);
+  color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased;
+  transition: background .2s, color .2s;
+}
+.layout { display: flex; min-height: 100vh; }
+aside {
+  width: 232px; flex-shrink: 0; border-right: 1px solid var(--line);
+  padding: 22px 14px; display: flex; flex-direction: column; gap: 4px;
+  position: sticky; top: 0; height: 100vh; background: var(--asidebg);
+}
+aside img { height: 26px; margin: 2px 8px 22px; align-self: flex-start; }
+[data-theme="light"] .logo-dark { display: none; }
+[data-theme="dark"] .logo-light { display: none; }
+aside button.nav { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  background: none; border: none; color: var(--text-dim); font: inherit; font-size: 15px; font-weight: 600;
+  padding: 11px 12px; border-radius: 9px; cursor: pointer; transition: background .12s, color .12s; }
+aside button.nav:hover { background: var(--hover); color: var(--text); }
+aside button.nav.on { background: rgba(0,162,182,.13); color: var(--teal-bright); }
+aside button.nav .n { margin-left: auto; font-family: var(--mono); font-size: 11px;
+  background: rgba(232,178,62,.15); color: var(--amber); border: 1px solid rgba(232,178,62,.4);
+  padding: 1px 7px; border-radius: 99px; }
+aside .spacer { flex: 1; }
+aside .prefs { display: flex; gap: 8px; padding: 0 12px 12px; }
+.tgl { font-family: var(--mono); font-size: 12px; font-weight: 600; cursor: pointer;
+  border-radius: 99px; padding: 6px 12px; border: 1px solid var(--btn-border);
+  background: transparent; color: var(--text-dim); }
+.tgl:hover { background: var(--hover); color: var(--text); }
+aside .me { padding: 12px 12px 0; border-top: 1px solid var(--line); font-size: 14px; }
+aside .me .r { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--teal-link); margin-top: 2px; }
+aside .me button { background: none; border: none; color: var(--red); font-size: 13px;
+  cursor: pointer; padding: 0; margin-top: 8px; font-family: inherit; }
+main { flex: 1; padding: 26px 30px 60px; min-width: 0; }
+h1 { font-size: 23px; font-weight: 800; letter-spacing: -.4px; margin-bottom: 4px; color: var(--text-strong); }
+.sub { color: var(--muted); font-size: 14.5px; margin-bottom: 22px; }
+h2.section { font-family: var(--mono); font-size: 11.5px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--text-faint); margin: 26px 0 12px; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.kpi { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 13px; padding: 17px 19px; }
+.kpi .k { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--text-faint); }
+.kpi .v { font-size: 25px; font-weight: 800; letter-spacing: -.6px; margin-top: 8px; color: var(--text-strong); }
+.kpi .s { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+th { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-faint); text-align: left; padding: 10px; border-bottom: 1px solid var(--card-border); }
+td { padding: 12px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:hover td { background: var(--hover); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td .sub2 { font-size: 12px; color: var(--text-dim); }
+.chip { display: inline-block; font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; padding: 3px 9px; border-radius: 99px; }
+.chip.pending    { color: var(--amber); background: rgba(232,178,62,.12); border: 1px solid rgba(232,178,62,.4); }
+.chip.approved   { color: var(--teal-link); background: rgba(0,162,182,.12); border: 1px solid rgba(0,162,182,.4); }
+.chip.disbursing { color: var(--blue); background: rgba(91,156,245,.12); border: 1px solid rgba(91,156,245,.4); }
+.chip.paid       { color: var(--green); background: rgba(47,213,132,.1); border: 1px solid rgba(47,213,132,.35); }
+.chip.rejected, .chip.failed { color: var(--red); background: rgba(224,101,95,.12); border: 1px solid rgba(224,101,95,.4); }
+.chip.off { color: var(--text-dim); background: var(--hover); border: 1px solid var(--btn-border); }
+
+.btn { font: inherit; font-weight: 600; font-size: 14.5px; cursor: pointer; border-radius: 8px;
+  padding: 9px 17px; border: 1px solid var(--btn-border); background: transparent; color: var(--text);
+  transition: filter .15s, background .15s; }
+.btn:hover { background: var(--hover); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { border: none; color: #fff; background: var(--teal); box-shadow: 0 8px 20px rgba(0,162,182,.25); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--red); border-color: rgba(224,101,95,.45); }
+.btn.sm { padding: 6px 12px; font-size: 13.5px; }
+select.ctl, input.ctl { font: inherit; font-size: 14.5px; color: var(--text); background: var(--field);
+  border: 1px solid var(--field-border); border-radius: 8px; padding: 9px 12px; outline: none; }
+select.ctl:focus, input.ctl:focus { border-color: var(--teal); }
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.view { display: none; }
+.view.on { display: block; animation: fade .16s ease-out; }
+@keyframes fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+.empty { text-align: center; color: var(--text-faint); font-size: 14.5px; padding: 40px 0; }
+.msg { display: none; padding: 12px 14px; border-radius: 9px; font-size: 14.5px; margin-bottom: 16px; }
+.msg.err { background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: var(--err-txt); }
+.msg.ok  { background: rgba(47,213,132,.1); border: 1px solid rgba(47,213,132,.4); color: var(--ok-txt); }
+
+.backdrop { position: fixed; inset: 0; background: rgba(5,7,9,.72); backdrop-filter: blur(3px);
+  display: none; z-index: 40; }
+[data-theme="light"] .backdrop { background: rgba(20,35,42,.4); }
+.backdrop.show { display: block; }
+.drawer { position: fixed; top: 0; right: -580px; width: min(580px, 100vw); height: 100vh;
+  background: var(--panel); border-left: 1px solid var(--field-border); z-index: 50;
+  padding: 26px 28px; overflow-y: auto; transition: right .22s ease-out; }
+.drawer.show { right: 0; }
+.drawer .close { position: absolute; top: 16px; right: 18px; background: none; border: none;
+  color: var(--muted); font-size: 24px; cursor: pointer; }
+.drawer h3 { font-size: 19px; font-weight: 800; margin-bottom: 2px; color: var(--text-strong); }
+.kv { display: flex; justify-content: space-between; gap: 14px; padding: 10px 0;
+  border-bottom: 1px solid var(--line); font-size: 14.5px; }
+.kv .k { color: var(--muted); flex-shrink: 0; }
+.kv .v { text-align: right; word-break: break-word; }
+.receipt-box { margin: 16px 0; border: 1px solid var(--field-border); border-radius: 12px;
+  overflow: hidden; background: #fff; }
+.receipt-box img { display: block; width: 100%; }
+.drawer textarea { width: 100%; font: inherit; font-size: 14.5px; color: var(--text);
+  background: var(--field); border: 1px solid var(--field-border); border-radius: 9px;
+  padding: 11px 12px; outline: none; margin: 6px 0 14px; }
+.drawer .acts { display: flex; gap: 10px; }
+.drawer .acts .btn { flex: 1; padding: 13px; }
+.approve { background: var(--teal); border: none; color: #fff; }
+
+.chartrow { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chartcard { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 13px; padding: 18px; }
+.chartcard h3 { font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--text-faint); margin-bottom: 14px; }
+.hbar { margin-bottom: 10px; }
+.hbar .t { display: flex; justify-content: space-between; font-size: 13.5px; margin-bottom: 4px; }
+.hbar .t .l { color: var(--text-soft); } .hbar .t .a { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.hbar .track { height: 8px; background: var(--hover); border-radius: 99px; overflow: hidden; }
+.hbar .fill { height: 100%; border-radius: 99px; background: var(--teal-bright); }
+.quota-mini { width: 90px; height: 6px; background: var(--hover); border-radius: 99px;
+  display: inline-block; vertical-align: middle; margin-right: 7px; overflow: hidden; }
+.quota-mini i { display: block; height: 100%; background: var(--teal-bright); border-radius: 99px; }
+.quota-mini i.hot { background: var(--amber); }
+.quota-mini i.over { background: var(--red); }
+
+.modal-bd { position: fixed; inset: 0; background: rgba(5,7,9,.74); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center; padding: 24px; z-index: 60; }
+[data-theme="light"] .modal-bd { background: rgba(20,35,42,.45); }
+.modal-bd.show { display: flex; }
+.modal { width: min(440px, 100%); background: var(--panel); border: 1px solid var(--field-border);
+  border-radius: 16px; padding: 28px; position: relative; }
+.modal .close { position: absolute; top: 12px; right: 15px; background: none; border: none;
+  color: var(--muted); font-size: 23px; cursor: pointer; }
+.modal h3 { font-size: 19px; font-weight: 800; margin-bottom: 16px; color: var(--text-strong); }
+.modal .fld { margin-bottom: 13px; }
+.modal .fld label { display: block; font-size: 13px; font-weight: 600; color: var(--text-soft); margin-bottom: 6px; }
+.modal .fld input, .modal .fld select { width: 100%; padding: 12px 13px; font-size: 15px; color: var(--text);
+  font-family: inherit; background: var(--field); border: 1px solid var(--field-border); border-radius: 9px; outline: none; }
+.modal .fld input:focus, .modal .fld select:focus { border-color: var(--teal); }
+@media (max-width: 860px) {
+  aside { width: 64px; padding: 18px 8px; } aside .lbl, aside .me, aside img, aside .prefs { display: none; }
+  aside button.nav { justify-content: center; } aside button.nav .n { display: none; }
+  .chartrow { grid-template-columns: 1fr; }
+  main { padding: 20px 14px 60px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <img class="logo-dark" src="/static/assets/mores-logo-ondark.png" alt="MORES">
+    <img class="logo-light" src="/static/assets/mores-logo-onlight.png" alt="MORES">
+    <button class="nav on" data-v="overview"><span>◫</span><span class="lbl" data-i="nOverview">Overview</span></button>
+    <button class="nav" data-v="approvals"><span>✓</span><span class="lbl" data-i="nApprovals">Approvals</span><span class="n" id="nPending" style="display:none">0</span></button>
+    <button class="nav" data-v="txns"><span>⇄</span><span class="lbl" data-i="nTxns">Transactions</span></button>
+    <button class="nav" data-v="agents"><span>◉</span><span class="lbl" data-i="nAgents">Agents &amp; Limits</span></button>
+    <button class="nav" data-v="reports"><span>▤</span><span class="lbl" data-i="nReports">Reports</span></button>
+    <button class="nav" data-v="audit"><span>≡</span><span class="lbl" data-i="nAudit">Audit Log</span></button>
+    <div class="spacer"></div>
+    <div class="prefs">
+      <button class="tgl" id="tglLang">ID</button>
+      <button class="tgl" id="tglTheme">☾</button>
+    </div>
+    <div class="me"><div id="meName">…</div><div class="r" id="meRole"></div>
+      <button id="logout" data-i="signOut">Sign out</button></div>
+  </aside>
+
+  <main>
+    <div class="msg err" id="gErr"></div>
+    <div class="msg ok" id="gOk"></div>
+
+    <!-- OVERVIEW -->
+    <section class="view on" id="v-overview">
+      <h1 data-i="ovTitle">Overview</h1>
+      <div class="sub" data-i="ovSub">Live position across the corporate float, clearing and field spend.</div>
+      <div class="kpis">
+        <div class="kpi"><div class="k" data-i="kPendL">Pending approvals</div><div class="v" id="kPend">—</div><div class="s" id="kPendS"></div></div>
+        <div class="kpi"><div class="k" data-i="kPaidL">Paid this month</div><div class="v" id="kPaid">—</div><div class="s" id="kPaidS"></div></div>
+        <div class="kpi"><div class="k" data-i="kCorpL">Corporate float</div><div class="v" id="kCorp">—</div><div class="s" data-i="kCorpS">derived from ledger</div></div>
+        <div class="kpi"><div class="k" data-i="kClearL">In clearing</div><div class="v" id="kClear">—</div><div class="s" data-i="kClearS">disbursements in flight</div></div>
+      </div>
+      <h2 class="section" data-i="thisMonth">This month</h2>
+      <div class="chartrow">
+        <div class="chartcard"><h3 data-i="chCat">Spend by category</h3><div id="catChart"></div></div>
+        <div class="chartcard"><h3 data-i="chDay">Daily spend — last 14 days</h3><div id="dayChart"></div></div>
+      </div>
+    </section>
+
+    <!-- APPROVALS -->
+    <section class="view" id="v-approvals">
+      <h1 data-i="apTitle">Approval queue</h1>
+      <div class="sub" data-i="apSub">Reimbursements and direct payment orders waiting for a decision. Approving triggers the disbursement.</div>
+      <div id="apprList"></div>
+    </section>
+
+    <!-- TRANSACTIONS -->
+    <section class="view" id="v-txns">
+      <h1 data-i="txTitle">Transactions</h1>
+      <div class="sub" data-i="txSub">Everything that moved, in every state. Failed disbursements can be retried.</div>
+      <div class="toolbar">
+        <select class="ctl" id="fStatus"></select>
+        <select class="ctl" id="fType"></select>
+        <button class="btn sm" id="txnReload" data-i="refresh">Refresh</button>
+      </div>
+      <div id="txnTable"></div>
+    </section>
+
+    <!-- AGENTS -->
+    <section class="view" id="v-agents">
+      <h1 data-i="agTitle">Agents &amp; limits</h1>
+      <div class="sub" data-i="agSub">Wallets, quotas and account state. Top-ups allocate corporate budget to an agent's wallet.</div>
+      <div class="toolbar"><button class="btn primary" id="btnNewUser" data-i="newUser">+ New user</button></div>
+      <div id="userTable"></div>
+    </section>
+
+    <!-- REPORTS -->
+    <section class="view" id="v-reports">
+      <h1 data-i="rpTitle">Reports</h1>
+      <div class="sub" data-i="rpSub">Usage per account and exportable ledgers for reconciliation.</div>
+      <div class="toolbar">
+        <input class="ctl" type="month" id="repMonth">
+        <button class="btn sm" id="repReload" data-i="load">Load</button>
+        <span style="flex:1"></span>
+        <a class="btn sm" id="dlTxns" href="#" data-i="dlTxns">⭳ Transactions CSV</a>
+        <a class="btn sm" id="dlLedger" href="#" data-i="dlLedger">⭳ Ledger CSV</a>
+      </div>
+      <div id="usageTable"></div>
+    </section>
+
+    <!-- AUDIT -->
+    <section class="view" id="v-audit">
+      <h1 data-i="auTitle">Audit log</h1>
+      <div class="sub" data-i="auSub">Append-only trail of every login, submission, decision and settlement.</div>
+      <div id="auditTable"></div>
+    </section>
+  </main>
+</div>
+
+<!-- approval drawer -->
+<div class="backdrop" id="drawerBd"></div>
+<div class="drawer" id="drawer">
+  <button class="close" onclick="closeDrawer()">&times;</button>
+  <h3 id="dTitle">—</h3>
+  <div class="sub" id="dRef" style="font-family:var(--mono);font-size:12px"></div>
+  <div id="dKv"></div>
+  <div class="receipt-box" id="dReceipt" style="display:none"></div>
+  <div id="dDecide">
+    <label style="font-size:13px;font-weight:600;color:var(--text-soft)" data-i="decisionNote">Decision note</label>
+    <textarea id="dNote" rows="2" data-i-ph="notePh" placeholder="Required when rejecting"></textarea>
+    <div class="acts">
+      <button class="btn danger" id="dReject" data-i="reject">Reject</button>
+      <button class="btn approve" id="dApprove" data-i="approveDisburse">Approve &amp; disburse</button>
+    </div>
+  </div>
+</div>
+
+<!-- user modal -->
+<div class="modal-bd" id="userModalBd">
+  <div class="modal">
+    <button class="close" onclick="userModal(false)">&times;</button>
+    <h3 data-i="newUserTitle">New user</h3>
+    <form id="fUser">
+      <div class="fld"><label data-i="fullName">Full name</label><input name="full_name" required></div>
+      <div class="fld"><label data-i="usernameLbl">Username</label><input name="username" required></div>
+      <div class="fld"><label data-i="role">Role</label><select name="role" id="uRole">
+        <option value="agent">agent</option><option value="finance">finance</option>
+        <option value="auditor">auditor</option></select></div>
+      <div class="fld agent-only"><label data-i="quotaLbl">Monthly quota (Rp)</label><input name="monthly_quota" type="number" value="5000000"></div>
+      <div class="fld agent-only"><label data-i="limitLbl">Per-transaction limit (Rp)</label><input name="per_txn_limit" type="number" value="2000000"></div>
+      <button class="btn primary" type="submit" style="width:100%;padding:13px;margin-top:6px" data-i="create">Create</button>
+    </form>
+  </div>
+</div>
+
+<!-- topup modal -->
+<div class="modal-bd" id="topupModalBd">
+  <div class="modal">
+    <button class="close" onclick="topupModal(false)">&times;</button>
+    <h3><span data-i="topupTitle">Top up wallet</span> — <span id="tuName"></span></h3>
+    <form id="fTopup">
+      <div class="fld"><label data-i="amount">Amount (Rp)</label><input id="tuAmount" type="number" min="1" required></div>
+      <div class="fld"><label data-i="note">Note</label><input id="tuNote" data-i-ph="notePh2" placeholder="Budget allocation"></div>
+      <button class="btn primary" type="submit" style="width:100%;padding:13px;margin-top:6px" data-i="allocate">Allocate budget</button>
+    </form>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let ME = null, READONLY = false, VIEW = 'overview';
+
+// ---------------------------------------------------------------- i18n + theme
+const I18N = {
+  en: {
+    nOverview: 'Overview', nApprovals: 'Approvals', nTxns: 'Transactions',
+    nAgents: 'Agents & Limits', nReports: 'Reports', nAudit: 'Audit Log',
+    signOut: 'Sign out', readonly: 'read-only',
+    ovTitle: 'Overview', ovSub: 'Live position across the corporate float, clearing and field spend.',
+    kPendL: 'Pending approvals', kPaidL: 'Paid this month', kCorpL: 'Corporate float',
+    kCorpS: 'derived from ledger', kClearL: 'In clearing', kClearS: 'disbursements in flight',
+    waiting: 'waiting', txnsN: 'transactions', thisMonth: 'This month',
+    chCat: 'Spend by category', chDay: 'Daily spend — last 14 days',
+    noSpend: 'No spend yet this month', noActivity: 'No activity in the last 14 days',
+    apTitle: 'Approval queue',
+    apSub: 'Reimbursements and direct payment orders waiting for a decision. Approving triggers the disbursement.',
+    queueClear: 'Queue is clear ✓',
+    hRef: 'Ref', hAgent: 'Agent', hType: 'Type', hDesc: 'Description', hAmount: 'Amount',
+    hSubmitted: 'Submitted', hDetail: 'Detail', hStatus: 'Status', hUpdated: 'Updated',
+    hUser: 'User', hRole: 'Role', hBalance: 'Balance', hQuotaUsed: 'Quota used',
+    hPerTxn: 'Per-txn limit', hWhen: 'When', hWho: 'Who', hAction: 'Action',
+    hEntity: 'Entity', hTopups: 'Top-ups', hDirect: 'Direct payments',
+    hReimbursed: 'Reimbursed', hQuotaUtil: 'Quota utilisation',
+    hStatement: 'Statement',
+    review: 'Review', retry: 'Retry', refresh: 'Refresh',
+    txTitle: 'Transactions', txSub: 'Everything that moved, in every state. Failed disbursements can be retried.',
+    allStatuses: 'All statuses', allTypes: 'All types', nothingMatches: 'Nothing matches',
+    agTitle: 'Agents & limits',
+    agSub: "Wallets, quotas and account state. Top-ups allocate corporate budget to an agent's wallet.",
+    newUser: '+ New user', newUserTitle: 'New user', fullName: 'Full name',
+    usernameLbl: 'Username', role: 'Role', quotaLbl: 'Monthly quota (Rp)',
+    limitLbl: 'Per-transaction limit (Rp)', create: 'Create',
+    active: 'active', disabled: 'disabled', topup: 'Top up', limits: 'Limits',
+    disable: 'Disable', enable: 'Enable', noAgents: 'No agents',
+    topupTitle: 'Top up wallet', amount: 'Amount (Rp)', note: 'Note',
+    notePh2: 'Budget allocation', allocate: 'Allocate budget',
+    rpTitle: 'Reports', rpSub: 'Usage per account and exportable ledgers for reconciliation.',
+    load: 'Load', dlTxns: '⭳ Transactions CSV', dlLedger: '⭳ Ledger CSV',
+    auTitle: 'Audit log', auSub: 'Append-only trail of every login, submission, decision and settlement.',
+    decisionNote: 'Decision note', notePh: 'Required when rejecting',
+    reject: 'Reject', approveDisburse: 'Approve & disburse',
+    dReimb: 'Reimbursement', dOrder: 'Payment order', dCategory: 'Category',
+    dDescription: 'Description', dVendor: 'Vendor', dPayTo: 'Pay to', dSubmitted: 'submitted',
+    fApproved: (ref, g) => `${ref} approved — disbursement ${g} in flight (settles in ~4s)`,
+    fRejected: ref => `${ref} rejected`, fRetried: 'Disbursement retried',
+    fLimits: 'Limits updated', fTopup: 'Budget allocated',
+    fUserCreated: p => `User created — initial password: ${p}`,
+    promptQuota: 'Monthly quota (Rp):', promptLimit: 'Per-transaction limit (Rp):',
+    st: {pending: 'pending', approved: 'approved', disbursing: 'disbursing',
+         paid: 'paid', rejected: 'rejected', failed: 'failed'},
+    ty: {qris: 'QRIS', reimbursement: 'reimbursement', direct_payment: 'direct payment',
+         topup: 'top-up', funding: 'funding'},
+  },
+  id: {
+    nOverview: 'Ringkasan', nApprovals: 'Persetujuan', nTxns: 'Transaksi',
+    nAgents: 'Agen & Limit', nReports: 'Laporan', nAudit: 'Log Audit',
+    signOut: 'Keluar', readonly: 'hanya-baca',
+    ovTitle: 'Ringkasan', ovSub: 'Posisi langsung dana korporat, kliring, dan belanja lapangan.',
+    kPendL: 'Menunggu persetujuan', kPaidL: 'Dibayar bulan ini', kCorpL: 'Dana korporat',
+    kCorpS: 'diturunkan dari buku besar', kClearL: 'Di kliring', kClearS: 'pencairan dalam proses',
+    waiting: 'menunggu', txnsN: 'transaksi', thisMonth: 'Bulan ini',
+    chCat: 'Belanja per kategori', chDay: 'Belanja harian — 14 hari terakhir',
+    noSpend: 'Belum ada belanja bulan ini', noActivity: 'Tidak ada aktivitas 14 hari terakhir',
+    apTitle: 'Antrean persetujuan',
+    apSub: 'Reimburs dan perintah bayar langsung yang menunggu keputusan. Menyetujui akan memicu pencairan.',
+    queueClear: 'Antrean kosong ✓',
+    hRef: 'Ref', hAgent: 'Agen', hType: 'Jenis', hDesc: 'Keterangan', hAmount: 'Nominal',
+    hSubmitted: 'Diajukan', hDetail: 'Detail', hStatus: 'Status', hUpdated: 'Diperbarui',
+    hUser: 'Pengguna', hRole: 'Peran', hBalance: 'Saldo', hQuotaUsed: 'Kuota terpakai',
+    hPerTxn: 'Limit per-txn', hWhen: 'Waktu', hWho: 'Siapa', hAction: 'Aksi',
+    hEntity: 'Entitas', hTopups: 'Top-up', hDirect: 'Bayar langsung',
+    hReimbursed: 'Direimburs', hQuotaUtil: 'Pemakaian kuota',
+    hStatement: 'Laporan',
+    review: 'Tinjau', retry: 'Ulangi', refresh: 'Muat ulang',
+    txTitle: 'Transaksi', txSub: 'Semua pergerakan, di semua status. Pencairan gagal bisa diulang.',
+    allStatuses: 'Semua status', allTypes: 'Semua jenis', nothingMatches: 'Tidak ada yang cocok',
+    agTitle: 'Agen & limit',
+    agSub: 'Dompet, kuota, dan status akun. Top-up mengalokasikan dana korporat ke dompet agen.',
+    newUser: '+ Pengguna baru', newUserTitle: 'Pengguna baru', fullName: 'Nama lengkap',
+    usernameLbl: 'Nama pengguna', role: 'Peran', quotaLbl: 'Kuota bulanan (Rp)',
+    limitLbl: 'Limit per transaksi (Rp)', create: 'Buat',
+    active: 'aktif', disabled: 'nonaktif', topup: 'Top up', limits: 'Limit',
+    disable: 'Nonaktifkan', enable: 'Aktifkan', noAgents: 'Belum ada agen',
+    topupTitle: 'Top up dompet', amount: 'Nominal (Rp)', note: 'Catatan',
+    notePh2: 'Alokasi anggaran', allocate: 'Alokasikan anggaran',
+    rpTitle: 'Laporan', rpSub: 'Pemakaian per akun dan buku besar yang bisa diekspor untuk rekonsiliasi.',
+    load: 'Muat', dlTxns: '⭳ CSV Transaksi', dlLedger: '⭳ CSV Buku Besar',
+    auTitle: 'Log audit', auSub: 'Jejak tak-terubah dari setiap login, pengajuan, keputusan, dan settlement.',
+    decisionNote: 'Catatan keputusan', notePh: 'Wajib diisi saat menolak',
+    reject: 'Tolak', approveDisburse: 'Setujui & cairkan',
+    dReimb: 'Reimburs', dOrder: 'Perintah bayar', dCategory: 'Kategori',
+    dDescription: 'Keterangan', dVendor: 'Vendor', dPayTo: 'Bayar ke', dSubmitted: 'diajukan',
+    fApproved: (ref, g) => `${ref} disetujui — pencairan ${g} berjalan (settle ~4 dtk)`,
+    fRejected: ref => `${ref} ditolak`, fRetried: 'Pencairan diulang',
+    fLimits: 'Limit diperbarui', fTopup: 'Anggaran dialokasikan',
+    fUserCreated: p => `Pengguna dibuat — kata sandi awal: ${p}`,
+    promptQuota: 'Kuota bulanan (Rp):', promptLimit: 'Limit per transaksi (Rp):',
+    st: {pending: 'menunggu', approved: 'disetujui', disbursing: 'dicairkan',
+         paid: 'lunas', rejected: 'ditolak', failed: 'gagal'},
+    ty: {qris: 'QRIS', reimbursement: 'reimburs', direct_payment: 'bayar langsung',
+         topup: 'top-up', funding: 'pendanaan'},
+  }
+};
+let LANG = localStorage.getItem('mp-lang') || 'en';
+const t = k => (I18N[LANG] && I18N[LANG][k]) ?? I18N.en[k] ?? k;
+const st = s => t('st')[s] || s;
+const ty = s => t('ty')[s] || s;
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
+  document.querySelectorAll('[data-i-ph]').forEach(el => el.placeholder = t(el.dataset.iPh));
+  $('tglLang').textContent = LANG === 'en' ? 'ID' : 'EN';
+  fillFilters();
+  if (ME) {
+    $('meRole').textContent = ME.role + (READONLY ? ' · ' + t('readonly') : '');
+    loaders[VIEW]();                 // re-render dynamic tables in new language
+  }
+}
+$('tglLang').onclick = () => {
+  LANG = LANG === 'en' ? 'id' : 'en';
+  localStorage.setItem('mp-lang', LANG);
+  applyLang();
+};
+function applyTheme() {
+  $('tglTheme').textContent = document.documentElement.dataset.theme === 'dark' ? '☀' : '☾';
+}
+$('tglTheme').onclick = () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('mp-theme', next);
+  applyTheme();
+};
+applyTheme();
+
+function fillFilters() {
+  const sVal = $('fStatus').value, tVal = $('fType').value;
+  $('fStatus').innerHTML = `<option value="">${t('allStatuses')}</option>` +
+    ['pending','approved','disbursing','paid','rejected','failed']
+      .map(s => `<option value="${s}">${st(s)}</option>`).join('');
+  $('fType').innerHTML = `<option value="">${t('allTypes')}</option>` +
+    ['reimbursement','direct_payment','qris','topup']
+      .map(x => `<option value="${x}">${ty(x)}</option>`).join('');
+  $('fStatus').value = sVal; $('fType').value = tVal;
+}
+
+// ---------------------------------------------------------------- plumbing
+async function api(url, opts) {
+  const res = await fetch(url, opts);
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { location.href = '/'; throw new Error('auth'); }
+  if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+  return data;
+}
+function flash(ok, text) {
+  const el = ok ? $('gOk') : $('gErr');
+  el.textContent = text; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4500);
+}
+
+// ---------------------------------------------------------------- nav
+const loaders = {overview: loadOverview, approvals: loadApprovals, txns: loadTxns,
+                 agents: loadUsers, reports: loadReports, audit: loadAudit};
+document.querySelectorAll('aside button.nav').forEach(b => b.onclick = () => {
+  document.querySelectorAll('aside button.nav').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
+  $('v-' + b.dataset.v).classList.add('on');
+  VIEW = b.dataset.v;
+  loaders[VIEW]();
+});
+
+// ---------------------------------------------------------------- overview
+function hbar(label, value, max, color) {
+  const pct = max ? Math.max(2, 100 * value / max) : 0;
+  return `<div class="hbar"><div class="t"><span class="l">${esc(label)}</span>
+    <span class="a">${fmt(value)}</span></div>
+    <div class="track"><div class="fill" style="width:${pct}%${color ? ';background:' + color : ''}"></div></div></div>`;
+}
+async function loadOverview() {
+  const o = await api('/api/admin/overview');
+  $('kPend').textContent = o.pending_count;
+  $('kPendS').textContent = fmt(o.pending_amount) + ' ' + t('waiting');
+  $('kPaid').textContent = fmt(o.month_paid_amount);
+  $('kPaidS').textContent = o.month_paid_count + ' ' + t('txnsN');
+  $('kCorp').textContent = fmt(o.corporate_balance);
+  $('kClear').textContent = fmt(o.clearing_balance);
+  const maxCat = Math.max(1, ...o.categories.map(c => c.s));
+  $('catChart').innerHTML = o.categories.length
+    ? o.categories.map(c => hbar(c.category, c.s, maxCat)).join('')
+    : `<div class="empty">${t('noSpend')}</div>`;
+  const maxDay = Math.max(1, ...o.daily.map(d => d.s));
+  $('dayChart').innerHTML = o.daily.length
+    ? o.daily.map(d => hbar(d.d.slice(5), d.s, maxDay, 'var(--blue)')).join('')
+    : `<div class="empty">${t('noActivity')}</div>`;
+  const n = $('nPending');
+  n.style.display = o.pending_count ? '' : 'none';
+  n.textContent = o.pending_count;
+}
+
+// ---------------------------------------------------------------- approvals
+let QUEUE = [];
+async function loadApprovals() {
+  QUEUE = await api('/api/admin/approvals');
+  if (!QUEUE.length) { $('apprList').innerHTML = `<div class="empty">${t('queueClear')}</div>`; return; }
+  $('apprList').innerHTML = `<table><thead><tr>
+    <th>${t('hRef')}</th><th>${t('hAgent')}</th><th>${t('hType')}</th><th>${t('hDesc')}</th>
+    <th class="num">${t('hAmount')}</th><th>${t('hSubmitted')}</th><th></th></tr></thead><tbody>` +
+    QUEUE.map((x, i) => `<tr>
+      <td style="font-family:var(--mono);font-size:12px">${x.ref}</td>
+      <td>${esc(x.full_name)}</td>
+      <td>${ty(x.type)}</td>
+      <td>${esc(x.merchant || x.description || '')}</td>
+      <td class="num" style="font-weight:700">${fmt(x.amount)}</td>
+      <td style="color:var(--text-dim)">${(x.created_at || '').slice(0, 16)}</td>
+      <td><button class="btn sm primary" onclick="openDrawer(${i})">${t('review')}</button></td>
+    </tr>`).join('') + '</tbody></table>';
+  loadOverview();
+}
+let CURRENT = null;
+function openDrawer(i) {
+  CURRENT = QUEUE[i];
+  const x = CURRENT;
+  $('dTitle').textContent = (x.type === 'reimbursement' ? t('dReimb') : t('dOrder')) + ' — ' + x.full_name;
+  $('dRef').textContent = x.ref + ' · ' + t('dSubmitted') + ' ' + (x.created_at || '').slice(0, 16);
+  const kv = [
+    [t('hAmount'), `<b>${fmt(x.amount)}</b>`], [t('dCategory'), x.category],
+    [t('dDescription'), esc(x.description || '—')],
+    x.merchant ? [t('dVendor'), esc(x.merchant)] : null,
+    [t('dPayTo'), `${esc(x.bank_code || '')} · ${esc(x.bank_account || '')}<br>${esc(x.bank_holder || '')}`],
+  ].filter(Boolean);
+  $('dKv').innerHTML = kv.map(([k, v]) =>
+    `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+  const rb = $('dReceipt');
+  if (x.receipt_url) { rb.style.display = ''; rb.innerHTML = `<img src="${x.receipt_url}" alt="receipt">`; }
+  else { rb.style.display = 'none'; }
+  $('dNote').value = '';
+  $('dDecide').style.display = READONLY ? 'none' : '';
+  $('drawerBd').classList.add('show');
+  $('drawer').classList.add('show');
+}
+function closeDrawer() {
+  $('drawerBd').classList.remove('show');
+  $('drawer').classList.remove('show');
+}
+$('drawerBd').onclick = closeDrawer;
+async function decide(action) {
+  try {
+    const r = await api('/api/admin/approvals/' + CURRENT.id, {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({action, note: $('dNote').value})});
+    closeDrawer();
+    flash(true, action === 'approve'
+      ? t('fApproved')(CURRENT.ref, r.gateway_ref) : t('fRejected')(CURRENT.ref));
+    loadApprovals();
+  } catch (err) { flash(false, err.message); }
+}
+$('dApprove').onclick = () => decide('approve');
+$('dReject').onclick = () => decide('reject');
+
+// ---------------------------------------------------------------- transactions
+async function loadTxns() {
+  const p = new URLSearchParams();
+  if ($('fStatus').value) p.set('status', $('fStatus').value);
+  if ($('fType').value) p.set('type', $('fType').value);
+  const rows = await api('/api/admin/transactions?' + p);
+  if (!rows.length) { $('txnTable').innerHTML = `<div class="empty">${t('nothingMatches')}</div>`; return; }
+  $('txnTable').innerHTML = `<table><thead><tr>
+    <th>${t('hRef')}</th><th>${t('hAgent')}</th><th>${t('hType')}</th><th>${t('hDetail')}</th>
+    <th class="num">${t('hAmount')}</th><th>${t('hStatus')}</th><th>${t('hUpdated')}</th><th></th></tr></thead><tbody>` +
+    rows.map(x => `<tr>
+      <td style="font-family:var(--mono);font-size:12px">${x.ref}</td>
+      <td>${esc(x.full_name)}</td>
+      <td>${ty(x.type)}</td>
+      <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+        ${esc(x.merchant || x.description || '')}
+        ${x.decision_note ? '<div class="sub2">✎ ' + esc(x.decision_note) + '</div>' : ''}</td>
+      <td class="num" style="font-weight:700">${fmt(x.amount)}</td>
+      <td><span class="chip ${x.status}">${st(x.status)}</span></td>
+      <td style="color:var(--text-dim);font-size:13px">${(x.updated_at || '').slice(0, 16)}</td>
+      <td>${x.status === 'failed' && !READONLY
+            ? `<button class="btn sm" onclick="retryTxn(${x.id})">${t('retry')}</button>` : ''}</td>
+    </tr>`).join('') + '</tbody></table>';
+}
+async function retryTxn(id) {
+  try { await api(`/api/admin/transactions/${id}/retry`, {method: 'POST'});
+    flash(true, t('fRetried')); loadTxns(); }
+  catch (err) { flash(false, err.message); }
+}
+$('txnReload').onclick = loadTxns;
+$('fStatus').onchange = loadTxns;
+$('fType').onchange = loadTxns;
+
+// ---------------------------------------------------------------- users
+async function loadUsers() {
+  const rows = await api('/api/admin/users');
+  $('btnNewUser').style.display = (ME.role === 'admin') ? '' : 'none';
+  $('userTable').innerHTML = `<table><thead><tr>
+    <th>${t('hUser')}</th><th>${t('hRole')}</th><th class="num">${t('hBalance')}</th><th>${t('hQuotaUsed')}</th>
+    <th class="num">${t('hPerTxn')}</th><th>${t('hStatus')}</th><th></th></tr></thead><tbody>` +
+    rows.map(u => {
+      const isAgent = u.role === 'agent';
+      const pct = isAgent && u.monthly_quota ? Math.round(100 * u.month_spend / u.monthly_quota) : 0;
+      const cls = pct > 100 ? 'over' : pct > 80 ? 'hot' : '';
+      return `<tr>
+      <td><b>${esc(u.full_name)}</b><div class="sub2">@${u.username}</div></td>
+      <td><span class="chip ${isAgent ? 'approved' : 'off'}">${u.role}</span></td>
+      <td class="num">${isAgent ? fmt(u.balance) : '—'}</td>
+      <td>${isAgent ? `<span class="quota-mini"><i class="${cls}" style="width:${Math.min(100, pct)}%"></i></span>
+           <span style="font-size:13px;color:var(--muted)">${fmt(u.month_spend)} / ${fmt(u.monthly_quota)}</span>` : '—'}</td>
+      <td class="num">${isAgent ? fmt(u.per_txn_limit) : '—'}</td>
+      <td><span class="chip ${u.is_active ? 'paid' : 'failed'}">${u.is_active ? t('active') : t('disabled')}</span></td>
+      <td style="white-space:nowrap">${READONLY ? '' : `
+        ${isAgent ? `<button class="btn sm" onclick="topupModal(true,${u.id},'${esc(u.full_name)}')">${t('topup')}</button>
+        <button class="btn sm" onclick="editLimits(${u.id},${u.monthly_quota},${u.per_txn_limit})">${t('limits')}</button>` : ''}
+        ${ME.role === 'admin' && u.id !== ME.id ? `<button class="btn sm ${u.is_active ? 'danger' : ''}"
+          onclick="toggleUser(${u.id},${u.is_active ? 0 : 1})">${u.is_active ? t('disable') : t('enable')}</button>` : ''}`}</td>
+    </tr>`;}).join('') + '</tbody></table>';
+}
+function userModal(show) { $('userModalBd').classList.toggle('show', show); }
+$('btnNewUser').onclick = () => userModal(true);
+$('uRole').onchange = e => document.querySelectorAll('.agent-only').forEach(
+  f => f.style.display = e.target.value === 'agent' ? '' : 'none');
+$('fUser').onsubmit = async e => {
+  e.preventDefault();
+  const f = Object.fromEntries(new FormData(e.target));
+  try {
+    const r = await api('/api/admin/users', {method: 'POST',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(f)});
+    userModal(false); e.target.reset();
+    flash(true, t('fUserCreated')(r.initial_password));
+    loadUsers();
+  } catch (err) { flash(false, err.message); }
+};
+let TOPUP_UID = null;
+function topupModal(show, uid, name) {
+  TOPUP_UID = uid;
+  if (name) $('tuName').textContent = name;
+  $('topupModalBd').classList.toggle('show', show);
+}
+$('fTopup').onsubmit = async e => {
+  e.preventDefault();
+  try {
+    await api('/api/admin/topup', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: TOPUP_UID, amount: +$('tuAmount').value,
+                            note: $('tuNote').value})});
+    topupModal(false); e.target.reset();
+    flash(true, t('fTopup')); loadUsers();
+  } catch (err) { flash(false, err.message); }
+};
+async function editLimits(uid, quota, limit) {
+  const q = prompt(t('promptQuota'), quota);
+  if (q === null) return;
+  const l = prompt(t('promptLimit'), limit);
+  if (l === null) return;
+  try {
+    await api('/api/admin/users/' + uid, {method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({monthly_quota: +q, per_txn_limit: +l})});
+    flash(true, t('fLimits')); loadUsers();
+  } catch (err) { flash(false, err.message); }
+}
+async function toggleUser(uid, active) {
+  try {
+    await api('/api/admin/users/' + uid, {method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({is_active: !!active})});
+    loadUsers();
+  } catch (err) { flash(false, err.message); }
+}
+
+// ---------------------------------------------------------------- reports
+async function loadReports() {
+  const month = $('repMonth').value || new Date().toISOString().slice(0, 7);
+  $('repMonth').value = month;
+  $('dlTxns').href = '/api/reports/transactions.csv?month=' + month;
+  $('dlLedger').href = '/api/reports/ledger.csv?month=' + month;
+  const r = await api('/api/reports/usage?month=' + month);
+  if (!r.agents.length) { $('usageTable').innerHTML = `<div class="empty">${t('noAgents')}</div>`; return; }
+  $('usageTable').innerHTML = `<table><thead><tr>
+    <th>${t('hAgent')}</th><th class="num">${t('hTopups')}</th><th class="num">QRIS</th>
+    <th class="num">${t('hDirect')}</th><th class="num">${t('hReimbursed')}</th>
+    <th class="num">${t('hBalance')}</th><th>${t('hQuotaUtil')}</th>
+    <th>${t('hStatement')}</th></tr></thead><tbody>` +
+    r.agents.map(a => {
+      const cls = a.quota_pct > 100 ? 'over' : a.quota_pct > 80 ? 'hot' : '';
+      return `<tr>
+      <td><b>${esc(a.full_name)}</b><div class="sub2">@${a.username}</div></td>
+      <td class="num" style="color:var(--green)">${fmt(a.topup)}</td>
+      <td class="num">${fmt(a.qris)}</td>
+      <td class="num">${fmt(a.direct_payment)}</td>
+      <td class="num">${fmt(a.reimbursement)}</td>
+      <td class="num" style="font-weight:700">${fmt(a.balance)}</td>
+      <td><span class="quota-mini"><i class="${cls}" style="width:${Math.min(100, a.quota_pct)}%"></i></span>
+        <span style="font-size:13px;color:var(--muted)">${a.quota_pct}%</span></td>
+      <td><a class="btn sm" href="/api/reports/agent/${a.id}/statement.csv?month=${month}">⭳ CSV</a></td>
+    </tr>`;}).join('') + '</tbody></table>';
+}
+$('repReload').onclick = loadReports;
+
+// ---------------------------------------------------------------- audit
+async function loadAudit() {
+  const rows = await api('/api/admin/audit');
+  $('auditTable').innerHTML = `<table><thead><tr>
+    <th>${t('hWhen')}</th><th>${t('hWho')}</th><th>${t('hAction')}</th><th>${t('hEntity')}</th><th>${t('hDetail')}</th></tr></thead><tbody>` +
+    rows.map(a => `<tr>
+      <td style="font-family:var(--mono);font-size:12px;color:var(--text-dim)">${(a.created_at || '').slice(0, 19)}</td>
+      <td>${esc(a.username || 'system')}</td>
+      <td style="font-family:var(--mono);font-size:12.5px;color:var(--teal-link)">${esc(a.action)}</td>
+      <td style="color:var(--text-dim)">${esc(a.entity || '')}${a.entity_id ? ' #' + a.entity_id : ''}</td>
+      <td style="color:var(--muted);font-size:13px">${esc(a.detail || '')}</td>
+    </tr>`).join('') + '</tbody></table>';
+}
+
+// ---------------------------------------------------------------- boot
+$('logout').onclick = async () => {
+  await fetch('/api/auth/logout', {method: 'POST'});
+  location.href = '/';
+};
+(async () => {
+  fillFilters();
+  applyLang();
+  try { ME = await api('/api/auth/me'); } catch { return; }
+  if (ME.role === 'agent') { location.href = '/agent'; return; }
+  READONLY = ME.role === 'auditor';
+  $('meName').textContent = ME.full_name;
+  $('meRole').textContent = ME.role + (READONLY ? ' · ' + t('readonly') : '');
+  loadOverview();
+})();
+</script>
+</body>
+</html>

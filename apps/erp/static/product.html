@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0d0f">
+<meta name="robots" content="index, follow">
+
+<title>MORES HV — Consolidated Group Finance for Indonesian Boards</title>
+<meta name="description" content="MORES HV brings every company in your group into one live financial view — consolidation, budgets, project profitability and BCA bank reconciliation. Built for Indonesian groups whose boards need numbers they can act on.">
+<meta name="keywords" content="group finance consolidation, multi-company accounting Indonesia, financial consolidation software, konsolidasi laporan keuangan, BCA bank reconciliation, project profitability, finance ERP Indonesia, MORES HV, Helicopter View">
+<link rel="canonical" href="https://mores.id/product">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="MORES HV">
+<meta property="og:title" content="MORES HV — Consolidated Group Finance for Indonesian Boards">
+<meta property="og:description" content="Every company in your group, in one live financial view. Consolidation, budgets, project profitability and BCA bank reconciliation — built for Indonesian groups.">
+<meta property="og:url" content="https://mores.id/product">
+<meta property="og:image" content="https://mores.id/static/assets/hero-poster.svg">
+<meta property="og:locale" content="en_ID">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MORES HV — Consolidated Group Finance for Indonesian Boards">
+<meta name="twitter:description" content="Every company in your group, in one live financial view. Built for Indonesian groups.">
+<meta name="twitter:image" content="https://mores.id/static/assets/hero-poster.svg">
+
+<link rel="icon" href="/static/assets/mores-mark-ondark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Structured data: Organization + WebSite + Service -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://mores.id/#org",
+      "name": "MORES HV",
+      "url": "https://mores.id",
+      "logo": "https://mores.id/static/assets/mores-logo-onlight.png",
+      "description": "Consolidated group finance and accounting software for Indonesian multi-company groups.",
+      "areaServed": "ID"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://mores.id/#website",
+      "url": "https://mores.id",
+      "name": "MORES HV",
+      "publisher": { "@id": "https://mores.id/#org" }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "MORES HV",
+      "applicationCategory": "BusinessApplication",
+      "operatingSystem": "Web",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
+      "description": "Multi-company financial consolidation, budgeting, project profitability and BCA bank reconciliation for Indonesian groups."
+    }
+  ]
+}
+</script>
+
+<style>
+:root {
+  --bg: #0a0d0f; --panel: #15191e; --field: #0f1318; --field-border: #262d35;
+  --text: #f4f6f8; --muted: #93a0ab; --line: #1a1f25;
+  --teal: #00a2b6; --teal-bright: #00bcd2; --teal-link: #33c2d2;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --sans: "Hanken Grotesk", Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 90px; }
+body {
+  font-family: var(--sans);
+  background:
+    radial-gradient(1100px 620px at 88% -12%, rgba(0,162,182,.15), transparent 60%),
+    radial-gradient(820px 520px at -8% 40%, rgba(0,162,182,.06), transparent 55%),
+    var(--bg);
+  color: var(--text); overflow-x: hidden; -webkit-font-smoothing: antialiased; line-height: 1.5;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .5; z-index: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+a { color: inherit; text-decoration: none; }
+.wrap { max-width: 1200px; margin: 0 auto; padding: 0 7vw; }
+section { position: relative; z-index: 2; }
+
+/* nav */
+nav.top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 15px 7vw; position: sticky; top: 0; z-index: 40;
+  background: rgba(10,13,15,.72); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line);
+}
+nav.top .brand { display: flex; align-items: center; gap: 13px; }
+nav.top img { height: 27px; width: auto; display: block; }
+.pill-mono { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+  color: #5e686e; border: 1px solid #1f242a; border-radius: 99px; padding: 6px 12px; }
+.nav-links { display: flex; align-items: center; gap: 28px; }
+.nav-links a { font-size: 13.5px; color: var(--muted); transition: color .15s; }
+.nav-links a:hover { color: var(--text); }
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.btn { font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 9px;
+  padding: 10px 20px; border: 1px solid #2b323a; background: transparent; color: var(--text);
+  transition: filter .15s, transform .1s, background .15s; display: inline-block; }
+.btn:hover { background: rgba(255,255,255,.06); }
+.btn-primary { border: none; color: #fff; background: var(--teal); box-shadow: 0 10px 28px rgba(0,162,182,.28); }
+.btn-primary:hover { filter: brightness(1.08); }
+.btn-primary:active { transform: translateY(1px); }
+@media (max-width: 900px) { .nav-links { display: none; } }
+
+/* hero */
+.hero { padding: 66px 0 26px; }
+.hero-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 54px; align-items: center; }
+@media (max-width: 940px) { .hero-grid { grid-template-columns: 1fr; gap: 34px; } }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--teal-link); }
+.hero h1 { font-size: clamp(34px, 5.2vw, 58px); font-weight: 800; line-height: 1.05; letter-spacing: -1.6px; margin: 20px 0 0; color: #f7f9fa; }
+.hero h1 em { font-style: normal; color: var(--teal-bright); }
+.hero p.lead { color: #c2c8cd; font-size: clamp(16px, 1.7vw, 18.5px); margin: 22px 0 30px; max-width: 54ch; }
+.cta { display: flex; gap: 13px; flex-wrap: wrap; align-items: center; }
+.cta .btn { padding: 14px 26px; font-size: 15px; }
+.hero-note { color: #6b7480; font-size: 13px; margin-top: 20px; }
+
+/* video */
+.video-frame { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid #212a33;
+  box-shadow: 0 30px 80px rgba(0,0,0,.45); background: #0d1115; aspect-ratio: 16 / 9; }
+.video-frame img.poster, .video-frame video, .video-frame iframe { width: 100%; height: 100%; object-fit: cover; display: block; border: 0; }
+.video-play { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; cursor: pointer; background: linear-gradient(180deg, rgba(10,13,15,.05), rgba(10,13,15,.45)); }
+.video-play .disc { width: 74px; height: 74px; border-radius: 50%; background: var(--teal); display: grid; place-items: center;
+  box-shadow: 0 12px 40px rgba(0,162,182,.5); transition: transform .15s, filter .15s; }
+.video-play:hover .disc { transform: scale(1.06); filter: brightness(1.08); }
+.video-play .disc::after { content: ""; border-style: solid; border-width: 12px 0 12px 20px; border-color: transparent transparent transparent #fff; margin-left: 5px; }
+.video-play .cap { font-size: 13.5px; font-weight: 600; color: #eaf6f8; background: rgba(10,13,15,.5); padding: 7px 15px; border-radius: 99px; border: 1px solid rgba(255,255,255,.12); }
+.video-badge { position: absolute; top: 14px; left: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: .16em;
+  text-transform: uppercase; color: #bfe9ef; background: rgba(0,162,182,.28); border: 1px solid rgba(0,188,210,.4); padding: 5px 11px; border-radius: 99px; }
+
+/* logos / entities */
+.entities { padding: 34px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 26px; }
+.entities .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; color: #5d6168; text-align: center; margin-bottom: 16px; }
+.entities .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 34px; }
+.entities .row span { color: #c2c8cd; font-weight: 600; font-size: 14.5px; opacity: .8; }
+
+/* generic block */
+.block { padding: 78px 0; }
+.sec-head { max-width: 62ch; }
+.sec-title { font-size: clamp(25px, 3.6vw, 38px); font-weight: 800; letter-spacing: -.8px; line-height: 1.12; color: #f7f9fa; margin-top: 14px; }
+.sec-sub { color: #aab2bb; font-size: clamp(15px, 1.5vw, 17px); margin-top: 16px; }
+.lead-para { font-size: clamp(17px, 2vw, 21px); line-height: 1.55; color: #d3d9de; max-width: 40ch; font-weight: 600; letter-spacing: -.3px; }
+.lead-para + .lead-para { margin-top: 20px; }
+
+/* two-column narrative */
+.narrative { display: grid; grid-template-columns: .85fr 1.15fr; gap: 48px; align-items: start; }
+@media (max-width: 900px) { .narrative { grid-template-columns: 1fr; gap: 24px; } }
+.narrative p { color: #aeb6bf; font-size: 16px; margin-top: 18px; }
+.narrative p:first-of-type { margin-top: 0; }
+.narrative strong { color: #eef2f5; font-weight: 700; }
+
+/* capability rows */
+.caps { margin-top: 46px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.cap { display: grid; grid-template-columns: 200px 1fr; gap: 30px; padding: 30px 32px; background: rgba(255,255,255,.017); transition: background .15s; }
+.cap:hover { background: rgba(0,162,182,.045); }
+.cap .k { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--teal-link); padding-top: 4px; }
+.cap h3 { font-size: 19px; font-weight: 700; color: #eef2f5; letter-spacing: -.3px; }
+.cap p { color: #97a1ab; font-size: 15px; margin-top: 8px; max-width: 66ch; }
+@media (max-width: 720px) { .cap { grid-template-columns: 1fr; gap: 10px; padding: 24px; } }
+
+/* cases */
+.cases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 44px; }
+@media (max-width: 900px) { .cases { grid-template-columns: 1fr; } }
+.case { border: 1px solid #1f242a; border-radius: 16px; padding: 26px; background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.008)); }
+.case .who { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--teal-link); margin-bottom: 13px; }
+.case h3 { font-size: 17px; font-weight: 700; color: #eef2f5; line-height: 1.3; margin-bottom: 12px; letter-spacing: -.2px; }
+.case p { color: #9aa3ad; font-size: 14.5px; }
+.case p b { color: var(--teal-bright); font-weight: 600; }
+
+/* insights / news carousel */
+.insights-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.carousel-nav { display: flex; gap: 10px; }
+.carousel-nav button { width: 42px; height: 42px; border-radius: 50%; border: 1px solid #2b323a; background: rgba(255,255,255,.03); color: var(--text); font-size: 18px; cursor: pointer; transition: background .15s, border-color .15s; }
+.carousel-nav button:hover { background: rgba(0,162,182,.1); border-color: var(--teal); }
+.rail { display: flex; gap: 18px; margin-top: 30px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 10px; scrollbar-width: none; }
+.rail::-webkit-scrollbar { display: none; }
+.post { scroll-snap-align: start; flex: 0 0 340px; max-width: 340px; border: 1px solid #1f242a; border-radius: 16px; overflow: hidden; background: rgba(255,255,255,.02); cursor: pointer; transition: border-color .15s, transform .15s; display: flex; flex-direction: column; }
+.post:hover { border-color: var(--teal); transform: translateY(-3px); }
+.post-cover { height: 168px; position: relative; background-size: cover; background-position: center; display: flex; align-items: flex-end; }
+.post-tag { position: absolute; top: 14px; left: 14px; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #eafbfd; background: rgba(0,162,182,.32); border: 1px solid rgba(0,188,210,.45); padding: 5px 10px; border-radius: 99px; }
+.post-body { padding: 20px; display: flex; flex-direction: column; gap: 9px; flex: 1; }
+.post-body time { font-size: 12px; color: #6b7480; font-family: var(--mono); }
+.post-body h3 { font-size: 17px; font-weight: 700; color: #eef2f5; line-height: 1.32; letter-spacing: -.2px; }
+.post-body p { font-size: 14px; color: #97a1ab; flex: 1; }
+.post-more { font-size: 13.5px; font-weight: 600; color: var(--teal-link); }
+@media (max-width: 560px) { .post { flex-basis: 82vw; max-width: 82vw; } }
+
+/* impact strip */
+.impact { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 8px; }
+@media (max-width: 760px) { .impact { grid-template-columns: 1fr; gap: 26px; } }
+.impact .n { font-size: 44px; font-weight: 800; color: var(--teal-bright); letter-spacing: -1.5px; }
+.impact .l { color: #aab2bb; font-size: 15px; margin-top: 6px; }
+
+/* quote */
+.quote { border-left: 3px solid var(--teal); padding: 6px 0 6px 28px; margin-top: 12px; }
+.quote p { font-size: clamp(20px, 2.5vw, 27px); font-weight: 600; color: #eef2f5; line-height: 1.4; letter-spacing: -.4px; }
+.quote .by { color: var(--muted); font-size: 14px; margin-top: 16px; }
+
+/* CTA */
+.cta-band { margin-top: 20px; padding: 66px 7vw; text-align: center; border-top: 1px solid var(--line);
+  background: radial-gradient(900px 420px at 50% 130%, rgba(0,162,182,.14), transparent 62%); }
+.cta-band h2 { font-size: clamp(27px, 4.2vw, 44px); font-weight: 800; letter-spacing: -1px; color: #f7f9fa; max-width: 20ch; margin: 0 auto; line-height: 1.08; }
+.cta-band p { color: #aab2bb; font-size: 17px; margin: 18px auto 30px; max-width: 54ch; }
+.cta-band .cta { justify-content: center; }
+
+/* footer */
+.foot { padding: 30px 7vw; color: #5d6168; font-size: 12.5px; border-top: 1px solid var(--line); position: relative; z-index: 2; }
+.foot .inner { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; align-items: center; }
+.foot a { color: #8b95a0; margin-right: 18px; }
+.foot a:hover { color: var(--text); }
+.foot .cuan { font-family: "Chakra Petch", sans-serif; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7fd3dd; }
+.foot .ent { margin-top: 14px; color: #4b5158; font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+  <nav class="top">
+    <div class="brand">
+      <a href="/" aria-label="MORES HV home"><img src="/static/assets/mores-logo-ondark.png" alt="Mores Strategics"></a>
+      <span class="pill-mono">Helicopter View</span>
+    </div>
+    <div class="nav-links">
+      <a href="#story">Why MORES HV</a>
+      <a href="#capabilities">What it does</a>
+      <a href="#cases">Who it's for</a>
+      <a href="#insights">Insights</a>
+    </div>
+    <div class="nav-right">
+      <a class="btn" href="/?login=1">Sign In</a>
+      <a class="btn btn-primary" href="#contact">Book a walkthrough</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">Consolidated group finance</span>
+        <h1>The <em>clearest view</em> of the money you're responsible for.</h1>
+        <p class="lead">You run several companies. Your numbers shouldn't feel like several companies. MORES HV brings every entity in your group into one live picture, so the people who answer for the results never have to wait a week to see them.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="#contact">Book a walkthrough</a>
+          <a class="btn" href="/?login=1">Sign in to the console</a>
+        </div>
+        <p class="hero-note">Trusted inside the Mores group of companies · Web-based · Your data stays yours</p>
+      </div>
+      <div>
+        <div class="video-frame" id="heroVideo">
+          <span class="video-badge">Product tour</span>
+          <img class="poster" src="/static/assets/hero-poster.svg" alt="Preview of the MORES HV consolidated dashboard">
+          <div class="video-play"><div class="disc"></div><span class="cap">See MORES HV in ninety seconds</span></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ENTITIES -->
+  <section class="entities">
+    <div class="wrap">
+      <div class="lbl">One platform across the group</div>
+      <div class="row">
+        <span>Mores Data Analitika</span><span>Sibernetika MA</span><span>Mores Lintas Teknika</span>
+        <span>Kultura Media Antara</span><span>Modus Reform Studio</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- STORY / WHY -->
+  <section class="block" id="story">
+    <div class="wrap narrative">
+      <div>
+        <span class="eyebrow">Why we built it</span>
+        <p class="lead-para">Growth gave you more companies. It also gave you more places for the truth to hide.</p>
+      </div>
+      <div>
+        <p>Most groups don't struggle because their people are slow. They struggle because the work of seeing the whole picture still happens by hand — one workbook per company, merged late at night, trusted with fingers crossed.</p>
+        <p>We started MORES HV inside a group with exactly that problem. Five operating companies, one board, and a month-end that swallowed a week before anyone could say what the group had actually earned. So we built the tool we wished we had: books stay per company, the consolidated view assembles itself, and <strong>intercompany transactions cancel out on their own</strong> instead of quietly inflating the total.</p>
+        <p>The result isn't just faster reporting. It's the confidence to walk into a board meeting, or a deal, already knowing your number is right.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CAPABILITIES -->
+  <section class="block" id="capabilities" style="padding-top:10px">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">What it does</span>
+        <h2 class="sec-title">Everything the finance core of a group needs, and little it doesn't.</h2>
+        <p class="sec-sub">We kept the scope honest: the finance work a multi-company group does every month, done well — not a sprawling ERP you'll spend six months switching on.</p>
+      </div>
+      <div class="caps">
+        <div class="cap"><div class="k">Consolidation</div><div><h3>One group, seen as one</h3><p>Keep a clean book per company and read the whole group from a single dashboard. Intercompany lines are eliminated automatically, so the number you present is the number that's real.</p></div></div>
+        <div class="cap"><div class="k">Bank reconciliation</div><div><h3>From a BCA receipt to a booked entry</h3><p>Paste a transfer receipt or drop in a mutasi-rekening file. MORES HV reads it, flags duplicates by reference, and books it to the right account in a couple of clicks — the part of month-end that used to eat days.</p></div></div>
+        <div class="cap"><div class="k">Project profitability</div><div><h3>Know which work actually paid</h3><p>See revenue, cost, profit and margin for every project, over time and side by side. The quarterly guess becomes a number you can defend.</p></div></div>
+        <div class="cap"><div class="k">Budgets</div><div><h3>Plans you check more than once</h3><p>Set the budget per account and per company, then watch realization against it — variance and percent used, current the moment an entry is posted.</p></div></div>
+        <div class="cap"><div class="k">Statements &amp; export</div><div><h3>The reports your auditors expect</h3><p>P&amp;L, balance sheet, trial balance and cash flow, with charts. Export anything to Excel or PDF; import journals, chart of accounts and budgets from templates your team already knows.</p></div></div>
+        <div class="cap"><div class="k">Access &amp; trust</div><div><h3>The right people, the right view</h3><p>Admin, Accountant and read-only Viewer/Auditor roles, down to which companies each person can see. Balanced double-entry and source-tracked journals mean the trail is always there when someone asks.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CASES -->
+  <section class="block" id="cases" style="padding-top:10px">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Who it's for</span>
+        <h2 class="sec-title">Different seats at the table. The same clarity.</h2>
+      </div>
+      <div class="cases">
+        <div class="case"><div class="who">Owners &amp; boards</div><h3>"I need the group's real number before tomorrow's meeting."</h3><p>Open the dashboard and it's already there — every posted entry, consolidated, with <b>intercompany taken out</b>. No overnight merge, no asterisks.</p></div>
+        <div class="case"><div class="who">Finance &amp; accounting</div><h3>"Month-end shouldn't cost us a week."</h3><p>Bank import, a standardized chart of accounts and automatic consolidation take the manual grind out of the close, so your team spends the week on <b>judgement, not data entry</b>.</p></div>
+        <div class="case"><div class="who">Project-led businesses</div><h3>"I can't tell which jobs make money."</h3><p>Tag entries to a project and margin comes into focus — so you can <b>back the winners and question the rest</b> with evidence in hand.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- IMPACT + QUOTE -->
+  <section class="block" style="padding-top:10px">
+    <div class="wrap">
+      <div class="impact">
+        <div><div class="n">7 → 2</div><div class="l">Days to close, once consolidation stopped being manual</div></div>
+        <div><div class="n">5 → 1</div><div class="l">Operating companies read from a single group view</div></div>
+        <div><div class="n">Minutes</div><div class="l">From a bank receipt to a balanced, booked journal entry</div></div>
+      </div>
+      <div class="quote" style="margin-top:56px">
+        <p>"For the first time, the number I bring to the board is one I've already stopped double-checking."</p>
+        <div class="by">— Finance lead, multi-company group (Jakarta)</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSIGHTS / NEWS CAROUSEL -->
+  <section class="block" id="insights" style="padding-top:10px">
+    <div class="wrap">
+      <div class="insights-head">
+        <div class="sec-head">
+          <span class="eyebrow">Insights &amp; news</span>
+          <h2 class="sec-title">Notes from the work.</h2>
+          <p class="sec-sub">Client stories and points of view on running a group without the spreadsheet tax.</p>
+        </div>
+        <div class="carousel-nav">
+          <button id="railPrev" aria-label="Previous">&#8249;</button>
+          <button id="railNext" aria-label="Next">&#8250;</button>
+        </div>
+      </div>
+      <div class="rail" id="insightsRail" aria-live="polite">
+        <div style="color:#6b7480;font-size:14px;padding:40px 0">Loading insights…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-band" id="contact">
+    <h2>See your group in one clear view.</h2>
+    <p>Book a short walkthrough and we'll consolidate a sample of your own books with you — no slides, just your numbers.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="mailto:hello@mores.id?subject=MORES%20HV%20walkthrough">Book a walkthrough</a>
+      <a class="btn" href="/?login=1">Sign in to the console</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="foot">
+    <div class="inner">
+      <div>
+        <a href="/">Home</a><a href="#capabilities">What it does</a><a href="#insights">Insights</a><a href="/?login=1">Sign In</a>
+      </div>
+      <span class="cuan">More More Cuan</span>
+    </div>
+    <div class="ent">PT Mores Data Analitika · Sibernetika MA · Mores Lintas Teknika · Kultura Media Antara · Modus Reform Studio</div>
+  </footer>
+
+<script>
+// ---- Hero video: rendered from CMS (/api/site-content). Supports YouTube,
+// Vimeo, direct .mp4, or a poster-only mockup when no URL is set. ----
+function ytId(u){ var m = u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/); return m && m[1]; }
+function vimeoId(u){ var m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/); return m && m[1]; }
+
+function renderHero(hero){
+  var mount = document.getElementById('heroVideo');
+  var url = (hero && hero.video_url || '').trim();
+  var poster = (hero && hero.poster) || '/static/assets/hero-poster.svg';
+  var caption = (hero && hero.caption) || 'See MORES HV in ninety seconds';
+  if(!url){
+    mount.innerHTML =
+      '<span class="video-badge">Product tour</span>' +
+      '<img class="poster" src="'+poster+'" alt="Preview of the MORES HV consolidated dashboard">' +
+      '<div class="video-play" id="heroPlay"><div class="disc"></div><span class="cap">'+caption+'</span></div>';
+    // Poster-only: the play button gently points to booking until a real video is set in the admin panel.
+    var p = document.getElementById('heroPlay');
+    if(p) p.onclick = function(){ location.href = '#contact'; };
+    return;
+  }
+  var yt = ytId(url), vi = vimeoId(url);
+  function play(){
+    if(yt){ mount.innerHTML = '<iframe src="https://www.youtube.com/embed/'+yt+'?autoplay=1&rel=0" title="MORES HV product tour" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>'; }
+    else if(vi){ mount.innerHTML = '<iframe src="https://player.vimeo.com/video/'+vi+'?autoplay=1" title="MORES HV product tour" allow="autoplay; fullscreen" allowfullscreen></iframe>'; }
+    else { mount.innerHTML = '<video controls autoplay playsinline poster="'+poster+'" src="'+url+'"></video>'; }
+  }
+  mount.innerHTML =
+    '<span class="video-badge">Product tour</span>' +
+    '<img class="poster" src="'+poster+'" alt="Preview of the MORES HV consolidated dashboard">' +
+    '<div class="video-play" id="heroPlay"><div class="disc"></div><span class="cap">'+caption+'</span></div>';
+  document.getElementById('heroPlay').onclick = play;
+}
+
+// ---- Insights carousel ----
+var COVERS = [
+  'linear-gradient(135deg,#0b3d46,#00a2b6)',
+  'linear-gradient(135deg,#10202b,#1c5b66)',
+  'linear-gradient(135deg,#0e2f38,#12808f)',
+  'linear-gradient(135deg,#132027,#0a6675)'
+];
+function esc(s){ return (s||'').replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function fmtDate(d){
+  if(!d) return '';
+  var t = new Date(d); if(isNaN(t)) return d;
+  return t.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+}
+function renderInsights(list){
+  var rail = document.getElementById('insightsRail');
+  if(!list || !list.length){ rail.innerHTML = '<div style="color:#6b7480;font-size:14px;padding:40px 0">No insights published yet.</div>'; return; }
+  rail.innerHTML = list.map(function(p, i){
+    var cover = p.image ? 'background-image:url('+esc(p.image)+')' : 'background-image:'+COVERS[i % COVERS.length];
+    return '<article class="post" onclick="location.href=\'/blog/'+encodeURIComponent(p.slug)+'\'">' +
+      '<div class="post-cover" style="'+cover+'"><span class="post-tag">'+esc(p.tag||'Insight')+'</span></div>' +
+      '<div class="post-body"><time>'+esc(fmtDate(p.date))+'</time>' +
+      '<h3>'+esc(p.title)+'</h3><p>'+esc(p.excerpt)+'</p>' +
+      '<span class="post-more">Read the story &rarr;</span></div></article>';
+  }).join('');
+}
+(function railNav(){
+  var rail = document.getElementById('insightsRail');
+  function step(){ var c = rail.querySelector('.post'); return c ? c.getBoundingClientRect().width + 18 : 340; }
+  document.getElementById('railPrev').onclick = function(){ rail.scrollBy({ left: -step(), behavior:'smooth' }); };
+  document.getElementById('railNext').onclick = function(){ rail.scrollBy({ left: step(), behavior:'smooth' }); };
+})();
+
+fetch('/api/site-content').then(function(r){ return r.json(); }).then(function(c){
+  renderHero(c.hero || {});
+  renderInsights(c.insights || []);
+}).catch(function(){ renderInsights([]); });
+</script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MORES PAY — Field Payments</title>
+<script>
+/* apply saved theme before first paint to avoid a flash */
+document.documentElement.dataset.theme = localStorage.getItem('mp-theme') || 'dark';
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0d0f; --panel: #15191e; --field: #0f1318; --field-border: #262d35;
+  --text: #f4f6f8; --text-strong: #f7f9fa; --text-soft: #c2c8cd;
+  --text-dim: #8b95a0; --text-faint: #6b7480;
+  --muted: #93a0ab; --line: #1a1f25;
+  --card-bg: rgba(255,255,255,.03); --card-border: #1f242a;
+  --hover: rgba(255,255,255,.06); --btn-border: #2b323a;
+  --teal: #00a2b6; --teal-bright: #00bcd2; --teal-link: #33c2d2;
+  --green: #2fd584;
+  --glow: rgba(0,162,182,.16); --glow2: rgba(0,162,182,.07);
+  --grid: rgba(255,255,255,.022);
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+[data-theme="light"] {
+  --bg: #eef2f4; --panel: #ffffff; --field: #f4f7f8; --field-border: #cfd9de;
+  --text: #162026; --text-strong: #0e161b; --text-soft: #33424c;
+  --text-dim: #55656f; --text-faint: #68767f;
+  --muted: #5b6a74; --line: #dde4e8;
+  --card-bg: #ffffff; --card-border: #dbe2e7;
+  --hover: rgba(0,0,0,.05); --btn-border: #c4cfd6;
+  --teal: #008ea0; --teal-bright: #0093a6; --teal-link: #00798a;
+  --green: #158f57;
+  --glow: rgba(0,162,182,.10); --glow2: rgba(0,162,182,.05);
+  --grid: rgba(10,40,50,.035);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: Arial, "Helvetica Neue", Helvetica, system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  background:
+    radial-gradient(1100px 620px at 86% -12%, var(--glow), transparent 60%),
+    radial-gradient(760px 460px at -5% 112%, var(--glow2), transparent 55%),
+    var(--bg);
+  color: var(--text); min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+  transition: background .2s, color .2s;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .5;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 46px 46px;
+}
+nav.top { display: flex; align-items: center; justify-content: space-between; padding: 22px 7vw; position: relative; z-index: 2; }
+nav.top img { height: 32px; width: auto; display: block; }
+[data-theme="light"] .logo-dark { display: none; }
+[data-theme="dark"] .logo-light { display: none; }
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.pill-mono { font-family: var(--mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--text-faint); border: 1px solid var(--card-border); border-radius: 99px; padding: 6px 13px; }
+.btn { font: inherit; font-weight: 600; font-size: 15.5px; cursor: pointer; border-radius: 9px;
+  padding: 11px 21px; border: 1px solid var(--btn-border); background: transparent; color: var(--text);
+  transition: filter .15s, transform .1s, background .15s; text-decoration: none; display: inline-block; }
+.btn:hover { background: var(--hover); }
+.btn-primary { border: none; color: #fff; background: var(--teal); box-shadow: 0 10px 28px rgba(0,162,182,.28); }
+.btn-primary:hover { filter: brightness(1.07); }
+.btn-primary:active { transform: translateY(1px); }
+.tgl { font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .08em;
+  cursor: pointer; border-radius: 99px; padding: 8px 13px; border: 1px solid var(--btn-border);
+  background: transparent; color: var(--text-dim); transition: background .15s, color .15s; }
+.tgl:hover { background: var(--hover); color: var(--text); }
+.hero { padding: 64px 7vw 40px; position: relative; z-index: 2; max-width: 1080px; }
+.badge { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; color: var(--teal-link);
+  background: rgba(0,162,182,.12); border: 1px solid rgba(0,162,182,.35);
+  padding: 7px 15px; border-radius: 99px; margin-bottom: 28px; }
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2.2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.hero h1 { font-size: clamp(36px, 6.2vw, 64px); font-weight: 800; line-height: 1.06; letter-spacing: -1.6px; max-width: 17ch; color: var(--text-strong); }
+.hero h1 b { color: var(--teal-bright); font-weight: 800; }
+.hero p.lead { color: var(--text-soft); font-size: clamp(16px, 2.1vw, 20px); margin: 24px 0 32px; max-width: 58ch; line-height: 1.62; }
+.cta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.cta .btn { padding: 15px 32px; font-size: 16.5px; }
+.meta { color: var(--text-faint); font-size: 14px; margin-top: 20px; }
+.features { padding: 24px 7vw 60px; position: relative; z-index: 2; max-width: 1180px; }
+.features h2 { font-family: var(--mono); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 22px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 24px; transition: border-color .15s, background .15s; }
+.card:hover { border-color: rgba(0,162,182,.45); background: rgba(0,162,182,.045); }
+.card .ic { font-size: 21px; color: var(--teal-bright); margin-bottom: 12px; display: block; }
+.card h3 { font-size: 17px; font-weight: 700; color: var(--text-strong); margin-bottom: 8px; }
+.card p { color: var(--text-dim); font-size: 15px; line-height: 1.58; }
+.foot { padding: 22px 7vw; color: var(--text-faint); font-size: 13.5px; border-top: 1px solid var(--line); position: relative; z-index: 2; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.foot .cuan { font-family: "Chakra Petch", sans-serif; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--teal-link); }
+.backdrop { position: fixed; inset: 0; background: rgba(5,7,9,.74); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 50; }
+[data-theme="light"] .backdrop { background: rgba(20,35,42,.45); }
+.backdrop.show { display: flex; animation: fade .15s ease-out; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.login-pop { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--field-border); border-radius: 16px; padding: 34px 32px; position: relative; box-shadow: 0 30px 90px rgba(0,0,0,.35); animation: pop .18s ease-out; }
+@keyframes pop { from { transform: translateY(10px) scale(.985); opacity: 0; } to { transform: none; opacity: 1; } }
+.login-pop .close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--muted); font-size: 24px; cursor: pointer; line-height: 1; }
+.login-pop img.logo { height: 28px; width: auto; display: block; margin-bottom: 18px; }
+.login-pop h3 { font-size: 23px; margin: 0 0 4px; color: var(--text-strong); font-weight: 700; }
+.login-pop .sub { color: var(--muted); font-size: 14.5px; margin-bottom: 22px; }
+.fld { margin-bottom: 16px; }
+.fld label { display: block; font-size: 13px; font-weight: 600; color: var(--text-soft); margin: 0 0 7px; }
+.fld input { width: 100%; padding: 13px 15px; font-size: 15.5px; color: var(--text); font-family: inherit; background: var(--field); border: 1px solid var(--field-border); border-radius: 9px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.fld input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.20); }
+.login-pop button[type=submit] { width: 100%; padding: 14px; font-weight: 600; font-size: 16px; font-family: inherit; color: #fff; border: none; border-radius: 9px; background: var(--teal); box-shadow: 0 10px 26px rgba(0,162,182,.30); cursor: pointer; transition: filter .15s; }
+.login-pop button[type=submit]:hover { filter: brightness(1.07); }
+.err { display: none; background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: #d96a63; padding: 11px 13px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+[data-theme="dark"] .err { color: #ff9d9d; }
+.hint { color: var(--text-faint); font-size: 12.5px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); line-height: 1.7; }
+.hint b { color: var(--text-dim); }
+@media (max-width: 720px) { .grid { grid-template-columns: 1fr; } .nav-right .pill-mono { display: none; } }
+</style>
+</head>
+<body>
+  <nav class="top">
+    <span>
+      <img class="logo-dark" src="/static/assets/mores-logo-ondark.png" alt="Mores Strategics">
+      <img class="logo-light" src="/static/assets/mores-logo-onlight.png" alt="Mores Strategics">
+    </span>
+    <div class="nav-right">
+      <span class="pill-mono">Pay · Field Ops</span>
+      <button class="tgl" id="tglLang">ID</button>
+      <button class="tgl" id="tglTheme">☾</button>
+      <button class="btn" id="navSignIn" data-i="signIn">Sign In</button>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="badge"><span class="dot"></span> <span data-i="badge">Sandbox — mock gateway, no real money moves</span></div>
+    <h1 id="heroTitle">Mores <b>Pay</b> for Field Agent Spending Control</h1>
+    <p class="lead" data-i="lead">Reimbursements, direct payment orders and QRIS — submitted from the field, approved by Finance, disbursed by the gateway, and reconciled on a double-entry ledger.</p>
+    <div class="cta">
+      <button class="btn btn-primary" id="heroCta" data-i="cta">Go Live — Sign In</button>
+    </div>
+    <div class="meta" data-i="roles">Roles: Agent · Finance · Super Admin · Auditor (read-only)</div>
+  </header>
+
+  <section class="features">
+    <h2 data-i="inside">What's inside</h2>
+    <div class="grid">
+      <div class="card"><span class="ic">◫</span><h3 data-i="f1t">Agent mobile app</h3><p data-i="f1p">Snap a receipt, submit a reimbursement or vendor payment order, pay merchants by QRIS with a 6-digit PIN — all against a monthly quota.</p></div>
+      <div class="card"><span class="ic">✓</span><h3 data-i="f2t">Approval workflow</h3><p data-i="f2p">Finance reviews the queue with the receipt on screen, approves or rejects with a note. Approval triggers the disbursement automatically.</p></div>
+      <div class="card"><span class="ic">⇄</span><h3 data-i="f3t">Gateway disbursement</h3><p data-i="f3p">Payouts move through a clearing account and settle asynchronously via signed webhooks — Xendit-style, mocked for the sandbox.</p></div>
+      <div class="card"><span class="ic">▤</span><h3 data-i="f4t">Double-entry ledger</h3><p data-i="f4p">Balances are never stored, always derived. Every movement writes balanced debit/credit rows you can export for reconciliation.</p></div>
+      <div class="card"><span class="ic">◔</span><h3 data-i="f5t">Limits &amp; quotas</h3><p data-i="f5p">Per-transaction caps and monthly quotas per agent, enforced server-side before anything reaches Finance.</p></div>
+      <div class="card"><span class="ic">≡</span><h3 data-i="f6t">Reports &amp; audit</h3><p data-i="f6p">Usage per account, category breakdowns, CSV exports for accounting, and an append-only audit trail of every decision.</p></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span data-i="foot">MORES PAY — internal payment system (sandbox)</span>
+    <span class="cuan">Mores Strategics</span>
+  </footer>
+
+  <div class="backdrop" id="backdrop">
+    <div class="login-pop">
+      <button class="close" id="closePop">&times;</button>
+      <img class="logo logo-dark" src="/static/assets/mores-logo-ondark.png" alt="">
+      <img class="logo logo-light" src="/static/assets/mores-logo-onlight.png" alt="">
+      <h3 data-i="loginTitle">Sign in</h3>
+      <div class="sub" data-i="loginSub">Agents land on the mobile app; Finance &amp; Admin on the dashboard.</div>
+      <div class="err" id="loginErr"></div>
+      <form id="loginForm">
+        <div class="fld"><label data-i="username">Username</label><input id="u" autocomplete="username" required></div>
+        <div class="fld"><label data-i="password">Password</label><input id="p" type="password" autocomplete="current-password" required></div>
+        <button type="submit" data-i="signIn">Sign In</button>
+      </form>
+      <div class="hint" data-i-html="hint">Demo — agent: <b>dimas / agent123</b> (PIN 123456) · finance: <b>finance / finance123</b> · admin: <b>admin / admin123</b> · auditor: <b>audit123</b></div>
+    </div>
+  </div>
+
+<script>
+// ---------------------------------------------------------------- i18n + theme
+const I18N = {
+  en: {
+    signIn: 'Sign In',
+    badge: 'Sandbox — mock gateway, no real money moves',
+    heroTitle: 'Mores <b>Pay</b> for Field Agent Spending Control',
+    lead: 'Reimbursements, direct payment orders and QRIS — submitted from the field, approved by Finance, disbursed by the gateway, and reconciled on a double-entry ledger.',
+    cta: 'Go Live — Sign In',
+    roles: 'Roles: Agent · Finance · Super Admin · Auditor (read-only)',
+    inside: "What's inside",
+    f1t: 'Agent mobile app', f1p: 'Snap a receipt, submit a reimbursement or vendor payment order, pay merchants by QRIS with a 6-digit PIN — all against a monthly quota.',
+    f2t: 'Approval workflow', f2p: 'Finance reviews the queue with the receipt on screen, approves or rejects with a note. Approval triggers the disbursement automatically.',
+    f3t: 'Gateway disbursement', f3p: 'Payouts move through a clearing account and settle asynchronously via signed webhooks — Xendit-style, mocked for the sandbox.',
+    f4t: 'Double-entry ledger', f4p: 'Balances are never stored, always derived. Every movement writes balanced debit/credit rows you can export for reconciliation.',
+    f5t: 'Limits & quotas', f5p: 'Per-transaction caps and monthly quotas per agent, enforced server-side before anything reaches Finance.',
+    f6t: 'Reports & audit', f6p: 'Usage per account, category breakdowns, CSV exports for accounting, and an append-only audit trail of every decision.',
+    foot: 'MORES PAY — internal payment system (sandbox)',
+    loginTitle: 'Sign in',
+    loginSub: 'Agents land on the mobile app; Finance & Admin on the dashboard.',
+    username: 'Username', password: 'Password',
+    hint: 'Demo — agent: <b>dimas / agent123</b> (PIN 123456) · finance: <b>finance / finance123</b> · admin: <b>admin / admin123</b> · auditor: <b>audit123</b>',
+    loginFailed: 'Login failed',
+  },
+  id: {
+    signIn: 'Masuk',
+    badge: 'Sandbox — gateway tiruan, tidak ada uang sungguhan',
+    heroTitle: 'Mores <b>Pay</b> untuk Kendali Pengeluaran Agen Lapangan',
+    lead: 'Reimburs, perintah bayar langsung, dan QRIS — diajukan dari lapangan, disetujui Finance, dicairkan lewat gateway, dan direkonsiliasi pada buku besar berpasangan (double-entry).',
+    cta: 'Mulai — Masuk',
+    roles: 'Peran: Agen · Finance · Super Admin · Auditor (hanya-baca)',
+    inside: 'Apa saja isinya',
+    f1t: 'Aplikasi mobile agen', f1p: 'Foto struk, ajukan reimburs atau perintah bayar vendor, bayar merchant lewat QRIS dengan PIN 6 digit — semuanya dalam kuota bulanan.',
+    f2t: 'Alur persetujuan', f2p: 'Finance meninjau antrean dengan struk di layar, menyetujui atau menolak dengan catatan. Persetujuan otomatis memicu pencairan.',
+    f3t: 'Pencairan via gateway', f3p: 'Pembayaran melewati akun kliring dan settle secara asinkron lewat webhook bertanda tangan — gaya Xendit, ditiru untuk sandbox.',
+    f4t: 'Buku besar double-entry', f4p: 'Saldo tidak pernah disimpan, selalu diturunkan. Setiap pergerakan menulis baris debit/kredit seimbang yang bisa diekspor untuk rekonsiliasi.',
+    f5t: 'Limit & kuota', f5p: 'Batas per-transaksi dan kuota bulanan per agen, ditegakkan di server sebelum sampai ke Finance.',
+    f6t: 'Laporan & audit', f6p: 'Pemakaian per akun, rincian kategori, ekspor CSV untuk akunting, dan jejak audit yang tidak bisa diubah.',
+    foot: 'MORES PAY — sistem pembayaran internal (sandbox)',
+    loginTitle: 'Masuk',
+    loginSub: 'Agen diarahkan ke aplikasi mobile; Finance & Admin ke dashboard.',
+    username: 'Nama pengguna', password: 'Kata sandi',
+    hint: 'Demo — agen: <b>dimas / agent123</b> (PIN 123456) · finance: <b>finance / finance123</b> · admin: <b>admin / admin123</b> · auditor: <b>audit123</b>',
+    loginFailed: 'Gagal masuk',
+  }
+};
+let LANG = localStorage.getItem('mp-lang') || 'en';
+const t = k => (I18N[LANG] && I18N[LANG][k]) || I18N.en[k] || k;
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i]').forEach(el => el.textContent = t(el.dataset.i));
+  document.querySelectorAll('[data-i-html]').forEach(el => el.innerHTML = t(el.dataset.iHtml));
+  document.getElementById('heroTitle').innerHTML = t('heroTitle');
+  document.getElementById('tglLang').textContent = LANG === 'en' ? 'ID' : 'EN';
+}
+document.getElementById('tglLang').onclick = () => {
+  LANG = LANG === 'en' ? 'id' : 'en';
+  localStorage.setItem('mp-lang', LANG);
+  applyLang();
+};
+function applyTheme() {
+  document.getElementById('tglTheme').textContent =
+    document.documentElement.dataset.theme === 'dark' ? '☀' : '☾';
+}
+document.getElementById('tglTheme').onclick = () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('mp-theme', next);
+  applyTheme();
+};
+applyLang(); applyTheme();
+
+// ---------------------------------------------------------------- login
+const bd = document.getElementById('backdrop');
+document.getElementById('navSignIn').onclick = () => bd.classList.add('show');
+document.getElementById('heroCta').onclick = () => bd.classList.add('show');
+document.getElementById('closePop').onclick = () => bd.classList.remove('show');
+bd.addEventListener('click', e => { if (e.target === bd) bd.classList.remove('show'); });
+
+document.getElementById('loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const err = document.getElementById('loginErr');
+  err.style.display = 'none';
+  const res = await fetch('/api/auth/login', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({username: document.getElementById('u').value,
+                          password: document.getElementById('p').value})
+  });
+  const data = await res.json();
+  if (!res.ok) { err.textContent = data.error || t('loginFailed'); err.style.display = 'block'; return; }
+  location.href = data.role === 'agent' ? '/agent' : '/admin';
+};
+
+fetch('/api/auth/me').then(r => r.ok ? r.json() : null).then(me => {
+  if (me) location.href = me.role === 'agent' ? '/agent' : '/admin';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Site content — MORES HV admin</title>
+<link rel="icon" href="/static/assets/mores-mark-ondark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0d0f; --panel:#12161b; --field:#0d1116; --field-border:#262d35; --line:#1a1f25;
+  --text:#f4f6f8; --muted:#93a0ab; --teal:#00a2b6; --teal-bright:#00bcd2; --teal-link:#33c2d2;
+  --mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+  --sans:"Hanken Grotesk", Arial, Helvetica, system-ui, sans-serif;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:var(--sans); background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+a { color:var(--teal-link); text-decoration:none; }
+nav.top { display:flex; align-items:center; justify-content:space-between; padding:14px 28px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(10,13,15,.85); backdrop-filter:blur(10px); z-index:20; }
+nav.top .brand { display:flex; align-items:center; gap:12px; }
+nav.top img { height:24px; }
+.pill { font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:#5e686e; border:1px solid #1f242a; border-radius:99px; padding:5px 11px; }
+.nav-actions { display:flex; gap:10px; align-items:center; }
+.wrap { max-width:900px; margin:0 auto; padding:34px 24px 90px; }
+h1 { font-size:26px; font-weight:800; letter-spacing:-.6px; }
+.sub { color:var(--muted); font-size:14px; margin-top:6px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px; margin-top:22px; }
+.card > h2 { font-size:12px; font-family:var(--mono); letter-spacing:.16em; text-transform:uppercase; color:var(--teal-link); margin-bottom:16px; }
+label { display:block; font-size:12px; font-weight:600; color:#c2c8cd; margin:14px 0 6px; }
+label:first-of-type { margin-top:0; }
+input, textarea, select { width:100%; font-family:inherit; font-size:14px; color:var(--text); background:var(--field);
+  border:1px solid var(--field-border); border-radius:9px; padding:11px 13px; outline:none; transition:border-color .15s, box-shadow .15s; }
+textarea { resize:vertical; min-height:120px; line-height:1.55; }
+input:focus, textarea:focus, select:focus { border-color:var(--teal); box-shadow:0 0 0 3px rgba(0,162,182,.18); }
+.hint { font-size:12px; color:#6b7480; margin-top:6px; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media (max-width:640px){ .grid2 { grid-template-columns:1fr; } }
+.btn { font:inherit; font-weight:600; font-size:14px; cursor:pointer; border-radius:9px; padding:10px 18px; border:1px solid #2b323a; background:transparent; color:var(--text); transition:filter .15s, background .15s; }
+.btn:hover { background:rgba(255,255,255,.06); }
+.btn-primary { border:none; color:#fff; background:var(--teal); box-shadow:0 8px 22px rgba(0,162,182,.28); }
+.btn-primary:hover { filter:brightness(1.08); }
+.btn-danger { border-color:#5a2b2b; color:#ff9d9d; }
+.btn-danger:hover { background:rgba(189,54,47,.14); }
+.btn-sm { padding:7px 12px; font-size:13px; }
+.post { border:1px solid var(--field-border); border-radius:12px; padding:18px; margin-top:14px; background:rgba(255,255,255,.015); }
+.post-top { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px; }
+.post-top .idx { font-family:var(--mono); font-size:11px; color:#6b7480; letter-spacing:.1em; }
+.post-move { display:flex; gap:6px; }
+.toolbar { position:sticky; bottom:0; margin-top:26px; display:flex; align-items:center; gap:14px; background:linear-gradient(180deg,transparent,var(--bg) 40%); padding:18px 0 6px; }
+.status { font-size:13.5px; color:var(--muted); }
+.status.ok { color:#2fd584; } .status.err { color:#ff9d9d; }
+.videoprev { margin-top:12px; border:1px solid var(--field-border); border-radius:10px; overflow:hidden; aspect-ratio:16/9; background:#0d1115; max-width:360px; }
+.videoprev img, .videoprev iframe, .videoprev video { width:100%; height:100%; object-fit:cover; display:block; border:0; }
+</style>
+</head>
+<body>
+  <nav class="top">
+    <div class="brand"><img src="/static/assets/mores-logo-ondark.png" alt="MORES"><span class="pill">Content · CMS</span></div>
+    <div class="nav-actions">
+      <a class="btn btn-sm" href="/product" target="_blank">View page ↗</a>
+      <a class="btn btn-sm" href="/app">Back to console</a>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <h1>Marketing site content</h1>
+    <p class="sub">Edit the hero video and the insights/news shown on the public <a href="/product" target="_blank">product page</a>. Changes go live as soon as you save.</p>
+
+    <div class="card">
+      <h2>Hero video</h2>
+      <label for="videoUrl">Video URL</label>
+      <input id="videoUrl" placeholder="Paste a YouTube, Vimeo, or direct .mp4 link — leave blank to show the dashboard preview">
+      <div class="hint">Examples: <code>https://youtu.be/xxxxxxxxxxx</code> · <code>https://vimeo.com/123456789</code> · <code>https://cdn.yoursite.com/tour.mp4</code></div>
+      <div class="grid2">
+        <div><label for="videoPoster">Poster image URL</label><input id="videoPoster" placeholder="/static/assets/hero-poster.svg"></div>
+        <div><label for="videoCaption">Play-button caption</label><input id="videoCaption" placeholder="See MORES HV in ninety seconds"></div>
+      </div>
+      <div class="videoprev" id="videoPrev"></div>
+    </div>
+
+    <div class="card">
+      <h2>Insights &amp; news</h2>
+      <div id="posts"></div>
+      <button class="btn btn-sm" id="addPost" style="margin-top:16px">+ Add insight</button>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-primary" id="saveBtn">Save changes</button>
+      <button class="btn" id="reloadBtn">Discard &amp; reload</button>
+      <span class="status" id="status"></span>
+    </div>
+  </div>
+
+<script>
+var postsEl = document.getElementById('posts');
+function el(tag, attrs, html){ var e=document.createElement(tag); if(attrs) for(var k in attrs) e.setAttribute(k, attrs[k]); if(html!=null) e.innerHTML=html; return e; }
+function val(id){ return document.getElementById(id).value; }
+
+function postRow(p){
+  p = p || {};
+  var row = el('div', { class:'post' });
+  row.innerHTML =
+    '<div class="post-top"><span class="idx"></span><div class="post-move">'+
+      '<button class="btn btn-sm" data-move="up" title="Move up">↑</button>'+
+      '<button class="btn btn-sm" data-move="down" title="Move down">↓</button>'+
+      '<button class="btn btn-sm btn-danger" data-del title="Remove">Remove</button>'+
+    '</div></div>'+
+    '<div class="grid2">'+
+      '<div><label>Title</label><input data-f="title" placeholder="Headline"></div>'+
+      '<div><label>Tag</label><input data-f="tag" placeholder="Client story / Point of view / Guide / Product"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>Date</label><input data-f="date" type="date"></div>'+
+      '<div><label>Author</label><input data-f="author" placeholder="MORES HV Team"></div>'+
+    '</div>'+
+    '<label>Slug <span style="color:#5e686e;font-weight:400">(URL — auto from title if blank)</span></label><input data-f="slug" placeholder="my-story-url">'+
+    '<label>Cover image URL <span style="color:#5e686e;font-weight:400">(optional — a teal gradient is used if blank)</span></label><input data-f="image" placeholder="https://…/cover.jpg">'+
+    '<label>Excerpt</label><textarea data-f="excerpt" style="min-height:60px" placeholder="One or two sentences shown on the card"></textarea>'+
+    '<label>Body</label><textarea data-f="body" placeholder="Full article. Separate paragraphs with a blank line."></textarea>';
+  row.querySelector('[data-f=title]').value = p.title||'';
+  row.querySelector('[data-f=tag]').value = p.tag||'';
+  row.querySelector('[data-f=date]').value = (p.date||'').slice(0,10);
+  row.querySelector('[data-f=author]').value = p.author||'';
+  row.querySelector('[data-f=slug]').value = p.slug||'';
+  row.querySelector('[data-f=image]').value = p.image||'';
+  row.querySelector('[data-f=excerpt]').value = p.excerpt||'';
+  row.querySelector('[data-f=body]').value = p.body||'';
+  row.querySelector('[data-del]').onclick = function(){ row.remove(); reindex(); };
+  row.querySelector('[data-move=up]').onclick = function(){ if(row.previousElementSibling){ postsEl.insertBefore(row, row.previousElementSibling); reindex(); } };
+  row.querySelector('[data-move=down]').onclick = function(){ if(row.nextElementSibling){ postsEl.insertBefore(row.nextElementSibling, row); reindex(); } };
+  return row;
+}
+function reindex(){ [].forEach.call(postsEl.children, function(r,i){ r.querySelector('.idx').textContent = 'Insight #'+(i+1); }); }
+function collectPosts(){
+  return [].map.call(postsEl.children, function(r){
+    var o={}; [].forEach.call(r.querySelectorAll('[data-f]'), function(inp){ o[inp.getAttribute('data-f')] = inp.value.trim(); });
+    return o;
+  }).filter(function(o){ return o.title; });
+}
+document.getElementById('addPost').onclick = function(){ postsEl.appendChild(postRow({ tag:'Insight' })); reindex(); };
+
+// hero video live preview
+function ytId(u){ var m=u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/); return m&&m[1]; }
+function vimeoId(u){ var m=u.match(/vimeo\.com\/(?:video\/)?(\d+)/); return m&&m[1]; }
+function updatePrev(){
+  var url=val('videoUrl').trim(), poster=val('videoPoster').trim()||'/static/assets/hero-poster.svg', box=document.getElementById('videoPrev');
+  if(!url){ box.innerHTML='<img src="'+poster+'" alt="poster preview">'; return; }
+  var yt=ytId(url), vi=vimeoId(url);
+  if(yt) box.innerHTML='<iframe src="https://www.youtube.com/embed/'+yt+'" allowfullscreen></iframe>';
+  else if(vi) box.innerHTML='<iframe src="https://player.vimeo.com/video/'+vi+'" allowfullscreen></iframe>';
+  else box.innerHTML='<video src="'+url+'" poster="'+poster+'" muted></video>';
+}
+['videoUrl','videoPoster'].forEach(function(id){ document.getElementById(id).addEventListener('input', updatePrev); });
+
+function setStatus(msg, cls){ var s=document.getElementById('status'); s.textContent=msg; s.className='status'+(cls?' '+cls:''); }
+
+function load(){
+  setStatus('Loading…');
+  fetch('/api/site-content').then(function(r){ return r.json(); }).then(function(c){
+    var h=c.hero||{};
+    document.getElementById('videoUrl').value=h.video_url||'';
+    document.getElementById('videoPoster').value=h.poster||'';
+    document.getElementById('videoCaption').value=h.caption||'';
+    postsEl.innerHTML='';
+    (c.insights||[]).forEach(function(p){ postsEl.appendChild(postRow(p)); });
+    reindex(); updatePrev(); setStatus('');
+  }).catch(function(){ setStatus('Could not load content.', 'err'); });
+}
+document.getElementById('reloadBtn').onclick = load;
+
+document.getElementById('saveBtn').onclick = function(){
+  setStatus('Saving…');
+  var payload = {
+    hero: { video_url: val('videoUrl').trim(), poster: val('videoPoster').trim(), caption: val('videoCaption').trim() },
+    insights: collectPosts()
+  };
+  fetch('/api/site-content', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload) })
+    .then(function(r){ return r.json().then(function(d){ return { ok:r.ok, d:d }; }); })
+    .then(function(res){
+      if(!res.ok){ setStatus(res.d.error || 'Save failed.', 'err'); return; }
+      postsEl.innerHTML=''; (res.d.content.insights||[]).forEach(function(p){ postsEl.appendChild(postRow(p)); }); reindex();
+      setStatus('Saved. Changes are live on the product page.', 'ok');
+    }).catch(function(){ setStatus('Save failed — check your connection.', 'err'); });
+};
+
+load();
+</script>
+</body>
+</html>

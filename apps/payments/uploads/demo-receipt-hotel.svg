@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="480">
+<rect width="360" height="480" fill="#f6f4ef"/>
+<text x="180" y="52" text-anchor="middle" font-family="monospace" font-size="17" fill="#222">HOTEL KARTIKA CHANDRA</text>
+<text x="180" y="76" text-anchor="middle" font-family="monospace" font-size="11" fill="#555">Jakarta Selatan · 2026-06-29</text>
+<line x1="28" y1="98" x2="332" y2="98" stroke="#999" stroke-dasharray="4 3"/>
+<text x="28" y="128" font-family="monospace" font-size="12" fill="#333">Kamar deluxe 1 mlm</text>
+<text x="332" y="128" text-anchor="end" font-family="monospace" font-size="12" fill="#333">850.000</text>
+<text x="28" y="154" font-family="monospace" font-size="12" fill="#333">Pajak 11%</text>
+<text x="332" y="154" text-anchor="end" font-family="monospace" font-size="12" fill="#333">93.500</text>
+<line x1="28" y1="330" x2="332" y2="330" stroke="#999" stroke-dasharray="4 3"/>
+<text x="28" y="362" font-family="monospace" font-size="14" fill="#111">TOTAL</text>
+<text x="332" y="362" text-anchor="end" font-family="monospace" font-size="14" font-weight="bold" fill="#111">Rp 943.500</text>
+<text x="180" y="430" text-anchor="middle" font-family="monospace" font-size="10" fill="#777">-- TERIMA KASIH --</text>
+</svg>

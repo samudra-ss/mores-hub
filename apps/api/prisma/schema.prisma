@@ -34,6 +34,7 @@ model User {
   topupOrders     TopupOrder[]
   cards           Card[]
   adminProfile    Admin?
+  fieldAgent      FieldAgent?
 
   @@index([email])
 }
@@ -65,6 +66,7 @@ model Wallet {
   topupOrders   TopupOrder[]
   cards         Card[]
   qrCodes       QrCode[]
+  fieldAgent    FieldAgent?
 
   @@index([ownerId])
 }
@@ -127,6 +129,10 @@ enum TxnType {
   REFUND
   FEE
   ADMIN_ADJUSTMENT
+  // field payments (ported from apps/payments prototype)
+  REIMBURSEMENT
+  VENDOR_PAYMENT
+  BUDGET_ALLOCATION
 }
 
 enum TxnStatus {
@@ -318,4 +324,105 @@ enum ApprovalStatus {
   REJECTED
   EXECUTED
   EXPIRED
+}
+
+// ---------------------------------------------------------------------------
+// Field payments — ported from the apps/payments Flask prototype.
+// Money always moves through SYSTEM wallets via LedgerService.post():
+//   CORPORATE:MAIN -> CLEARING:GATEWAY -> EXPENSE:<category>
+// The ledger invariant (sum debits == sum credits per transaction) is ALSO
+// enforced in the database by a deferred constraint trigger — see
+// prisma/migrations/20260706093000_field_payments/migration.sql.
+// ---------------------------------------------------------------------------
+
+model FieldAgent {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  walletId     String   @unique // the quota wallet the agent spends from
+  wallet       Wallet   @relation(fields: [walletId], references: [id])
+  monthlyQuota BigInt   @default(5000000)
+  perTxnLimit  BigInt   @default(2000000)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  requests PaymentRequest[]
+}
+
+model PaymentRequest {
+  id            String        @id @default(cuid())
+  ref           String        @unique // human ref: RB-xxxxx / PO-xxxxx
+  agentId       String
+  agent         FieldAgent    @relation(fields: [agentId], references: [id])
+  kind          RequestKind
+  amount        BigInt
+  category      String        @default("general")
+  description   String?
+  merchant      String? // vendor name for VENDOR_PAYMENT
+  bankCode      IdBank
+  bankAccount   String
+  bankHolder    String
+  receiptKey    String // object-storage key of the receipt/invoice image
+  status        RequestStatus @default(PENDING)
+  decidedById   String?
+  decidedAt     DateTime?
+  decisionNote  String?
+  transactionId String?       @unique // ledger transaction once money moves
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  payouts GatewayPayout[]
+
+  @@index([status, createdAt])
+  @@index([agentId, createdAt])
+}
+
+enum RequestKind {
+  REIMBURSEMENT   // repays the agent's own money — no quota consumed
+  VENDOR_PAYMENT  // spends company money — counts against monthly quota
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  DISBURSING
+  PAID
+  REJECTED
+  FAILED
+}
+
+model GatewayPayout {
+  id             String         @id @default(cuid())
+  gatewayRef     String         @unique // provider's disbursement id
+  idempotencyKey String         @unique // sent on create; provider dedupes retries
+  requestId      String
+  request        PaymentRequest @relation(fields: [requestId], references: [id])
+  amount         BigInt
+  bankCode       IdBank
+  bankAccount    String
+  status         PayoutStatus   @default(PENDING)
+  createdAt      DateTime       @default(now())
+  settledAt      DateTime?
+
+  @@index([status])
+}
+
+enum PayoutStatus {
+  PENDING
+  SETTLED
+  FAILED
+}
+
+model ReconciliationRun {
+  id              String   @id @default(cuid())
+  ranAt           DateTime @default(now())
+  ledgerDebits    BigInt // global sum of DEBIT entries
+  ledgerCredits   BigInt // global sum of CREDIT entries — must equal debits
+  clearingBalance BigInt // CLEARING:GATEWAY net of settled payouts — must be 0
+  unbalancedTxns  Int // transactions whose entries do not balance — must be 0
+  ok              Boolean
+  notes           String?
+
+  @@index([ranAt])
 }

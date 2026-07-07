@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0d0f">
+<title>Insight — MORES HV</title>
+<meta name="description" id="metaDesc" content="Insights and client stories from MORES HV — consolidated group finance for Indonesian boards.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="MORES HV">
+<meta property="og:title" id="ogTitle" content="Insight — MORES HV">
+<meta property="og:description" id="ogDesc" content="Insights from MORES HV.">
+<link rel="icon" href="/static/assets/mores-mark-ondark.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="application/ld+json" id="articleLd"></script>
+<style>
+:root {
+  --bg: #0a0d0f; --panel: #15191e; --line: #1a1f25; --text: #f4f6f8; --muted: #93a0ab;
+  --teal: #00a2b6; --teal-bright: #00bcd2; --teal-link: #33c2d2;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --sans: "Hanken Grotesk", Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--sans); background:
+  radial-gradient(1000px 560px at 88% -14%, rgba(0,162,182,.14), transparent 60%), var(--bg);
+  color: var(--text); -webkit-font-smoothing: antialiased; line-height: 1.6; }
+a { color: inherit; text-decoration: none; }
+.wrap { max-width: 780px; margin: 0 auto; padding: 0 7vw; }
+nav.top { display: flex; align-items: center; justify-content: space-between; padding: 15px 7vw;
+  position: sticky; top: 0; z-index: 40; background: rgba(10,13,15,.72); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+nav.top .brand { display: flex; align-items: center; gap: 13px; }
+nav.top img { height: 27px; display: block; }
+.pill-mono { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: #5e686e; border: 1px solid #1f242a; border-radius: 99px; padding: 6px 12px; }
+.btn { font: inherit; font-weight: 600; font-size: 14px; border-radius: 9px; padding: 9px 18px; border: 1px solid #2b323a; color: var(--text); }
+.btn:hover { background: rgba(255,255,255,.06); }
+article { padding: 54px 0 30px; }
+.back { font-size: 13.5px; color: var(--teal-link); font-weight: 600; }
+.back:hover { color: var(--teal-bright); }
+.tag { display: inline-block; margin: 26px 0 16px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: #eafbfd; background: rgba(0,162,182,.28); border: 1px solid rgba(0,188,210,.42); padding: 6px 12px; border-radius: 99px; }
+h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 800; letter-spacing: -1.2px; line-height: 1.08; color: #f7f9fa; }
+.meta { color: #6b7480; font-size: 13.5px; margin-top: 18px; font-family: var(--mono); }
+.cover { height: 300px; border-radius: 16px; margin: 30px 0 8px; background-size: cover; background-position: center; border: 1px solid #1f242a; }
+.content { font-size: 17.5px; color: #c8d0d7; margin-top: 30px; }
+.content p { margin-top: 22px; }
+.content p:first-child { margin-top: 0; }
+.content p:first-child::first-letter { font-size: 3.1em; font-weight: 800; float: left; line-height: .8; padding: 6px 12px 0 0; color: var(--teal-bright); }
+.share { margin-top: 44px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+.more { padding: 20px 0 70px; }
+.more h3 { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #6b7480; margin-bottom: 18px; }
+.more-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px){ .more-grid { grid-template-columns: 1fr; } .content { font-size: 16.5px; } }
+.more-card { border: 1px solid #1f242a; border-radius: 12px; padding: 20px; background: rgba(255,255,255,.02); cursor: pointer; transition: border-color .15s, transform .15s; }
+.more-card:hover { border-color: var(--teal); transform: translateY(-2px); }
+.more-card .t { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--teal-link); }
+.more-card h4 { font-size: 16px; font-weight: 700; color: #eef2f5; margin-top: 8px; line-height: 1.3; }
+.foot { padding: 26px 7vw; color: #5d6168; font-size: 12.5px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.foot .cuan { font-family: "Chakra Petch", sans-serif; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7fd3dd; }
+.notfound { padding: 90px 0; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+  <nav class="top">
+    <div class="brand">
+      <a href="/" aria-label="MORES HV home"><img src="/static/assets/mores-logo-ondark.png" alt="Mores Strategics"></a>
+      <span class="pill-mono">Helicopter View</span>
+    </div>
+    <a class="btn" href="/product#insights">All insights</a>
+  </nav>
+
+  <main class="wrap" id="main">
+    <div class="notfound" id="loading">Loading…</div>
+  </main>
+
+  <footer class="foot">
+    <span>PT Mores Data Analitika · Sibernetika MA · Mores Lintas Teknika · Kultura Media Antara · Modus Reform Studio</span>
+    <span class="cuan">More More Cuan</span>
+  </footer>
+
+<script>
+var COVERS = ['linear-gradient(135deg,#0b3d46,#00a2b6)','linear-gradient(135deg,#10202b,#1c5b66)','linear-gradient(135deg,#0e2f38,#12808f)','linear-gradient(135deg,#132027,#0a6675)'];
+function esc(s){ return (s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+function fmtDate(d){ if(!d) return ''; var t=new Date(d); if(isNaN(t)) return d; return t.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}); }
+function slugFromUrl(){
+  var parts = location.pathname.split('/').filter(Boolean);
+  var i = parts.indexOf('blog');
+  var s = (i >= 0 && parts[i+1]) ? parts[i+1] : parts[parts.length-1];
+  return decodeURIComponent(s || '');
+}
+function paras(body){ return (body||'').split(/\n\s*\n/).map(function(p){ return '<p>'+esc(p.trim()).replace(/\n/g,'<br>')+'</p>'; }).join(''); }
+
+fetch('/api/site-content').then(function(r){ return r.json(); }).then(function(c){
+  var list = c.insights || [];
+  var slug = slugFromUrl();
+  var idx = list.findIndex(function(p){ return p.slug === slug; });
+  var post = list[idx];
+  var main = document.getElementById('main');
+  if(!post){
+    document.title = 'Insight not found — MORES HV';
+    main.innerHTML = '<div class="notfound"><h1 style="font-size:26px">We couldn\'t find that story.</h1>'+
+      '<p style="margin-top:14px">It may have moved. <a style="color:var(--teal-link)" href="/product#insights">Browse all insights</a>.</p></div>';
+    return;
+  }
+  var cover = post.image ? 'background-image:url('+esc(post.image)+')' : 'background-image:'+COVERS[idx % COVERS.length];
+  document.title = post.title + ' — MORES HV';
+  document.getElementById('metaDesc').setAttribute('content', post.excerpt || post.title);
+  document.getElementById('ogTitle').setAttribute('content', post.title + ' — MORES HV');
+  document.getElementById('ogDesc').setAttribute('content', post.excerpt || post.title);
+  document.getElementById('articleLd').textContent = JSON.stringify({
+    "@context":"https://schema.org","@type":"Article","headline":post.title,
+    "datePublished":post.date||"","author":{"@type":"Organization","name":post.author||"MORES HV"},
+    "publisher":{"@type":"Organization","name":"MORES HV","logo":{"@type":"ImageObject","url":"https://mores.id/static/assets/mores-logo-onlight.png"}},
+    "description":post.excerpt||""
+  });
+
+  var others = list.filter(function(p){ return p.slug !== slug; }).slice(0,2);
+  var moreHtml = others.length ? '<section class="more wrap"><h3>Keep reading</h3><div class="more-grid">'+
+    others.map(function(p){ return '<div class="more-card" onclick="location.href=\'/blog/'+encodeURIComponent(p.slug)+'\'">'+
+      '<div class="t">'+esc(p.tag||'Insight')+'</div><h4>'+esc(p.title)+'</h4></div>'; }).join('')+'</div></section>' : '';
+
+  main.innerHTML =
+    '<article>'+
+      '<a class="back" href="/product#insights">&larr; All insights</a>'+
+      '<span class="tag">'+esc(post.tag||'Insight')+'</span>'+
+      '<h1>'+esc(post.title)+'</h1>'+
+      '<div class="meta">'+esc(fmtDate(post.date))+(post.author ? ' · '+esc(post.author) : '')+'</div>'+
+      '<div class="cover" style="'+cover+'"></div>'+
+      '<div class="content">'+paras(post.body || post.excerpt)+'</div>'+
+      '<div class="share">Found this useful? <a style="color:var(--teal-link);font-weight:600" href="/product#contact">Book a walkthrough &rarr;</a></div>'+
+    '</article>';
+  main.insertAdjacentHTML('afterend', moreHtml);
+}).catch(function(){
+  document.getElementById('main').innerHTML = '<div class="notfound">Couldn\'t load this story right now.</div>';
+});
+</script>
+</body>
+</html>

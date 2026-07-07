@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -13,10 +14,12 @@ import { ReportsModule } from './reports/reports.module';
 import { AdminModule } from './admin/admin.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { PaymentsModule } from './payments/payments.module';
+import { FieldPaymentsModule } from './field-payments/field-payments.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(), // nightly ledger reconciliation cron
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     PrismaModule,
     PaymentsModule,
@@ -30,6 +33,7 @@ import { PaymentsModule } from './payments/payments.module';
     CardsModule,
     ReportsModule,
     AdminModule,
+    FieldPaymentsModule,
   ],
 })
 export class AppModule {}
