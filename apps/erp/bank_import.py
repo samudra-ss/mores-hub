@@ -561,6 +561,121 @@ def parse_wallet_xlsx(data):
 
 
 # ---------------------------------------------------------------------------
+# BCA credit-card statement (Kartu Kredit) PDF
+# ---------------------------------------------------------------------------
+# Rows: "DD-MMM DD-MMM  KETERANGAN  JUMLAH[ CR]" — transaction date, posting
+# date, merchant/description, Rupiah amount, optional CR for a payment. Some
+# rows are followed by a "(USD x X rate)" foreign-currency detail line. Header
+# carries TANGGAL REKENING (statement date -> year), TAGIHAN BARU (new bill).
+
+CC_MONTHS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "mei": 5, "jun": 6,
+             "jul": 7, "agu": 8, "ags": 8, "agt": 8, "sep": 9, "okt": 10,
+             "nov": 11, "des": 12}
+_CC_ROW_RE = re.compile(r"^(\d{2})-([A-Za-z]{3})\s+(\d{2})-([A-Za-z]{3})\s+(.*?)\s+([\d.]+)\s*(CR)?$")
+_CC_USD_RE = re.compile(r"^\(USD\b.*\)$", re.I)
+# merchant keyword -> suggested expense account (software/subscriptions vs ads)
+CC_MERCHANT_HINTS = [
+    (("facebk", "facebook", "fb.me", "/ads", "tiktok", "google ads", "twitter", "linkedin"), "6400"),
+    (("google", "workspace", "docker", "figma", "anthropic", "claude", "elastic", "odoo",
+      "hostinger", "microsoft", "adobe", "openai", "github", "aws", "amazon web", "zoom",
+      "slack", "notion", "atlassian", "nokia", "xdt", "canva", "vercel", "cloudflare"), "6300"),
+]
+
+
+def _cc_suggest(desc):
+    low = (desc or "").lower()
+    if "bea meterai" in low or "biaya" in low:
+        return "6610"  # bank/admin charge
+    for keys, code in CC_MERCHANT_HINTS:
+        if any(k in low for k in keys):
+            return code
+    return "6900"  # misc expense
+
+
+def parse_cc_card(data):
+    """Parse a BCA credit-card (Kartu Kredit) statement PDF. Purchases become
+    expenses (out); PEMBAYARAN … CR payment rows are flagged 'internal' (left
+    unticked) because they already appear as an outflow on the bank statement.
+    Returns (records, warnings, meta)."""
+    try:
+        import pdfplumber
+    except ImportError:
+        return [], ["pdfplumber is not installed on the server (pip install pdfplumber)."], {}
+    import io as _io
+    lines, meta = [], {}
+    with pdfplumber.open(_io.BytesIO(data) if isinstance(data, (bytes, bytearray)) else data) as pdf:
+        for page in pdf.pages:
+            for raw in (page.extract_text() or "").splitlines():
+                lines.append(raw.rstrip())
+
+    stmt_year = stmt_month = None
+    for ln in lines:
+        low = ln.lower()
+        if "tanggal rekening" in low:
+            m = re.search(r"(\d{1,2})\s+([A-Za-z]+)\s+(20\d{2})", ln)
+            if m:
+                stmt_month = ID_MONTHS.get(m.group(2).lower())
+                stmt_year = int(m.group(3))
+                meta["statement_date"] = m.group(0)
+        elif "nomor customer" in low:
+            mm = re.search(r"(\d{6,})", ln)
+            if mm:
+                meta["customer"] = mm.group(1)
+        elif "tagihan baru" in low and "rp" in low and "new_bill" not in meta:
+            mm = re.search(r"rp\s*([\d.]+)", low)
+            if mm:
+                meta["new_bill"] = parse_amount(mm.group(1))
+    if not stmt_year:
+        stmt_year = datetime.now().year
+
+    records, warnings, prev = [], [], None
+    for ln in lines:
+        s = ln.strip()
+        if not s:
+            continue
+        if _CC_USD_RE.match(s):  # foreign-currency detail -> attach to previous row
+            if prev is not None:
+                prev["description"] = (prev["description"] + "  " + s).strip()
+                prev["note"] = (prev.get("note", "") + " " + s).strip()
+            continue
+        m = _CC_ROW_RE.match(s)
+        if not m:
+            continue
+        dd, mon, _pdd, _pmon, desc, amt_s, cr = m.groups()
+        mon_n = CC_MONTHS.get(mon.lower())
+        if not mon_n:
+            continue
+        amount = parse_amount(amt_s)
+        if not amount:
+            continue
+        yr = stmt_year
+        if stmt_month and mon_n > stmt_month:
+            yr -= 1  # transaction from the previous year (Jan statement, Dec txns)
+        date = "%04d-%02d-%02d" % (yr, mon_n, int(dd))
+        desc = re.sub(r"\s+", " ", desc).strip()
+        is_payment = bool(cr) or "pembayaran" in desc.lower()
+        rec = {
+            "date": date, "time": "", "tx_type": desc[:60],
+            "from_account": meta.get("customer", ""), "va_number": "", "name": "", "merchant": "",
+            "amount": amount, "transfer_type": "",
+            "reference": "CC-" + hashlib.sha1(
+                ("%s|%s|%s" % (date, desc, amount)).encode()).hexdigest()[:12].upper(),
+            "status": "Payment" if is_payment else "Purchase", "note": "", "ok": True,
+            "description": desc,
+            "direction": "in" if is_payment else "out",
+            "internal": is_payment,
+            "suggested_code": None if is_payment else _cc_suggest(desc),
+            "balance": None,
+        }
+        records.append(rec)
+        prev = rec
+    if not records:
+        warnings.append("No credit-card transactions found — is this a BCA Kartu Kredit statement PDF?")
+    meta["rows"] = len(records)
+    return records, warnings, meta
+
+
+# ---------------------------------------------------------------------------
 # Custom, user-definable tabular formats (CSV / Excel) via a JSON "profile"
 # ---------------------------------------------------------------------------
 # A profile maps the columns of an arbitrary bank export onto the fields we

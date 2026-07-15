@@ -210,6 +210,9 @@ html[data-theme="dark"] .warn.watch { background: rgba(200,122,8,.16); border-co
 .tbl tr:hover td { background: #f7f9fa; }
 .tbl tr.total td { font-weight: 700; border-top: 2px solid var(--text); background: #fafbfc; }
 .tbl tr.section td { font-weight: 700; background: #eef3f4; }
+.chk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px 14px; margin: 4px 0 6px; }
+.chk-grid .chk { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; margin: 0; cursor: pointer; }
+.chk-grid .chk input { width: 15px; height: 15px; accent-color: var(--teal); }
 .tbl tr.tb-group td { font-weight: 600; background: rgba(0,162,182,.06); }
 html[data-theme="dark"] .tbl tr.tb-group td { background: rgba(0,162,182,.10); }
 .tbl .pos { color: var(--green); } .tbl .neg { color: var(--red); }

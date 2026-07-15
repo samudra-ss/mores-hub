@@ -83,6 +83,7 @@ function healthTarget(h) {
 const SOURCE_CLASS = {
   manual: "inactive", bca_bank: "active", bca_csv: "active",
   bca_pdf: "active", monit_wallet: "completed", excel: "draft", custom: "posted",
+  cc_card: "bad",
 };
 
 function renderTbDetailed(d, consolidated) {
@@ -393,6 +394,14 @@ const TR = {
   // account parsing (renamed from Bank Import) + dashboard last-input stamp
   "Account Parsing": "Parsing Akun",
   "Last input": "Input terakhir",
+  // Investment Center + contribution margin + discussion
+  "Investment Center": "Pusat Investasi",
+  "Contribution Margin": "Margin Kontribusi",
+  "Entries": "Entri", "Discussion": "Diskusi",
+  "Add a comment for the team…": "Tambahkan komentar untuk tim…", "Post": "Kirim",
+  // Accountant section
+  "Accountant Section": "Bagian Akuntan",
+  "audit view · all companies": "tampilan audit · semua perusahaan",
   // wallet/card Excel template + format guide
   "Download Excel template": "Unduh Template Excel",
   "Format guide": "Panduan Format",
@@ -456,14 +465,22 @@ const NAV_ITEMS = [
   ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
   ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Account Parsing"],
   ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
-  ["budgets", "◎", "Budgets"], ["investments", "✦", "Investments"],
+  ["budgets", "◎", "Budgets"], ["investments", "✦", "Investment Center"],
   ["projects", "△", "Projects"], ["reports", "▤", "Reports"],
+  ["accountant", "⚖", "Accountant Section"],
   ["settings", "⚙", "Settings"],
 ];
 function relabelChrome() {
+  // per-user menu access: 'all' or a CSV of allowed routes. Admins always see
+  // everything; Settings stays admin-only via its own gate below.
+  const ma = (state.me && state.me.menu_access) || "all";
+  const allowed = ma === "all" ? null : new Set(String(ma).split(",").map(s => s.trim()));
   $$("#nav a").forEach(a => {
     const item = NAV_ITEMS.find(n => n[0] === a.dataset.route);
     if (item) a.innerHTML = `${item[1]} <span class="nav-t">${esc(t(item[2]))}</span>`;
+    const route = a.dataset.route;
+    const hide = !isAdmin() && allowed && route !== "settings" && !allowed.has(route);
+    a.style.display = hide ? "none" : "";
   });
   const set = (sel, s) => { const el = $(sel); if (el) el.textContent = s; };
   set("#lblCompany", t("Company"));
@@ -572,7 +589,7 @@ const routes = {
   dashboard: pageDashboard, projecthv: pageProjectHV, journals: pageJournals,
   bank: pageBank, receivables: pageReceivables, payables: pagePayables, budgets: pageBudgets,
   investments: pageInvestments, projects: pageProjects, reports: pageReports,
-  settings: pageSettings,
+  accountant: pageAccountant, settings: pageSettings,
 };
 const INV_CATEGORIES = {
   scholarship: "Scholarship", partnership: "Partnership", rnd: "R&D",
@@ -1349,7 +1366,7 @@ function customFieldInput(f, value) {
 
 /* ------------------------------------------------------------------ bank import */
 // which entry source each bank-import mode books under
-const BANK_SOURCE_BY_MODE = { paste: "bca_bank", csv: "bca_csv", pdf: "bca_pdf", wallet: "monit_wallet", custom: "custom" };
+const BANK_SOURCE_BY_MODE = { paste: "bca_bank", csv: "bca_csv", pdf: "bca_pdf", wallet: "monit_wallet", cc: "cc_card", custom: "custom" };
 
 // wallet/card Excel format documentation — mirrors the Format Guide sheet in
 // the downloadable template (excel_io.WALLET_TEMPLATE_COLUMNS)
@@ -1407,6 +1424,7 @@ async function pageBank(el) {
         <button data-m="csv">CSV file — mutasi rekening</button>
         <button data-m="pdf">PDF e-statement (BCA)</button>
         <button data-m="wallet">Wallet / Card Excel (petty cash)</button>
+        <button data-m="cc">CC Card statement (credit card)</button>
         <button data-m="custom">Custom format (import/export)</button>
       </div>
       <div id="bkPasteBox">
@@ -1456,6 +1474,17 @@ async function pageBank(el) {
           <span class="muted">${t("The template has the exact columns plus a Format Guide sheet.")}</span>
         </div>
       </div>
+      <div id="bkCcBox" hidden>
+        <p class="muted" style="margin-top:-2px">Upload the <b>credit-card statement PDF</b> (BCA Kartu Kredit — REKENING KARTU KREDIT).
+        Every <b>purchase</b> is read with its transaction date, merchant and Rupiah amount (the USD detail is kept in the description) and
+        booked as an <b>expense</b>: debit the cost account you pick (5000–8000) · credit the card / cash account selected below.
+        <b>Payment</b> rows (PEMBAYARAN … CR) are left <b>unticked</b> — they already appear as an outflow on your bank statement.</p>
+        <div class="filters">
+          <label>PDF file <input type="file" id="bkCcFile" accept=".pdf"></label>
+          <button class="btn btn-primary" id="bkCcParse">Upload &amp; parse</button>
+          <span class="muted" id="bkCcInfo"></span>
+        </div>
+      </div>
       <div id="bkCustomBox" hidden>
         <p class="muted" style="margin-top:-2px">Use a <b>custom format profile</b> to import a CSV/Excel from any other bank —
         the profile maps that bank's columns (date, description, amount, direction, balance) onto ours. <b>Export</b> a built-in
@@ -1503,7 +1532,11 @@ async function pageBank(el) {
       api("/api/settings/bank-config").catch(() => ({ default_cash_code: "" })),
     ]);
     accounts = accounts.filter(a => a.is_active);
-    const banks = accounts.filter(a => a.type === "asset" && a.code.startsWith("11"));
+    // CC-card mode also lets the "cash side" be a liability (a Credit Card
+    // Payable account), since the card is what you owe; other modes use 11xx
+    const banks = accounts.filter(a =>
+      (a.type === "asset" && a.code.startsWith("11")) ||
+      (mode === "cc" && a.type === "liability"));
     // configurable default cash/bank contra account (Settings); wallet keeps
     // Petty Cash Monit, everything else falls back to the saved default or 1120
     const cashDefault = mode === "wallet" ? "1130" : (bankCfg.default_cash_code || "1120");
@@ -1517,9 +1550,9 @@ async function pageBank(el) {
       ? `<optgroup label="${label}">` + list.map(a =>
           `<option value="${a.id}" ${String(sel) === String(a.id) ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("") + "</optgroup>"
       : "";
-    // Wallet/card Excel and custom-format parses book strictly:
-    // DEBIT an expense account (5000–8000) · CREDIT the Cash & Bank account
-    if (mode === "wallet" || mode === "custom") {
+    // Wallet/card Excel, CC-card and custom-format parses book strictly:
+    // DEBIT an expense account (5000–8000) · CREDIT the Cash & Bank / card account
+    if (mode === "wallet" || mode === "custom" || mode === "cc") {
       return `<option value="">— choose account —</option>`
         + grp("Costs / Expenses (5000–8000)",
               accounts.filter(a => a.type === "expense" && /^[5-8]/.test(a.code)));
@@ -1587,8 +1620,16 @@ async function pageBank(el) {
     $("#bkCsvBox").hidden = mode !== "csv";
     $("#bkPdfBox").hidden = mode !== "pdf";
     $("#bkWalletBox").hidden = mode !== "wallet";
+    $("#bkCcBox").hidden = mode !== "cc";
     $("#bkCustomBox").hidden = mode !== "custom";
     if (mode === "custom") loadFormats();
+    // CC mode widens the cash-side dropdown to include liability (card) accounts,
+    // so rebuild the options for the current mode
+    const banks = accounts.filter(a =>
+      (a.type === "asset" && a.code.startsWith("11")) ||
+      (mode === "cc" && a.type === "liability"));
+    $("#bkBank").innerHTML = banks.map(a =>
+      `<option value="${a.id}">${esc(a.code)} ${esc(a.name)}</option>`).join("");
     // default the cash side: Petty Cash Monit for wallet, else the configured
     // default cash/bank account (falls back to Bank 1120)
     const wantCode = mode === "wallet" ? "1130" : (bankCfg.default_cash_code || "1120");
@@ -1596,7 +1637,9 @@ async function pageBank(el) {
     if (!opt && mode !== "wallet") opt = Array.from($("#bkBank").options).find(o => o.textContent.trim().startsWith("1120 "));
     if (opt) $("#bkBank").value = opt.value;
     $("#bkBankLabel").firstChild.textContent = mode === "wallet"
-      ? "Petty Cash account (deducted from this) " : "Cash / Bank account (the cash side) ";
+      ? "Petty Cash account (deducted from this) "
+      : mode === "cc" ? "Credit card / cash account (credited) "
+      : "Cash / Bank account (the cash side) ";
   });
   $("#bkSetDefault").onclick = async () => {
     const sel = $("#bkBank").selectedOptions[0];
@@ -1614,6 +1657,7 @@ async function pageBank(el) {
     infoEl.textContent = `${txs.length} transaction(s) found` +
       (dups ? ` (${dups} already booked)` : "") +
       (res.meta && res.meta["no. rekening"] ? ` — account ${res.meta["no. rekening"]} ${res.meta["nama"] || ""} ${res.meta["periode"] || ""}` : "") +
+      (res.meta && res.meta.statement_date ? ` — card ${res.meta.customer || ""} · statement ${res.meta.statement_date}` : "") +
       (res.warnings.length ? ` — ${res.warnings.length} warning(s): ${res.warnings.join("; ")}` : "");
     $("#bkStage2").hidden = txs.length === 0;
     $("#bkResults").innerHTML = "";
@@ -1642,6 +1686,7 @@ async function pageBank(el) {
   $("#bkCsvParse").onclick = () => uploadParse($("#bkCsvFile"), "/api/bank/parse-csv", $("#bkCsvInfo"));
   $("#bkPdfParse").onclick = () => uploadParse($("#bkPdfFile"), "/api/bank/parse-pdf", $("#bkPdfInfo"));
   $("#bkWalletParse").onclick = () => uploadParse($("#bkWalletFile"), "/api/bank/parse-wallet", $("#bkWalletInfo"));
+  $("#bkCcParse").onclick = () => uploadParse($("#bkCcFile"), "/api/bank/parse-cc", $("#bkCcInfo"));
   $("#bkWalletGuide").onclick = walletFormatGuide;
 
   // ---- custom format profiles (import / export) ----
@@ -1713,7 +1758,7 @@ async function pageBank(el) {
         project_id: parseInt($(".bk-prj", tr).value, 10) || null,
         description: t.tx_type || "transaction",
       };
-      const bankLine = { account_id: bankAcc, description: (mode === "wallet" ? "Petty cash — ref " : "Bank — ref ") + t.reference };
+      const bankLine = { account_id: bankAcc, description: (mode === "wallet" ? "Petty cash — ref " : mode === "cc" ? "Credit card — ref " : "Bank — ref ") + t.reference };
       const lines = t.direction === "in"
         ? [Object.assign({}, bankLine, { debit: t.amount, credit: 0 }),
            Object.assign({}, contra, { debit: 0, credit: t.amount })]
@@ -1985,7 +2030,7 @@ async function pageInvestments(el) {
   const roi = invested ? Math.round(100 * (benefit - invested) / invested) : null;
 
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Investment Analysis")}</h2>
+    <div class="page-head"><h2>${t("Investment Center")}</h2>
       <div class="page-actions">
         ${canWrite() ? `<button class="btn btn-primary" id="invNew">+ New Investment</button>` : ""}
       </div></div>
@@ -2104,13 +2149,27 @@ function investmentEntryModal(iid, reload) {
 }
 
 async function investmentDetail(iid, reload) {
-  const inv = await api("/api/investments/" + iid);
+  const [inv, comments, thr] = await Promise.all([
+    api("/api/investments/" + iid),
+    api("/api/investments/" + iid + "/comments").catch(() => []),
+    api("/api/settings/thresholds").catch(() => ({ thresholds: {} })),
+  ]);
   const payback = inv.invested ? Math.round(100 * inv.benefit / inv.invested) : null;
   const analysis = payback == null
     ? "No outflows recorded yet."
     : payback >= 100
       ? `<b class="pos">Paid back</b> — benefits cover ${payback}% of invested capital.`
       : `Benefits cover <b>${payback}%</b> of invested capital — payback pending over the ${inv.horizon_years}-year horizon.`;
+  // Contribution margin = (PIC/salesperson cost + other investment cost) / total sales-or-benefit
+  const pic = inv.cm_pic_cost || 0, other = inv.cm_other_cost || 0, base = inv.cm_total_benefit || 0;
+  const cm = base ? (pic + other) / base : null;
+  const cmt = (thr.thresholds || {}).cm_ratio || { healthy: 0.4, watch: 0.6, dir: "low" };
+  const cmStatus = cm == null ? "n/a"
+    : cm <= cmt.healthy ? "healthy" : cm <= cmt.watch ? "watch" : "danger";
+  const cmVerdict = { healthy: ["green", "Healthy", "cost is well within the threshold — an efficient investment."],
+    watch: ["", "Watch", "approaching the cost ceiling — monitor the spend vs benefit."],
+    danger: ["red", "Over threshold", "cost per unit of benefit exceeds the limit — review this investment."],
+    "n/a": ["", "—", "enter the total sales / benefit to compute the contribution margin."] }[cmStatus];
   openModal(`
     <div class="muted">${INV_CATEGORIES[inv.category] || inv.category} · ${esc(inv.company_code)} ·
       started ${esc(inv.start_date || "?")} · horizon ${inv.horizon_years} years
@@ -2127,7 +2186,30 @@ async function investmentDetail(iid, reload) {
       { name: "Amount", color: C_REV, values: [inv.invested, inv.benefit] },
     ], { height: 170 })}
     <p class="mt">${analysis}</p>
-    <table class="tbl mt"><thead><tr><th>Date</th><th>Type</th><th>Description</th>
+
+    <div class="card" style="margin-top:14px;background:var(--panel)">
+      <div class="page-head"><h3 style="margin:0">${t("Contribution Margin")}</h3>
+        ${canWrite() ? `<button class="btn btn-sm btn-primary" id="cmSave">Save</button>` : ""}</div>
+      <p class="muted" style="margin-top:-6px">(PIC / salesperson cost + other investment cost) ÷ total sales or benefit.
+        Lower is better — a smaller cost per unit of benefit.</p>
+      <div class="form-grid">
+        <label>PIC / salesperson cost (Rp) <input id="cmPic" inputmode="numeric" ${canWrite() ? "" : "disabled"} value="${pic ? fmt(pic) : ""}"></label>
+        <label>Other investment cost (Rp) <input id="cmOther" inputmode="numeric" ${canWrite() ? "" : "disabled"} value="${other ? fmt(other) : ""}"></label>
+        <label>Total sales / benefit (Rp) <input id="cmBase" inputmode="numeric" ${canWrite() ? "" : "disabled"} value="${base ? fmt(base) : ""}"></label>
+      </div>
+      <div class="grid kpis" style="margin-top:10px">
+        <div class="kpi ${cmVerdict[0]}"><div class="kpi-label">${t("Contribution Margin")}</div>
+          <div class="kpi-value">${cm == null ? "—" : fmtPct(cm)}</div>
+          <div class="kpi-sub">${cm == null ? "" : "cost / benefit"}</div></div>
+        <div class="kpi"><div class="kpi-label">Total cost</div><div class="kpi-value">${fmtShortRp(pic + other)}</div></div>
+        <div class="kpi"><div class="kpi-label">Threshold</div><div class="kpi-value">${fmtPct(cmt.healthy)}<span class="muted" style="font-size:12px"> / ${fmtPct(cmt.watch)}</span></div>
+          <div class="kpi-sub">healthy / watch · Settings → Thresholds</div></div>
+      </div>
+      <p class="mt"><span class="pill ${HEALTH_PILL[cmStatus] || "inactive"}">${cmVerdict[1]}</span> ${cmVerdict[2]}</p>
+    </div>
+
+    <h3 style="margin-top:16px">${t("Entries")}</h3>
+    <table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Description</th>
       <th class="num">Amount</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
       <tbody>${inv.events.map(e => `<tr>
         <td>${esc(e.date)}</td>
@@ -2137,7 +2219,34 @@ async function investmentDetail(iid, reload) {
         `<tr><td colspan="5" class="empty">No entries yet</td></tr>`}</tbody></table>
     <div class="form-actions">
       ${canWrite() ? `<button class="btn btn-primary" id="ivAddEntry">+ Add Entry</button>` : ""}
+    </div>
+
+    <h3 style="margin-top:16px">${t("Discussion")}</h3>
+    <div id="cmComments" style="max-height:220px;overflow:auto">${renderInvComments(comments)}</div>
+    <div class="filters" style="margin-top:8px">
+      <input id="cmNewComment" placeholder="${t("Add a comment for the team…")}" style="flex:1;min-width:200px">
+      <button class="btn btn-primary" id="cmPostComment">${t("Post")}</button>
     </div>`, { title: inv.name });
+  const numv = id => parseInt(($("#" + id).value || "0").replace(/[^\d-]/g, ""), 10) || 0;
+  if ($("#cmSave")) $("#cmSave").onclick = async () => {
+    try {
+      await api("/api/investments/" + iid + "/cm", { method: "PUT", json: {
+        cm_pic_cost: numv("cmPic"), cm_other_cost: numv("cmOther"), cm_total_benefit: numv("cmBase") } });
+      toast("Contribution margin saved"); investmentDetail(iid, reload);
+    } catch (e) { toast(e.message, true); }
+  };
+  const postComment = async () => {
+    const bodyv = $("#cmNewComment").value.trim();
+    if (!bodyv) return;
+    try { await api("/api/investments/" + iid + "/comments", { json: { body: bodyv } });
+      $("#cmNewComment").value = "";
+      $("#cmComments").innerHTML = renderInvComments(await api("/api/investments/" + iid + "/comments"));
+      bindInvCommentDeletes(iid, reload);
+    } catch (e) { toast(e.message, true); }
+  };
+  $("#cmPostComment").onclick = postComment;
+  $("#cmNewComment").onkeydown = e => { if (e.key === "Enter") postComment(); };
+  bindInvCommentDeletes(iid, reload);
   if ($("#ivAddEntry")) $("#ivAddEntry").onclick = () =>
     investmentEntryModal(iid, () => investmentDetail(iid, reload));
   $$("#modalRoot [data-del-ev]").forEach(b => b.onclick = async () => {
@@ -2147,6 +2256,29 @@ async function investmentDetail(iid, reload) {
       toast("Entry removed");
       investmentDetail(iid, reload);
     } catch (e) { toast(e.message, true); }
+  });
+}
+
+function renderInvComments(comments) {
+  if (!comments || !comments.length)
+    return `<p class="muted">No comments yet — start the discussion.</p>`;
+  return comments.map(c => `<div class="cm-comment" style="padding:8px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;gap:8px">
+      <b>${esc(c.author || "—")}</b>
+      <span class="muted" style="font-size:11px">${esc(fmtInputStamp(c.created_at))}
+        ${canWrite() ? `<a href="#" class="cm-del" data-cid="${c.id}" style="margin-left:8px">delete</a>` : ""}</span>
+    </div>
+    <div style="white-space:pre-wrap">${esc(c.body)}</div></div>`).join("");
+}
+
+function bindInvCommentDeletes(iid, reload) {
+  $$("#cmComments .cm-del").forEach(a => a.onclick = async e => {
+    e.preventDefault();
+    if (!confirm("Delete this comment?")) return;
+    try { await api("/api/investment-comments/" + a.dataset.cid, { method: "DELETE" });
+      $("#cmComments").innerHTML = renderInvComments(await api("/api/investments/" + iid + "/comments"));
+      bindInvCommentDeletes(iid, reload);
+    } catch (err) { toast(err.message, true); }
   });
 }
 
@@ -2760,9 +2892,114 @@ async function pageReports(el) {
 }
 
 /* ------------------------------------------------------------------ settings */
+/* ------------------------------------------------------------------ accountant section (audit) */
+async function pageAccountant(el) {
+  if (!state.acctTab) state.acctTab = "tb";
+  if (!state.acctFrom) state.acctFrom = `${state.year}-01-01`;
+  if (!state.acctTo) state.acctTo = `${state.year}-12-31`;
+  const meta = await api("/api/accountant/meta").catch(() => ({ users: [], accounts: [], sources: [] }));
+  const tabs = [["tb", "Trial Balance — per account"], ["ledger", "Audit Ledger — by date / account / user"]];
+  el.innerHTML = `
+    <div class="page-head"><h2>${t("Accountant Section")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("audit view · all companies")}</span></h2></div>
+    <div class="tabs" id="acTabs">${tabs.map(([k, l]) =>
+      `<button data-tab="${k}" class="${state.acctTab === k ? "active" : ""}">${l}</button>`).join("")}</div>
+    <div class="filters mt">
+      <label>From <input type="date" id="acFrom" value="${state.acctFrom}"></label>
+      <label>To <input type="date" id="acTo" value="${state.acctTo}"></label>
+      <label id="acCodeWrap">Account
+        <select id="acCode"><option value="">All accounts</option>${meta.accounts.map(a =>
+          `<option value="${esc(a.code)}">${esc(a.code)} — ${esc(a.name)}</option>`).join("")}</select></label>
+      <label id="acUserWrap">Inputter
+        <select id="acUser"><option value="">All users</option>${meta.users.map(u =>
+          `<option value="${esc(u)}">${esc(u)}</option>`).join("")}</select></label>
+      <label id="acSrcWrap">Source
+        <select id="acSrc"><option value="">All sources</option>${(meta.sources || []).map(s =>
+          `<option value="${esc(s.key)}">${esc(s.label)}</option>`).join("")}</select></label>
+      <a class="btn btn-sm" id="acExp">&#x2913; ${t("Export Excel")}</a>
+    </div>
+    <div id="acBody"><div class="empty">Loading…</div></div>`;
+  const syncFilterVisibility = () => {
+    const isLedger = state.acctTab === "ledger";
+    $("#acUserWrap").style.display = isLedger ? "" : "none";
+    $("#acSrcWrap").style.display = isLedger ? "" : "none";
+  };
+  const run = async () => {
+    state.acctFrom = $("#acFrom").value; state.acctTo = $("#acTo").value;
+    const qs = `date_from=${state.acctFrom}&date_to=${state.acctTo}`;
+    if (state.acctTab === "tb") {
+      const code = $("#acCode").value;
+      $("#acExp").href = `/api/export/trial-balance?company_id=all&${qs}`;
+      const d = await api(`/api/accountant/trial-balance?${qs}`);
+      renderAcctTB($("#acBody"), d, code);
+    } else {
+      const code = $("#acCode").value, user = $("#acUser").value, src = $("#acSrc").value;
+      $("#acExp").href = "#";
+      const d = await api(`/api/accountant/ledger?${qs}&code=${encodeURIComponent(code)}&user=${encodeURIComponent(user)}&source=${encodeURIComponent(src)}`);
+      renderAcctLedger($("#acBody"), d);
+    }
+  };
+  $$("#acTabs button").forEach(b => b.onclick = () => {
+    state.acctTab = b.dataset.tab;
+    $$("#acTabs button").forEach(x => x.classList.toggle("active", x === b));
+    syncFilterVisibility(); run();
+  });
+  ["acFrom", "acTo", "acCode", "acUser", "acSrc"].forEach(id => $("#" + id).onchange = run);
+  syncFilterVisibility();
+  await run();
+}
+
+function renderAcctTB(body, d, focusCode) {
+  const disp = (d.grouped && d.grouped.length)
+    ? d.grouped : d.rows.map(r => Object.assign({ level: 0, is_group: false }, r));
+  const rows = disp.filter(r => !focusCode || r.code === focusCode).map(r => {
+    const pad = 8 + r.level * 18;
+    const nameCell = r.is_group ? `<b>${esc(r.name)}</b>`
+      : `<a href="#" class="ac-code" data-code="${esc(r.code)}">${esc(r.name)}</a>`;
+    return `<tr class="${r.is_group ? "tb-group" : ""}">
+      <td style="padding-left:${pad}px">${esc(r.code)}</td><td>${nameCell}</td><td class="muted">${r.type}</td>
+      <td class="num">${r.debit ? fmt(r.debit) : ""}</td><td class="num">${r.credit ? fmt(r.credit) : ""}</td>
+      <td class="num">${fmt(r.balance)}</td></tr>`;
+  }).join("");
+  body.innerHTML = `<div class="card"><div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Code</th><th>Account</th><th>Type</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
+    <tbody>${rows}<tr class="total"><td colspan="3">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
+      <td class="num">${fmt(d.total_credit)}</td><td></td></tr></tbody></table></div>
+    <p class="muted mt">Consolidated across all companies, ${esc(d.date_from)} → ${esc(d.date_to)}. Grouped by parent account (bold = subtotal).
+      <b>Click an account</b> to see its full audit trail — every entry, its source and who input it.</p></div>`;
+  $$("#acBody .ac-code").forEach(a => a.onclick = e => {
+    e.preventDefault();
+    $("#acCode").value = a.dataset.code;
+    // jump to the ledger for this account
+    state.acctTab = "ledger";
+    $$("#acTabs button").forEach(x => x.classList.toggle("active", x.dataset.tab === "ledger"));
+    $("#acUserWrap").style.display = ""; $("#acSrcWrap").style.display = "";
+    $("#acCode").dispatchEvent(new Event("change"));
+  });
+}
+
+function renderAcctLedger(body, d) {
+  const rows = d.lines.map(l => `<tr>
+    <td>${esc(l.date)}</td>
+    <td><b>${esc(l.entry_no)}</b><br><span class="muted">${esc(l.company_code)}</span></td>
+    <td>${esc(l.acc_code)}<br><span class="muted">${esc(l.acc_name)}</span></td>
+    <td>${esc(l.line_desc || l.entry_desc || "")}${l.project_code ? `<br><span class="muted">proj ${esc(l.project_code)}</span>` : ""}</td>
+    <td><span class="pill ${SOURCE_CLASS[l.source] || "inactive"}">${esc(l.source_label)}</span></td>
+    <td><b>${esc(l.inputter)}</b>${l.inputter_name ? `<br><span class="muted">${esc(l.inputter_name)}</span>` : ""}</td>
+    <td class="num">${l.debit ? fmt(l.debit) : ""}</td>
+    <td class="num">${l.credit ? fmt(l.credit) : ""}</td></tr>`).join("")
+    || `<tr><td colspan="8" class="empty">No journal lines match these filters.</td></tr>`;
+  body.innerHTML = `<div class="card"><div style="overflow-x:auto"><table class="tbl">
+    <thead><tr><th>Date</th><th>Entry / Co.</th><th>Account</th><th>Description</th><th>Source</th><th>Inputter</th>
+      <th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+    <tbody>${rows}<tr class="total"><td colspan="6">TOTAL — ${d.count} line(s)</td>
+      <td class="num">${fmt(d.total_debit)}</td><td class="num">${fmt(d.total_credit)}</td></tr></tbody></table></div>
+    <p class="muted mt">Every posted journal line, ${esc(d.date_from)} → ${esc(d.date_to)}, across all companies — with its
+      <b>source</b> (manual / bank / credit card / …) and the <b>user who input it</b>. Filter by account, inputter or source above for review.</p></div>`;
+}
+
 async function pageSettings(el) {
   const tabs = [["coa", "Chart of Accounts"], ["fields", "Custom Fields"], ["companies", "Companies"]];
-  if (isAdmin()) tabs.push(["users", "Users"], ["thresholds", "Thresholds"]);
+  if (isAdmin()) tabs.push(["users", "Users"], ["thresholds", "Thresholds"], ["cash", "Cash & Bank"]);
   el.innerHTML = `
     <div class="page-head"><h2>${t("Settings")}</h2></div>
     <div class="tabs" id="sTabs">${tabs.map(([k, l], i) =>
@@ -2782,6 +3019,7 @@ async function pageSettings(el) {
     else if (tab === "companies") await settingsCompanies(body);
     else if (tab === "users") await settingsUsers(body);
     else if (tab === "thresholds") await settingsThresholds(body);
+    else if (tab === "cash") await settingsCash(body);
   }
   await show();
 }
@@ -3063,6 +3301,37 @@ async function settingsThresholds(body) {
   await load();
 }
 
+async function settingsCash(body) {
+  const load = async () => {
+    const d = await api("/api/settings/cash-accounts");
+    const sel = new Set(d.selected || []);
+    const allOn = sel.size === 0;
+    body.innerHTML = `<div class="card">
+      <div class="page-head"><h3 style="margin:0">Dashboard “Cash &amp; Bank” accounts</h3>
+        <button class="btn btn-sm btn-primary" id="csSave">Save</button></div>
+      <p class="muted" style="margin-top:-6px">Choose which cash/bank (11xx) accounts are added up for the dashboard
+        <b>Cash &amp; Bank</b> figure (and the cash-buffer / free-cash metrics derived from it). Leave <b>all</b> ticked to count every
+        cash/bank account.</p>
+      <label class="seg-check" style="margin-bottom:8px"><input type="checkbox" id="csAll" ${allOn ? "checked" : ""}> Count all cash/bank accounts</label>
+      <table class="tbl"><thead><tr><th style="width:40px"></th><th>Code</th><th>Account</th></tr></thead>
+        <tbody>${d.accounts.map(a => `<tr>
+          <td><input type="checkbox" class="cs-in" value="${esc(a.code)}" ${allOn || sel.has(a.code) ? "checked" : ""}></td>
+          <td><b>${esc(a.code)}</b></td><td>${esc(a.name)}</td></tr>`).join("")
+          || `<tr><td colspan="3" class="empty">No 11xx cash/bank accounts</td></tr>`}
+        </tbody></table></div>`;
+    const rows = () => $$("#sBody .cs-in");
+    $("#csAll").onchange = () => rows().forEach(c => { c.checked = $("#csAll").checked; c.disabled = $("#csAll").checked; });
+    if (allOn) rows().forEach(c => c.disabled = true);
+    $("#csSave").onclick = async () => {
+      // "count all" -> save empty list (= default all); otherwise the ticked codes
+      const codes = $("#csAll").checked ? [] : rows().filter(c => c.checked).map(c => c.value);
+      try { await api("/api/settings/cash-accounts", { json: { codes } }); toast("Cash & Bank accounts saved — dashboard updated"); load(); }
+      catch (e) { toast(e.message, true); }
+    };
+  };
+  await load();
+}
+
 async function settingsUsers(body) {
   const load = async () => {
     const rows = await api("/api/users");
@@ -3084,21 +3353,46 @@ async function settingsUsers(body) {
 }
 
 function userEditor(u, reload) {
+  const companies = state.me.companies.filter(c => !c.is_holding);
+  const coAll = !u || u.company_access === "all";
+  const coSet = new Set(coAll ? [] : String(u.company_access || "").split(",").map(s => s.trim()));
+  const menuAll = !u || (u.menu_access || "all") === "all";
+  const menuSet = new Set(menuAll ? [] : String(u.menu_access || "").split(",").map(s => s.trim()));
+  const menuItems = NAV_ITEMS.filter(n => n[0] !== "settings");  // settings stays admin-gated
   openModal(`<div class="form-grid">
     <label>Username <input id="uName" value="${esc(u ? u.username : "")}" ${u ? "disabled" : ""}></label>
     <label>Full name <input id="uFull" value="${esc(u ? u.full_name : "")}"></label>
     <label>Role <select id="uRole">${["admin", "finance", "viewer"].map(r =>
       `<option value="${r}" ${u && u.role === r ? "selected" : ""}>${ROLE_LABELS[r]} — ${ROLE_DESC[r]}</option>`).join("")}</select></label>
-    <label>Company access <input id="uAccess" value="${esc(u ? u.company_access : "all")}"></label>
     <label class="full">${u ? "New password (leave blank to keep)" : "Password"} <input id="uPass" type="password"></label>
     ${u ? `<label style="flex-direction:row;align-items:center;gap:8px">
       <input type="checkbox" id="uActive" ${u.is_active ? "checked" : ""} style="width:auto"> Active</label>` : ""}
-    </div><div class="form-actions"><button class="btn btn-primary" id="uSave">Save User</button></div>`,
-    { title: u ? "Edit User" : "New User", small: true });
+    </div>
+    <div class="fld-label" style="margin-top:12px">Company access <span class="muted">(which companies this user can see)</span></div>
+    <label class="seg-check"><input type="checkbox" id="uCoAll" ${coAll ? "checked" : ""}> All companies</label>
+    <div class="chk-grid" id="uCoGrid">${companies.map(c =>
+      `<label class="chk"><input type="checkbox" class="uco" value="${c.id}" ${coAll || coSet.has(String(c.id)) ? "checked" : ""}> ${esc(c.code)} — ${esc(c.name)}</label>`).join("")}</div>
+    <div class="fld-label" style="margin-top:12px">Menu access <span class="muted">(which left-menu items this user can see — admins always see all)</span></div>
+    <label class="seg-check"><input type="checkbox" id="uMenuAll" ${menuAll ? "checked" : ""}> All menus</label>
+    <div class="chk-grid" id="uMenuGrid">${menuItems.map(n =>
+      `<label class="chk"><input type="checkbox" class="umenu" value="${n[0]}" ${menuAll || menuSet.has(n[0]) ? "checked" : ""}> ${n[1]} ${esc(t(n[2]))}</label>`).join("")}</div>
+    <div class="form-actions"><button class="btn btn-primary" id="uSave">Save User</button></div>`,
+    { title: u ? "Edit User" : "New User" });
+  const wire = (allId, cls, gridId) => {
+    const sync = () => $$("#" + gridId + " ." + cls).forEach(c => { if ($("#" + allId).checked) c.checked = true; c.disabled = $("#" + allId).checked; });
+    $("#" + allId).onchange = sync; sync();
+  };
+  wire("uCoAll", "uco", "uCoGrid");
+  wire("uMenuAll", "umenu", "uMenuGrid");
   $("#uSave").onclick = async () => {
+    const coAllOn = $("#uCoAll").checked;
+    const menuAllOn = $("#uMenuAll").checked;
+    const coSel = $$("#uCoGrid .uco").filter(c => c.checked).map(c => c.value);
+    const menuSel = $$("#uMenuGrid .umenu").filter(c => c.checked).map(c => c.value);
     const body = {
       full_name: $("#uFull").value, role: $("#uRole").value,
-      company_access: $("#uAccess").value || "all",
+      company_access: (coAllOn || !coSel.length) ? "all" : coSel.join(","),
+      menu_access: (menuAllOn || !menuSel.length) ? "all" : menuSel.join(","),
     };
     if ($("#uPass").value) body.password = $("#uPass").value;
     try {

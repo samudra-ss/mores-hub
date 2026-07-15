@@ -33,7 +33,7 @@ app.permanent_session_lifetime = timedelta(days=30)  # "Remember me" duration
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 # where a journal entry came from (shown in the detailed trial balance)
-ENTRY_SOURCES = {"manual", "bca_bank", "bca_csv", "bca_pdf", "monit_wallet", "excel", "custom"}
+ENTRY_SOURCES = {"manual", "bca_bank", "bca_csv", "bca_pdf", "monit_wallet", "excel", "custom", "cc_card"}
 
 
 # --------------------------------------------------------------------------
@@ -534,6 +534,7 @@ def api_me():
         "id": g.user["id"], "username": g.user["username"],
         "full_name": g.user["full_name"], "role": g.user["role"],
         "companies": companies,
+        "menu_access": (g.user["menu_access"] if "menu_access" in g.user.keys() else "all") or "all",
         "active_db": active_db_name(),
         "databases": database.list_databases() if g.user["role"] == "admin" else [],
     })
@@ -1130,6 +1131,42 @@ def get_bank_config():
     return cfg
 
 
+def get_cash_codes():
+    """List of account codes that count as 'Cash & Bank' on the dashboard, or
+    None = every 11xx account (the default)."""
+    try:
+        row = db().execute("SELECT value FROM app_settings WHERE key='dashboard_cash_codes'").fetchone()
+        parsed = json.loads(row["value"]) if row and row["value"] else None
+        if isinstance(parsed, list) and parsed:
+            return [str(c) for c in parsed]
+    except Exception:
+        pass
+    return None
+
+
+@app.get("/api/settings/cash-accounts")
+@login_required
+def get_cash_accounts_api():
+    """Available 11xx cash/bank accounts (deduped by code) + the current
+    selection. Empty selection = all are counted."""
+    rows = db().execute(
+        "SELECT code, MIN(name) AS name FROM accounts "
+        "WHERE type='asset' AND code LIKE '11%' AND is_active=1 GROUP BY code ORDER BY code"
+    ).fetchall()
+    return jsonify({"accounts": [dict(r) for r in rows], "selected": get_cash_codes() or []})
+
+
+@app.post("/api/settings/cash-accounts")
+@role_required("admin")
+def set_cash_accounts_api():
+    d = request.get_json(force=True)
+    codes = [str(c).strip() for c in (d.get("codes") or []) if str(c).strip()]
+    db().execute("INSERT INTO app_settings (key, value) VALUES ('dashboard_cash_codes', ?)"
+                 " ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(codes),))
+    db().commit()
+    return jsonify({"ok": True, "selected": codes})
+
+
 @app.get("/api/settings/bank-config")
 @login_required
 def get_bank_config_api():
@@ -1159,8 +1196,42 @@ def set_bank_config_api():
 def report_dashboard():
     ids, label = scope_from_request()
     data = reports.dashboard(db(), ids, year_param(), thresholds=get_thresholds(),
-                             project_attribution=_attribution_from_request(True))
+                             project_attribution=_attribution_from_request(True),
+                             cash_codes=get_cash_codes())
     data["scope"] = label
+    return jsonify(data)
+
+
+# --------------------------------------------------------------------------
+# Accountant Section (audit) — consolidated across ALL accessible companies,
+# trial balance + audit ledger by date / account / inputter / source.
+# --------------------------------------------------------------------------
+
+@app.get("/api/accountant/meta")
+@login_required
+def accountant_meta():
+    return jsonify(reports.audit_meta(db(), accessible_company_ids()))
+
+
+@app.get("/api/accountant/trial-balance")
+@login_required
+def accountant_trial_balance():
+    date_from, date_to = date_range_from_request()
+    data = reports.trial_balance(db(), accessible_company_ids(), date_from, date_to)
+    data.update(date_from=date_from, date_to=date_to)
+    return jsonify(data)
+
+
+@app.get("/api/accountant/ledger")
+@login_required
+def accountant_ledger():
+    date_from, date_to = date_range_from_request()
+    data = reports.audit_ledger(
+        db(), accessible_company_ids(), date_from, date_to,
+        code=(request.args.get("code") or None),
+        created_by=(request.args.get("user") or None),
+        source=(request.args.get("source") or None))
+    data.update(date_from=date_from, date_to=date_to)
     return jsonify(data)
 
 
@@ -1851,6 +1922,22 @@ def parse_wallet():
     return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
 
 
+@app.post("/api/bank/parse-cc")
+@role_required("admin", "finance")
+def parse_cc():
+    company_id = int(request.form.get("company_id"))
+    check_company_access(company_id)
+    f = request.files.get("file")
+    if f is None or not f.filename:
+        raise ValueError("No file uploaded")
+    if not f.filename.lower().endswith(".pdf"):
+        raise ValueError("Please upload the credit-card statement .pdf file")
+    txs, warnings, meta = bank_import.parse_cc_card(f.read())
+    _flag_duplicates(company_id, txs)
+    _resolve_suggested_accounts(company_id, txs)
+    return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
+
+
 @app.get("/api/bank/wallet-template")
 @login_required
 def wallet_template():
@@ -2079,6 +2166,67 @@ def delete_investment_event(eid):
     return jsonify({"ok": True})
 
 
+def _investment_access(iid):
+    row = db().execute("SELECT company_id FROM investments WHERE id=?", (iid,)).fetchone()
+    if not row:
+        raise ValueError("Investment not found")
+    check_company_access(row["company_id"])
+
+
+@app.put("/api/investments/<int:iid>/cm")
+@role_required("admin", "finance")
+def set_investment_cm(iid):
+    """Save the contribution-margin manual inputs for one investment."""
+    _investment_access(iid)
+    d = request.get_json(force=True)
+    db().execute(
+        "UPDATE investments SET cm_pic_cost=?, cm_other_cost=?, cm_total_benefit=? WHERE id=?",
+        (round(float(d.get("cm_pic_cost") or 0), 2), round(float(d.get("cm_other_cost") or 0), 2),
+         round(float(d.get("cm_total_benefit") or 0), 2), iid))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/investments/<int:iid>/comments")
+@login_required
+def list_investment_comments(iid):
+    _investment_access(iid)
+    rows = db().execute(
+        "SELECT id, author, body, created_at FROM investment_comments "
+        "WHERE investment_id=? ORDER BY id", (iid,)).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.post("/api/investments/<int:iid>/comments")
+@role_required("admin", "finance", "viewer")
+def add_investment_comment(iid):
+    _investment_access(iid)
+    d = request.get_json(force=True)
+    body = (d.get("body") or "").strip()
+    if not body:
+        raise ValueError("Comment cannot be empty")
+    author = (g.user["full_name"] or g.user["username"])
+    cur = db().execute(
+        "INSERT INTO investment_comments (investment_id, author, body) VALUES (?,?,?)",
+        (iid, author, body))
+    db().commit()
+    return jsonify({"id": cur.lastrowid, "author": author}), 201
+
+
+@app.delete("/api/investment-comments/<int:cid>")
+@role_required("admin", "finance")
+def delete_investment_comment(cid):
+    row = db().execute(
+        "SELECT i.company_id FROM investment_comments ic "
+        "JOIN investments i ON i.id = ic.investment_id WHERE ic.id=?", (cid,)).fetchone()
+    if not row:
+        raise ValueError("Comment not found")
+    check_company_access(row["company_id"])
+    db().execute("DELETE FROM investment_comments WHERE id=?", (cid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
 # --------------------------------------------------------------------------
 # Custom fields
 # --------------------------------------------------------------------------
@@ -2279,11 +2427,26 @@ def switch_database_api():
 # Users (admin)
 # --------------------------------------------------------------------------
 
+# left-nav routes a user may be granted; kept in sync with the frontend NAV_ITEMS
+MENU_ROUTES = {"dashboard", "projecthv", "journals", "bank", "receivables", "payables",
+               "budgets", "investments", "projects", "reports", "accountant", "settings"}
+
+
+def _clean_menu_access(val):
+    """Normalise menu_access to 'all' or a comma-separated list of valid routes."""
+    if val in (None, "", "all"):
+        return "all"
+    if isinstance(val, str):
+        val = [v.strip() for v in val.split(",")]
+    routes = [r for r in val if r in MENU_ROUTES]
+    return "all" if not routes else ",".join(sorted(set(routes)))
+
+
 @app.get("/api/users")
 @role_required("admin")
 def list_users():
     rows = db().execute(
-        "SELECT id, username, full_name, role, company_access, is_active, created_at"
+        "SELECT id, username, full_name, role, company_access, menu_access, is_active, created_at"
         " FROM users ORDER BY id").fetchall()
     return jsonify([dict(r) for r in rows])
 
@@ -2297,10 +2460,11 @@ def create_user():
     if d.get("role", "viewer") not in ("admin", "finance", "viewer"):
         raise ValueError("Invalid role")
     cur = db().execute(
-        "INSERT INTO users (username, password_hash, full_name, role, company_access)"
-        " VALUES (?,?,?,?,?)",
+        "INSERT INTO users (username, password_hash, full_name, role, company_access, menu_access)"
+        " VALUES (?,?,?,?,?,?)",
         (d["username"].strip(), generate_password_hash(d["password"]),
-         d.get("full_name", ""), d.get("role", "viewer"), d.get("company_access", "all")))
+         d.get("full_name", ""), d.get("role", "viewer"), d.get("company_access", "all"),
+         _clean_menu_access(d.get("menu_access"))))
     db().commit()
     return jsonify({"id": cur.lastrowid}), 201
 
@@ -2310,9 +2474,10 @@ def create_user():
 def update_user(uid):
     d = request.get_json(force=True)
     db().execute(
-        "UPDATE users SET full_name=?, role=?, company_access=?, is_active=? WHERE id=?",
+        "UPDATE users SET full_name=?, role=?, company_access=?, menu_access=?, is_active=? WHERE id=?",
         (d.get("full_name", ""), d.get("role", "viewer"),
-         d.get("company_access", "all"), 1 if d.get("is_active", True) else 0, uid))
+         d.get("company_access", "all"), _clean_menu_access(d.get("menu_access")),
+         1 if d.get("is_active", True) else 0, uid))
     if d.get("password"):
         db().execute("UPDATE users SET password_hash=? WHERE id=?",
                      (generate_password_hash(d["password"]), uid))

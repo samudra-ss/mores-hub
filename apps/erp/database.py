@@ -175,6 +175,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name TEXT NOT NULL DEFAULT '',
     role TEXT NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin','finance','viewer')),
     company_access TEXT NOT NULL DEFAULT 'all',
+    menu_access TEXT NOT NULL DEFAULT 'all',
     is_active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -279,7 +280,18 @@ CREATE TABLE IF NOT EXISTS investments (
     start_date TEXT,
     horizon_years INTEGER NOT NULL DEFAULT 3,
     committed_amount REAL NOT NULL DEFAULT 0,
-    linked_project_id INTEGER REFERENCES projects(id)
+    linked_project_id INTEGER REFERENCES projects(id),
+    cm_pic_cost REAL NOT NULL DEFAULT 0,
+    cm_other_cost REAL NOT NULL DEFAULT 0,
+    cm_total_benefit REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS investment_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
+    author TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS investment_events (
@@ -797,6 +809,13 @@ def _ensure_source_column(conn):
     conn.commit()
 
 
+def _add_column(conn, table, column, decl):
+    """Idempotently add a column to an existing table (additive migration)."""
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(%s)" % table)]
+    if column not in cols:
+        conn.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, column, decl))
+
+
 def migrate_database(conn):
     """Bring a single database to the current schema/data baseline. Idempotent —
     safe to run on every database on every startup."""
@@ -831,6 +850,18 @@ def migrate_database(conn):
         "id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,"
         "format_type TEXT NOT NULL DEFAULT 'csv', config_json TEXT NOT NULL DEFAULT '{}',"
         "created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE (name))")
+    # per-user menu visibility (which left-nav items a user may see); 'all' = every menu
+    _add_column(conn, "users", "menu_access", "TEXT NOT NULL DEFAULT 'all'")
+    # Investment Center — contribution-margin manual inputs per investment
+    for col in ("cm_pic_cost", "cm_other_cost", "cm_total_benefit"):
+        _add_column(conn, "investments", col, "REAL NOT NULL DEFAULT 0")
+    # Investment Center — per-user discussion comments
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS investment_comments ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,"
+        "author TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
     # drop the legacy holding first so the COA top-up only touches survivors
     remove_holding(conn)
     for r in conn.execute("SELECT id FROM companies").fetchall():

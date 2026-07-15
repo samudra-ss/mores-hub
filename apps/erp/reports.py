@@ -18,6 +18,9 @@ DEFAULT_THRESHOLDS = {
     "current_ratio": {"healthy": 1.5, "watch": 1.0, "dir": "high"},
     "dso_days": {"healthy": 60, "watch": 90, "dir": "low"},
     "salary_ratio": {"healthy": 0.55, "watch": 0.65, "dir": "low"},
+    # Investment Center — contribution margin = (PIC cost + other cost) / benefit.
+    # Lower is better (less cost per unit of benefit).
+    "cm_ratio": {"healthy": 0.40, "watch": 0.60, "dir": "low"},
 }
 
 
@@ -223,6 +226,7 @@ SOURCE_LABELS = {
     "monit_wallet": "Monit wallet / petty cash",
     "excel": "Excel import",
     "custom": "Custom format import",
+    "cc_card": "Credit card statement",
 }
 
 
@@ -307,6 +311,72 @@ def account_ledger(conn, company_ids, code, date_from, date_to):
         entries.append(d)
     return {"code": code, "name": name, "type": typ, "entries": entries,
             "total_debit": round(total_d, 2), "total_credit": round(total_c, 2)}
+
+
+def audit_ledger(conn, company_ids, date_from=None, date_to=None,
+                 code=None, created_by=None, source=None):
+    """Audit trail: every posted journal LINE with its account, source and the
+    user who input it (created_by), filterable by date / account code / inputter
+    / source. Consolidated across the given companies; intercompany lines are
+    NOT eliminated (an auditor wants to see everything)."""
+    ph, ids = _company_filter(company_ids)
+    where = ["je.status='posted'", "je.company_id IN (%s)" % ph]
+    params = list(ids)
+    if date_from:
+        where.append("je.date >= ?"); params.append(date_from)
+    if date_to:
+        where.append("je.date <= ?"); params.append(date_to)
+    if code:
+        where.append("a.code = ?"); params.append(code)
+    if source:
+        where.append("COALESCE(je.source,'manual') = ?"); params.append(source)
+    if created_by:
+        where.append("COALESCE(u.username,'—') = ?"); params.append(created_by)
+    rows = conn.execute(
+        """
+        SELECT je.date AS date, je.entry_no AS entry_no, je.description AS entry_desc,
+               je.reference AS reference, COALESCE(je.source,'manual') AS source,
+               je.created_at AS created_at, c.code AS company_code,
+               a.code AS acc_code, a.name AS acc_name, a.type AS acc_type,
+               COALESCE(u.username, '—') AS inputter, u.full_name AS inputter_name,
+               jl.debit AS debit, jl.credit AS credit, jl.description AS line_desc,
+               p.code AS project_code
+        FROM journal_lines jl
+        JOIN journal_entries je ON je.id = jl.entry_id
+        JOIN accounts a ON a.id = jl.account_id
+        JOIN companies c ON c.id = je.company_id
+        LEFT JOIN users u ON u.id = je.created_by
+        LEFT JOIN projects p ON p.id = jl.project_id
+        WHERE %s
+        ORDER BY je.date, je.entry_no, jl.id
+        """ % " AND ".join(where), params).fetchall()
+    lines, td, tc = [], 0.0, 0.0
+    for r in rows:
+        d = dict(r)
+        d["source_label"] = SOURCE_LABELS.get(d["source"], d["source"])
+        td += d["debit"] or 0
+        tc += d["credit"] or 0
+        lines.append(d)
+    return {"lines": lines, "total_debit": round(td, 2), "total_credit": round(tc, 2),
+            "count": len(lines)}
+
+
+def audit_meta(conn, company_ids):
+    """Filter options for the accountant/audit view: distinct inputters, the
+    account list (code + name) and the sources seen in the data."""
+    ph, ids = _company_filter(company_ids)
+    users = conn.execute(
+        "SELECT DISTINCT COALESCE(u.username,'—') AS u FROM journal_entries je "
+        "LEFT JOIN users u ON u.id = je.created_by WHERE je.company_id IN (%s) "
+        "ORDER BY u" % ph, ids).fetchall()
+    accounts = conn.execute(
+        "SELECT a.code AS code, MIN(a.name) AS name FROM journal_lines jl "
+        "JOIN journal_entries je ON je.id = jl.entry_id "
+        "JOIN accounts a ON a.id = jl.account_id WHERE je.company_id IN (%s) "
+        "GROUP BY a.code ORDER BY a.code" % ph, ids).fetchall()
+    return {"users": [r["u"] for r in users],
+            "accounts": [dict(r) for r in accounts],
+            "sources": [{"key": k, "label": v} for k, v in SOURCE_LABELS.items()]}
 
 
 def profit_and_loss(conn, company_ids, date_from, date_to, project_attribution=False):
@@ -843,7 +913,8 @@ def weekly_cash_flow(conn, company_ids, year):
     }
 
 
-def dashboard(conn, company_ids, year, thresholds=None, project_attribution=True):
+def dashboard(conn, company_ids, year, thresholds=None, project_attribution=True,
+              cash_codes=None):
     # project_attribution defaults ON for the dashboard: revenue & COGS follow
     # the project's company (management view). Cash / AR / AP / working capital
     # below stay by booking entity (the legal balance sheet).
@@ -855,8 +926,11 @@ def dashboard(conn, company_ids, year, thresholds=None, project_attribution=True
     bva = budget_vs_actual(conn, company_ids, year)
 
     balances = account_balances(conn, company_ids, None, date_to)
-    cash = round(sum(b["balance"] for b in balances
-                     if b["type"] == "asset" and b["code"].startswith("11")), 2)
+    # which accounts count as "Cash & Bank" — configurable in Settings (admin).
+    # cash_codes is a list of exact codes; None = every 11xx cash/bank account.
+    cset = set(cash_codes) if cash_codes else None
+    cash = round(sum(b["balance"] for b in balances if b["type"] == "asset"
+                     and (b["code"] in cset if cset is not None else b["code"].startswith("11"))), 2)
     ar = round(sum(b["balance"] for b in balances if b["code"] == "1200"), 2)
     ap = round(sum(b["balance"] for b in balances if b["code"] == "2100"), 2)
 
