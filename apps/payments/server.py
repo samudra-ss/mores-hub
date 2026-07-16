@@ -36,15 +36,30 @@ SECRET_FILE = os.path.join(BASE_DIR, ".secret_key")
 
 app = Flask(__name__, static_folder=None)
 
-if os.path.exists(SECRET_FILE):
+# Secret key resolution order: SECRET_KEY env (production hosts) -> .secret_key
+# file (local dev, git-ignored) -> generate one. Set SECRET_KEY on your host so
+# sessions survive restarts and redeploys.
+if os.environ.get("SECRET_KEY"):
+    app.secret_key = os.environ["SECRET_KEY"]
+elif os.path.exists(SECRET_FILE):
     app.secret_key = open(SECRET_FILE).read().strip()
 else:
     app.secret_key = secrets.token_hex(32)
-    with open(SECRET_FILE, "w") as f:
-        f.write(app.secret_key)
+    try:
+        with open(SECRET_FILE, "w") as f:
+            f.write(app.secret_key)
+    except OSError:
+        pass  # read-only filesystem (e.g. some PaaS) — env SECRET_KEY expected there
 
+# Production hardening, enabled with MP_ENV=production (i.e. served over HTTPS).
+IS_PROD = os.environ.get("MP_ENV") == "production"
 app.permanent_session_lifetime = timedelta(hours=12)
-app.config["MAX_CONTENT_LENGTH"] = 6 * 1024 * 1024  # 6 MB uploads
+app.config.update(
+    MAX_CONTENT_LENGTH=6 * 1024 * 1024,        # 6 MB uploads
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=IS_PROD,             # HTTPS-only cookies in production
+)
 
 ALLOWED_UPLOADS = {".jpg", ".jpeg", ".png", ".webp", ".pdf", ".svg"}
 CATEGORIES = ["meals", "transport", "lodging", "supplies", "events",
