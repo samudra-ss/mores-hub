@@ -1784,10 +1784,9 @@ async function pageBank(el) {
         description: t.tx_type || "transaction",
       };
       const bankLine = { account_id: bankAcc, description: (mode === "wallet" ? "Petty cash — ref " : mode === "cc" ? "Credit card — ref " : "Bank — ref ") + t.reference };
-      // A credit-card PURCHASE is booked reversed: DEBIT the card account (1170)
-      // and CREDIT the expense account — the opposite of a normal money-out line.
-      const ccPurchase = mode === "cc" && !t.internal;
-      const lines = (t.direction === "in" || ccPurchase)
+      // A credit-card PURCHASE books DEBIT the expense account · CREDIT the card
+      // account (1170) — the expense side is the debit, the card is the credit.
+      const lines = t.direction === "in"
         ? [Object.assign({}, bankLine, { debit: t.amount, credit: 0 }),
            Object.assign({}, contra, { debit: 0, credit: t.amount })]
         : [Object.assign({}, contra, { debit: t.amount, credit: 0 }),
