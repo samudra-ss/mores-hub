@@ -188,6 +188,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #aee2e9; border-c
 .kpi.green .kpi-value { color: var(--green); }
 .kpi.red .kpi-value { color: var(--red); }
 .kpi.amber .kpi-value { color: var(--amber); }
+/* highlighted KPI — teal accent (e.g. Cash & Bank) */
+.kpi.hl { border-color: var(--teal); background: rgba(0,162,182,.07);
+  box-shadow: 0 0 0 1px var(--teal) inset, 0 8px 22px rgba(0,162,182,.14); }
+.kpi.hl .kpi-value { color: var(--teal); }
+html[data-theme="dark"] .kpi.hl { background: rgba(0,162,182,.12); }
 
 /* dashboard warning banner */
 .warn-banner { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }

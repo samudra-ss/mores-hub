@@ -1202,6 +1202,19 @@ def report_dashboard():
     return jsonify(data)
 
 
+@app.get("/api/reports/account-monthly")
+@login_required
+def report_account_monthly():
+    ids, label = scope_from_request()
+    code = (request.args.get("code") or "").strip()
+    if not code:
+        raise ValueError("code is required")
+    data = reports.account_monthly(db(), ids, year_param(), code,
+                                   project_attribution=_attribution_from_request(True))
+    data["scope"] = label
+    return jsonify(data)
+
+
 # --------------------------------------------------------------------------
 # Accountant Section (audit) — consolidated across ALL accessible companies,
 # trial balance + audit ledger by date / account / inputter / source.

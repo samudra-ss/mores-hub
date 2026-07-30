@@ -107,6 +107,7 @@ STANDARD_COA = [
     ("1110", "Cash on Hand", "asset", "1100", 0),
     ("1120", "Bank Accounts", "asset", "1100", 0),
     ("1130", "Petty Cash Monit", "asset", "1100", 0),
+    ("1170", "CC BCA VISA CARD", "asset", "1100", 0),
     ("1200", "Accounts Receivable", "asset", "1000", 0),
     ("1300", "Inventory", "asset", "1000", 0),
     ("1400", "Prepaid Expenses", "asset", "1000", 0),

@@ -507,16 +507,67 @@ def budget_vs_actual(conn, company_ids, year):
     }
 
 
+def account_monthly(conn, company_ids, year, code, project_attribution=False):
+    """12-month realization vs budget for ONE account code — backs the
+    click-through chart on the dashboard expense breakdown. Actuals honour
+    project attribution (to match the dashboard); budgets are per company."""
+    ph, ids = _company_filter(company_ids)
+    ic = " AND a.is_intercompany = 0" if _consolidated(company_ids) else ""
+    company_col = _ATTRIB_COMPANY if project_attribution else "je.company_id"
+    proj_join = "LEFT JOIN projects p ON p.id = jl.project_id" if project_attribution else ""
+    arows = conn.execute(
+        """
+        SELECT CAST(strftime('%%m', je.date) AS INTEGER) AS month, a.type,
+               SUM(jl.debit - jl.credit) AS dr_net
+        FROM journal_lines jl
+        JOIN journal_entries je ON je.id = jl.entry_id
+        JOIN accounts a ON a.id = jl.account_id
+        %s
+        WHERE je.status='posted' AND %s IN (%s) AND a.code = ?
+          AND strftime('%%Y', je.date) = ?%s
+        GROUP BY month, a.type
+        """ % (proj_join, company_col, ph, ic),
+        ids + [code, str(year)]).fetchall()
+    typ = None
+    actual_months = [0.0] * 12
+    for r in arows:
+        typ = r["type"]
+        actual_months[r["month"] - 1] = round(SIGN.get(r["type"], 1) * (r["dr_net"] or 0), 2)
+    brows = conn.execute(
+        """
+        SELECT b.month, SUM(b.amount) AS amount FROM budgets b
+        JOIN accounts a ON a.id = b.account_id
+        WHERE b.company_id IN (%s) AND b.year = ? AND b.project_id IS NULL AND a.code = ?
+        GROUP BY b.month
+        """ % ph, ids + [year, code]).fetchall()
+    budget_months = [0.0] * 12
+    for r in brows:
+        budget_months[r["month"] - 1] = round(r["amount"] or 0, 2)
+    nm = conn.execute(
+        "SELECT MIN(name) AS n FROM accounts WHERE code = ? AND company_id IN (%s)" % ph,
+        [code] + ids).fetchone()
+    return {"code": code, "name": (nm["n"] if nm and nm["n"] else code), "type": typ,
+            "actual_months": actual_months, "budget_months": budget_months,
+            "actual_total": round(sum(actual_months), 2), "budget_total": round(sum(budget_months), 2)}
+
+
 def project_budget_vs_actual(conn, company_id, project_id, year):
-    """Per-account budget vs actual for a single project in one company/year."""
+    """Per-account budget vs actual for a single project in one year.
+
+    Attributed by PROJECT (not the bookkeeping entity): a project's revenue/COGS
+    is summed from every journal line tagged to it, no matter which company
+    booked the cash — so the project company's real realization shows even when
+    the money landed in another entity. project_id is globally unique, so the
+    company_id argument is only used by the caller's tenant guard.
+    """
     budgets = conn.execute(
         """
         SELECT a.code, MIN(a.name) AS name, a.type, b.month, SUM(b.amount) AS amount
         FROM budgets b JOIN accounts a ON a.id = b.account_id
-        WHERE b.company_id = ? AND b.year = ? AND b.project_id = ?
+        WHERE b.year = ? AND b.project_id = ?
         GROUP BY a.code, a.type, b.month
         """,
-        (company_id, year, project_id),
+        (year, project_id),
     ).fetchall()
     actuals = conn.execute(
         """
@@ -526,11 +577,11 @@ def project_budget_vs_actual(conn, company_id, project_id, year):
         FROM journal_lines jl
         JOIN journal_entries je ON je.id = jl.entry_id
         JOIN accounts a ON a.id = jl.account_id
-        WHERE je.status='posted' AND je.company_id = ? AND jl.project_id = ?
+        WHERE je.status='posted' AND jl.project_id = ?
           AND strftime('%Y', je.date) = ? AND a.type IN ('revenue','expense')
         GROUP BY a.code, a.type, month
         """,
-        (company_id, project_id, str(year)),
+        (project_id, str(year)),
     ).fetchall()
 
     acc = {}
@@ -574,17 +625,20 @@ def project_performance(conn, company_ids, year):
         JOIN accounts a ON a.id = jl.account_id
         JOIN projects p ON p.id = jl.project_id
         JOIN companies c ON c.id = p.company_id
-        WHERE je.status='posted' AND je.company_id IN (%s)
+        WHERE je.status='posted' AND p.company_id IN (%s)
           AND strftime('%%Y', je.date) = ? AND a.type IN ('revenue','expense')
         GROUP BY p.id, a.type
         """ % ph,
         ids + [str(year)],
     ).fetchall()
+    # scope projects by the PROJECT's company (not where the entry was booked),
+    # so a project's realization follows its owning company like the actuals do
     budgets = conn.execute(
         """
         SELECT b.project_id, SUM(b.amount) AS amount, a.type
         FROM budgets b JOIN accounts a ON a.id = b.account_id
-        WHERE b.company_id IN (%s) AND b.year = ? AND b.project_id IS NOT NULL
+        JOIN projects p ON p.id = b.project_id
+        WHERE p.company_id IN (%s) AND b.year = ? AND b.project_id IS NOT NULL
         GROUP BY b.project_id, a.type
         """ % ph,
         ids + [year],

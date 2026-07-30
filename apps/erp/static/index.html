@@ -67,6 +67,14 @@ nav.top img { height: 30px; width: auto; display: block; }
 .card .ic { font-size: 19px; color: var(--teal-bright); margin-bottom: 12px; display: block; }
 .card h3 { font-size: 15.5px; font-weight: 700; color: #eef1f3; margin-bottom: 7px; }
 .card p { color: #8b95a0; font-size: 13.5px; line-height: 1.55; }
+/* brand quote (replaces the feature grid) */
+.quote-sec { padding: 40px 7vw 72px; position: relative; z-index: 2; max-width: 1080px; }
+.quote { margin: 0; padding: 40px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center; }
+.quote .q-latin { font-family: "Chakra Petch", sans-serif; font-weight: 700; font-style: italic;
+  font-size: clamp(26px, 4.5vw, 46px); letter-spacing: -.5px; line-height: 1.15;
+  color: var(--teal-bright); margin: 0; }
+.quote .q-en { color: #8b95a0; font-size: clamp(13px, 1.6vw, 16px); letter-spacing: .04em; margin: 14px 0 0; }
+.foot .ver { font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em; color: #7a828b; }
 .foot { padding: 22px 7vw; color: #5d6168; font-size: 12.5px; border-top: 1px solid var(--line); position: relative; z-index: 2; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .foot .cuan { font-family: "Chakra Petch", sans-serif; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7fd3dd; }
 /* login popup */
@@ -117,26 +125,16 @@ nav.top img { height: 30px; width: auto; display: block; }
     <div class="meta" id="heroMeta">Secure sign-in · Admin · Accountant · Viewer/Auditor roles</div>
   </header>
 
-  <section class="features" id="features">
-    <h2>What&rsquo;s inside</h2>
-    <div class="grid">
-      <div class="card"><span class="ic">&#9638;</span><h3>Consolidated Dashboard</h3>
-        <p>Revenue, expense, office cost, cash flow and budget use — per company or for the whole group.</p></div>
-      <div class="card"><span class="ic">&#9678;</span><h3>Budgets vs Realization</h3>
-        <p>Plan per account and per project; track realization against budget with variance and % used.</p></div>
-      <div class="card"><span class="ic">&#9673;</span><h3>Project HV</h3>
-        <p>Gain vs budget per project, three-year trends, and side-by-side two-project comparison.</p></div>
-      <div class="card"><span class="ic">&#8644;</span><h3>Account Parsing</h3>
-        <p>Paste receipts or upload mutasi-rekening CSV / e-statement PDF / wallet Excel / custom formats, then book to accounts.</p></div>
-      <div class="card"><span class="ic">&#9636;</span><h3>Statements &amp; Export</h3>
-        <p>P&amp;L, Balance Sheet, Trial Balance, Cash Flow — export to Excel and PDF, with charts.</p></div>
-      <div class="card"><span class="ic">&#10022;</span><h3>Investment Analysis</h3>
-        <p>Track long-horizon initiatives — scholarships, R&amp;D, partnerships — with ROI and payback.</p></div>
-    </div>
+  <section class="quote-sec" id="features">
+    <blockquote class="quote">
+      <p class="q-latin">&ldquo;Audentes fortuna iuvat&rdquo;</p>
+      <p class="q-en">Fortune favors the brave.</p>
+    </blockquote>
   </section>
 
   <div class="foot">
     <span>PT Mores Data Analitika · Sibernetika MA · Mores Lintas Teknika · Kultura Media Antara · Modus Reform Studio</span>
+    <span class="ver">Version 1.02 · updated 30 July 2026</span>
     <span class="cuan">More More Cuan</span>
   </div>
 

@@ -665,9 +665,9 @@ async function pageDashboard(el) {
       ${kpiv(t("Cash Buffer"), fmtMonths(k.cash_buffer_months), st("cash_buffer_months"), `target ≥ ${fmtMonths((hb.cash_buffer_months || {}).target)}`)}
       ${kpiv(t("DSO"), fmtDays(k.dso_days), st("dso_days"), `target ≤ ${fmtDays((hb.dso_days || {}).target)}`)}
       ${kpiv(t("Current Ratio"), fmtRatio(k.current_ratio), st("current_ratio"), `target ≥ ${fmtRatio((hb.current_ratio || {}).target)}`)}
-      ${kpi(t("Working Capital · Today"), k.working_capital, k.working_capital >= 0 ? "green" : "red",
+      ${kpi(t("Working Capital · Today"), k.working_capital, "",
         `as of ${d.as_of} · CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`)}
-      ${kpi(t("Cash & Bank"), k.cash_balance)}
+      ${kpi(t("Cash & Bank"), k.cash_balance, "hl")}
       ${kpi(t("Receivables"), k.accounts_receivable)}
       ${kpi(t("Payables"), k.accounts_payable)}
       <div class="kpi ${bvaPct != null && bvaPct > 100 ? "red" : ""}">
@@ -695,11 +695,12 @@ async function pageDashboard(el) {
           <thead><tr><th>Account</th><th class="num">Realization</th><th class="num">Budget</th><th class="num">Used</th></tr></thead>
           <tbody>${opexRows.map(r => {
             const used = r.budget ? Math.round(100 * r.actual / r.budget) : null;
-            return `<tr><td>${esc(r.code)} ${esc(r.name)}</td>
+            return `<tr><td><a href="#" class="opex-code" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.code)} ${esc(r.name)}</a></td>
               <td class="num">${fmt(r.actual)}</td>
               <td class="num muted">${fmt(r.budget)}</td>
               <td class="num ${used != null && used > 100 ? "neg" : ""}">${used == null ? "—" : used + "%"}</td></tr>`;
-          }).join("") || `<tr><td colspan="4" class="empty">No operating expenses</td></tr>`}</tbody></table></div>
+          }).join("") || `<tr><td colspan="4" class="empty">No operating expenses</td></tr>`}</tbody></table>
+          <p class="muted mt" style="font-size:12px">Click an account to see its month-by-month realization vs budget.</p></div>
       </div>
     </div>
     <div class="card mt"><h3>${t("C-AKUN (7300) — Budget vs Realization")}
@@ -806,6 +807,30 @@ async function pageDashboard(el) {
   });
   $$("#content tr[data-proj]").forEach(tr => tr.onclick = () =>
     dashProjectDetail(tr.dataset.proj, tr.dataset.company, tr.dataset.name));
+  $$("#content .opex-code").forEach(a => a.onclick = e => {
+    e.preventDefault(); accountMonthlyModal(a.dataset.code, a.dataset.name);
+  });
+}
+
+async function accountMonthlyModal(code, name) {
+  try {
+    const d = await api(`/api/reports/account-monthly?${scopeQS()}&attribution=${state.dashAttr || "project"}&code=${encodeURIComponent(code)}`);
+    const used = d.budget_total ? Math.round(100 * d.actual_total / d.budget_total) : null;
+    openModal(`
+      <div class="muted" style="margin-top:-4px">${esc(d.scope)} · ${state.year} · realization vs budget by month</div>
+      <div class="grid kpis mt">
+        <div class="kpi"><div class="kpi-label">Realization YTD</div><div class="kpi-value">${fmtShortRp(d.actual_total)}</div></div>
+        <div class="kpi"><div class="kpi-label">Budget</div><div class="kpi-value">${fmtShortRp(d.budget_total)}</div></div>
+        <div class="kpi ${used != null && used > 100 ? "red" : ""}"><div class="kpi-label">Used</div>
+          <div class="kpi-value">${used == null ? "—" : used + "%"}</div></div>
+      </div>
+      ${chartBars(MONTH_NAMES, [
+        { name: "Budget", color: "#c87a08", values: d.budget_months },
+        { name: "Realization", color: C_REV, values: d.actual_months },
+      ], { height: 280, valueLabels: false })}
+      <p class="muted mt" style="font-size:12px">Realization follows the ${(state.dashAttr || "project") === "project" ? "project company (management)" : "booking entity (legal)"} view — same as the dashboard toggle.</p>`,
+      { title: `${code} — ${name}` });
+  } catch (e) { toast(e.message, true); }
 }
 
 const round2 = n => Math.round((n || 0) * 100) / 100;
@@ -1538,8 +1563,8 @@ async function pageBank(el) {
       (a.type === "asset" && a.code.startsWith("11")) ||
       (mode === "cc" && a.type === "liability"));
     // configurable default cash/bank contra account (Settings); wallet keeps
-    // Petty Cash Monit, everything else falls back to the saved default or 1120
-    const cashDefault = mode === "wallet" ? "1130" : (bankCfg.default_cash_code || "1120");
+    // Petty Cash Monit, CC card defaults to 1170 (CC BCA VISA CARD)
+    const cashDefault = mode === "wallet" ? "1130" : mode === "cc" ? "1170" : (bankCfg.default_cash_code || "1120");
     const has = banks.some(a => a.code === cashDefault);
     $("#bkBank").innerHTML = banks.map(a =>
       `<option value="${a.id}" ${a.code === (has ? cashDefault : "1120") ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("");
@@ -1630,9 +1655,9 @@ async function pageBank(el) {
       (mode === "cc" && a.type === "liability"));
     $("#bkBank").innerHTML = banks.map(a =>
       `<option value="${a.id}">${esc(a.code)} ${esc(a.name)}</option>`).join("");
-    // default the cash side: Petty Cash Monit for wallet, else the configured
-    // default cash/bank account (falls back to Bank 1120)
-    const wantCode = mode === "wallet" ? "1130" : (bankCfg.default_cash_code || "1120");
+    // default the cash side: Petty Cash Monit for wallet, CC BCA VISA CARD for
+    // credit card, else the configured default cash/bank account (falls back to 1120)
+    const wantCode = mode === "wallet" ? "1130" : mode === "cc" ? "1170" : (bankCfg.default_cash_code || "1120");
     let opt = Array.from($("#bkBank").options).find(o => o.textContent.trim().startsWith(wantCode + " "));
     if (!opt && mode !== "wallet") opt = Array.from($("#bkBank").options).find(o => o.textContent.trim().startsWith("1120 "));
     if (opt) $("#bkBank").value = opt.value;
@@ -1759,7 +1784,10 @@ async function pageBank(el) {
         description: t.tx_type || "transaction",
       };
       const bankLine = { account_id: bankAcc, description: (mode === "wallet" ? "Petty cash — ref " : mode === "cc" ? "Credit card — ref " : "Bank — ref ") + t.reference };
-      const lines = t.direction === "in"
+      // A credit-card PURCHASE is booked reversed: DEBIT the card account (1170)
+      // and CREDIT the expense account — the opposite of a normal money-out line.
+      const ccPurchase = mode === "cc" && !t.internal;
+      const lines = (t.direction === "in" || ccPurchase)
         ? [Object.assign({}, bankLine, { debit: t.amount, credit: 0 }),
            Object.assign({}, contra, { debit: 0, credit: t.amount })]
         : [Object.assign({}, contra, { debit: t.amount, credit: 0 }),
