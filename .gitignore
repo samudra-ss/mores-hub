@@ -38,3 +38,5 @@ data/*.db
 
 # Claude Code local tooling config
 .claude/
+.agents/
+skills-lock.json
