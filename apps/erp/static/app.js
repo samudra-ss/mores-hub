@@ -399,6 +399,19 @@ const TR = {
   "Contribution Margin": "Margin Kontribusi",
   "Entries": "Entri", "Discussion": "Diskusi",
   "Add a comment for the team…": "Tambahkan komentar untuk tim…", "Post": "Kirim",
+  // Money Tracker
+  "Money Tracker": "Pelacak Uang", "invoicing process per project": "proses penagihan per proyek",
+  "New invoice track": "Tagihan Baru", "Total tracked": "Total Dilacak", "In process": "Dalam Proses",
+  "Received": "Diterima", "Current phase": "Fase Saat Ini", "Progress": "Progres",
+  "Mark done / advance phase": "Tandai selesai / lanjut fase", "or jump to": "atau lompat ke",
+  "Move": "Pindah", "Phase history": "Riwayat Fase", "Phase": "Fase", "Plan": "Rencana",
+  "Entered": "Masuk", "Est. end": "Perkiraan Selesai", "Completed": "Selesai", "Project": "Proyek",
+  "Notes": "Catatan", "Notes & context for this phase": "Catatan & konteks fase ini",
+  "No notes for this phase yet.": "Belum ada catatan untuk fase ini.",
+  "Add context for this phase…": "Tambah konteks untuk fase ini…", "Add": "Tambah",
+  "Comments": "Komentar", "Write a message…": "Tulis pesan…", "Add comment": "Kirim Komentar",
+  "Project status": "Status Proyek", "Active": "Aktif", "On hold": "Ditahan",
+  "Cancelled": "Dibatalkan", "Done": "Selesai", "Project cancelled": "Proyek Dibatalkan",
   // Accountant section
   "Accountant Section": "Bagian Akuntan",
   "audit view · all companies": "tampilan audit · semua perusahaan",
@@ -466,7 +479,8 @@ const NAV_ITEMS = [
   ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Account Parsing"],
   ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
   ["budgets", "◎", "Budgets"], ["investments", "✦", "Investment Center"],
-  ["projects", "△", "Projects"], ["reports", "▤", "Reports"],
+  ["projects", "△", "Projects"], ["money", "◈", "Money Tracker"],
+  ["reports", "▤", "Reports"],
   ["accountant", "⚖", "Accountant Section"],
   ["settings", "⚙", "Settings"],
 ];
@@ -588,8 +602,8 @@ function renderCompanyChoice() {
 const routes = {
   dashboard: pageDashboard, projecthv: pageProjectHV, journals: pageJournals,
   bank: pageBank, receivables: pageReceivables, payables: pagePayables, budgets: pageBudgets,
-  investments: pageInvestments, projects: pageProjects, reports: pageReports,
-  accountant: pageAccountant, settings: pageSettings,
+  investments: pageInvestments, projects: pageProjects, money: pageMoneyTracker,
+  reports: pageReports, accountant: pageAccountant, settings: pageSettings,
 };
 const INV_CATEGORIES = {
   scholarship: "Scholarship", partnership: "Partnership", rnd: "R&D",
@@ -639,6 +653,27 @@ async function pageDashboard(el) {
   const caktActual = round2(caktRows.reduce((a, r) => a + r.actual, 0));
   const caktBudget = round2(caktRows.reduce((a, r) => a + r.budget, 0));
   const caktUsed = caktBudget ? Math.round(100 * caktActual / caktBudget) : null;
+  // company-information resume tiles — admins choose which show (Settings →
+  // Dashboard). d.kpi_visible is the allow-list of keys; null/empty = show all.
+  const KPI_TILES = [
+    ["revenue_ytd", kpi(t("Revenue YTD"), k.revenue_ytd)],
+    ["net_profit", kpi(t("Net Profit"), k.net_profit_ytd, k.net_profit_ytd >= 0 ? "green" : "red", `Margin ${k.margin_pct}%`)],
+    ["gross_margin", kpiv(t("Gross Margin"), fmtPct(k.gross_margin), st("gross_margin"), `target ≥ ${fmtPct((hb.gross_margin || {}).target)}`)],
+    ["operating_profit", kpi(t("Operating Profit"), k.operating_profit, k.operating_profit >= 0 ? "green" : "red")],
+    ["cash_buffer", kpiv(t("Cash Buffer"), fmtMonths(k.cash_buffer_months), st("cash_buffer_months"), `target ≥ ${fmtMonths((hb.cash_buffer_months || {}).target)}`)],
+    ["dso", kpiv(t("DSO"), fmtDays(k.dso_days), st("dso_days"), `target ≤ ${fmtDays((hb.dso_days || {}).target)}`)],
+    ["current_ratio", kpiv(t("Current Ratio"), fmtRatio(k.current_ratio), st("current_ratio"), `target ≥ ${fmtRatio((hb.current_ratio || {}).target)}`)],
+    ["working_capital", kpi(t("Working Capital · Today"), k.working_capital, "", `as of ${d.as_of} · CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`)],
+    ["cash_bank", kpi(t("Cash & Bank"), k.cash_balance, "hl")],
+    ["receivables", kpi(t("Receivables"), k.accounts_receivable)],
+    ["payables", kpi(t("Payables"), k.accounts_payable)],
+    ["budget_used", `<div class="kpi ${bvaPct != null && bvaPct > 100 ? "red" : ""}">
+        <div class="kpi-label">${t("Budget Used")}</div>
+        <div class="kpi-value">${bvaPct == null ? "n/a" : bvaPct + "%"}</div>
+        <div class="kpi-sub">of ${fmtShortRp(k.budget_expense)} expense budget</div></div>`],
+  ];
+  const kpiVisible = (d.kpi_visible && d.kpi_visible.length) ? new Set(d.kpi_visible) : null;
+  const kpiGrid = KPI_TILES.filter(([key]) => !kpiVisible || kpiVisible.has(key)).map(([, html]) => html).join("");
   el.innerHTML = `
     <div class="page-head"><h2>${t("Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}${d.last_input ? ` · ${t("Last input")}: <b>${esc(fmtInputStamp(d.last_input.created_at))}</b>${d.last_input.ref ? ` (${esc(d.last_input.ref)})` : ""}` : ""}</span></h2>
       <div class="page-actions" style="gap:14px;flex-wrap:wrap">
@@ -657,25 +692,7 @@ async function pageDashboard(el) {
         <span class="warn-ic">${w.level === "danger" ? "⚠" : "›"}</span>
         <span><b>${esc(w.title)}</b> — ${esc(w.detail)}${w.amount ? ` <b>${fmtRp(w.amount)}</b>` : ""}</span></div>`).join("")}
     </div>` : ""}
-    <div class="grid kpis">
-      ${kpi(t("Revenue YTD"), k.revenue_ytd)}
-      ${kpi(t("Net Profit"), k.net_profit_ytd, k.net_profit_ytd >= 0 ? "green" : "red", `Margin ${k.margin_pct}%`)}
-      ${kpiv(t("Gross Margin"), fmtPct(k.gross_margin), st("gross_margin"), `target ≥ ${fmtPct((hb.gross_margin || {}).target)}`)}
-      ${kpi(t("Operating Profit"), k.operating_profit, k.operating_profit >= 0 ? "green" : "red")}
-      ${kpiv(t("Cash Buffer"), fmtMonths(k.cash_buffer_months), st("cash_buffer_months"), `target ≥ ${fmtMonths((hb.cash_buffer_months || {}).target)}`)}
-      ${kpiv(t("DSO"), fmtDays(k.dso_days), st("dso_days"), `target ≤ ${fmtDays((hb.dso_days || {}).target)}`)}
-      ${kpiv(t("Current Ratio"), fmtRatio(k.current_ratio), st("current_ratio"), `target ≥ ${fmtRatio((hb.current_ratio || {}).target)}`)}
-      ${kpi(t("Working Capital · Today"), k.working_capital, "",
-        `as of ${d.as_of} · CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`)}
-      ${kpi(t("Cash & Bank"), k.cash_balance, "hl")}
-      ${kpi(t("Receivables"), k.accounts_receivable)}
-      ${kpi(t("Payables"), k.accounts_payable)}
-      <div class="kpi ${bvaPct != null && bvaPct > 100 ? "red" : ""}">
-        <div class="kpi-label">${t("Budget Used")}</div>
-        <div class="kpi-value">${bvaPct == null ? "n/a" : bvaPct + "%"}</div>
-        <div class="kpi-sub">of ${fmtShortRp(k.budget_expense)} expense budget</div>
-      </div>
-    </div>
+    <div class="grid kpis">${kpiGrid}</div>
     <div class="grid two-col">
       <div class="card"><h3>${t("Monthly Revenue vs Expense — IDR")} (${state.year})</h3>
         ${chartBars(MONTH_NAMES, [
@@ -2919,6 +2936,259 @@ async function pageReports(el) {
 }
 
 /* ------------------------------------------------------------------ settings */
+/* ------------------------------------------------------------------ money tracker */
+// pipeline state -> pill class for the stage history table
+const MT_STATE_PILL = { completed: "posted", current: "active", pending: "inactive", skipped: "draft" };
+const MT_STATUS_PILL = { active: "active", done: "posted", on_hold: "draft", cancelled: "inactive" };
+
+async function pageMoneyTracker(el) {
+  el.innerHTML = `
+    <div class="page-head"><h2>${t("Money Tracker")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("invoicing process per project")}</span></h2>
+      <div class="page-actions">
+        ${canWrite() ? `<button class="btn btn-primary" id="mtNew">+ ${t("New invoice track")}</button>` : ""}
+      </div></div>
+    <div id="mtBody"><div class="empty">Loading…</div></div>`;
+  const load = async () => {
+    const d = await api(`/api/money-tracker?${scopeQS()}`);
+    $("#scopeBadge").textContent = d.scope;
+    const rows = d.items.map(m => {
+      const name = m.project_code ? `${esc(m.project_code)} — ${esc(m.project_name || "")}` : esc(m.title || "—");
+      return `<tr data-id="${m.id}" style="cursor:pointer">
+        <td><b>${name}</b>${m.title && m.project_code ? `<br><span class="muted">${esc(m.title)}</span>` : ""}</td>
+        <td>${esc(m.company_code)}</td>
+        <td>${esc(m.client || "")}<br><span class="muted">${esc(m.invoice_no || "")}</span></td>
+        <td class="num"><b>${fmt(m.amount)}</b></td>
+        <td style="min-width:190px">
+          <div><span class="pill ${MT_STATE_PILL[m.status === "done" ? "completed" : "current"]}">${esc(m.phase_label)}</span>
+            <span class="muted" style="font-size:11.5px"> ${esc(m.phase_name)}</span></div>
+          <div class="bar" style="margin-top:5px"><span style="width:${m.progress_pct}%"></span></div>
+          <span class="muted" style="font-size:11px">${m.phase_index}/${m.phase_total} · ${m.progress_pct}%</span>
+        </td>
+        <td><span class="pill ${MT_STATUS_PILL[m.status] || "inactive"}">${esc(m.status.replace("_", " "))}</span></td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="6" class="empty">No invoice tracks yet — add one to follow a project's money from contract to payment.</td></tr>`;
+    $("#mtBody").innerHTML = `
+      <div class="grid kpis">
+        <div class="kpi"><div class="kpi-label">${t("Total tracked")}</div><div class="kpi-value">${fmtShortRp(d.total_amount)}</div>
+          <div class="kpi-sub">${d.items.length} invoice track(s)</div></div>
+        <div class="kpi hl"><div class="kpi-label">${t("In process")}</div><div class="kpi-value">${fmtShortRp(d.outstanding)}</div>
+          <div class="kpi-sub">${d.count_active} still moving</div></div>
+        <div class="kpi green"><div class="kpi-label">${t("Received")}</div><div class="kpi-value">${fmtShortRp(d.received)}</div>
+          <div class="kpi-sub">clear &amp; clear</div></div>
+      </div>
+      <div class="card mt"><div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>${t("Project")}</th><th>Co.</th><th>${t("Client")} / ${t("Invoice")}</th>
+          <th class="num">${t("Amount")}</th><th>${t("Current phase")}</th><th>${t("Status")}</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+        <p class="muted mt">Click a row to open the phase pipeline — Pre-administration → Contract → Ongoing → Reports → SPM → SPP → Approval → KASDA → SP2D → Done.</p>
+      </div>`;
+    $$("#mtBody tr[data-id]").forEach(tr => tr.onclick = () => moneyTrackerDetail(tr.dataset.id, load));
+  };
+  if ($("#mtNew")) $("#mtNew").onclick = () => moneyTrackerEditor(null, load);
+  await load();
+}
+
+function mtStepper(history) {
+  // arrow between phases; the arrow is teal once that phase is behind us
+  return `<div class="mt-steps">${history.map((h, i) => {
+    const cls = h.state === "completed" ? "done" : h.state === "current" ? "cur" : "";
+    const mark = h.state === "completed" ? "&#10003;" : h.no;
+    const step = `<div class="mt-step ${cls}" title="${esc(h.name)}">
+      <div class="mt-dot">${mark}</div>
+      <div class="mt-cap"><b>${esc(h.label)}</b><br>${esc(h.name)}</div></div>`;
+    const arrow = i < history.length - 1
+      ? `<div class="mt-line ${h.state === "completed" ? "passed" : ""}"></div>` : "";
+    return step + arrow;
+  }).join("")}</div>`;
+}
+
+function mtComments(list, opts = {}) {
+  if (!list.length) return `<p class="muted" style="font-size:12.5px;margin:6px 0">${opts.empty || "No comments yet."}</p>`;
+  return list.map(c => `<div class="mt-cmt">
+    <div class="who"><b>${esc(c.author || "—")}</b>
+      <span class="when">${esc(fmtInputStamp(c.created_at))}
+        ${canWrite() ? `<a href="#" class="mt-cdel" data-cid="${c.id}" style="margin-left:8px">delete</a>` : ""}</span></div>
+    <div class="txt">${esc(c.body)}</div></div>`).join("");
+}
+
+async function moneyTrackerDetail(tid, reload) {
+  const [m, comments] = await Promise.all([
+    api("/api/money-tracker/" + tid),
+    api(`/api/money-tracker/${tid}/comments`).catch(() => []),
+  ]);
+  const general = comments.filter(c => !c.phase_key);
+  const byPhase = {};
+  comments.filter(c => c.phase_key).forEach(c => { (byPhase[c.phase_key] = byPhase[c.phase_key] || []).push(c); });
+  const name = m.project_code ? `${m.project_code} — ${m.project_name || ""}` : (m.title || "Invoice track");
+  openModal(`
+    <div class="muted" style="margin-top:-4px">${esc(m.company_code)}${m.client ? " · " + esc(m.client) : ""}
+      ${m.invoice_no ? " · invoice " + esc(m.invoice_no) : ""}${m.started_at ? " · started " + esc(m.started_at) : ""}</div>
+    <div class="grid kpis mt">
+      <div class="kpi"><div class="kpi-label">${t("Amount")}</div><div class="kpi-value">${fmtShortRp(m.amount)}</div></div>
+      <div class="kpi hl"><div class="kpi-label">${t("Current phase")}</div><div class="kpi-value" style="font-size:16px">${esc(m.phase_label)}</div>
+        <div class="kpi-sub">${esc(m.phase_name)}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Progress")}</div><div class="kpi-value">${m.progress_pct}%</div>
+        <div class="kpi-sub">${m.phase_index} of ${m.phase_total}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Status")}</div><div class="kpi-value" style="font-size:16px">
+        <span class="pill ${MT_STATUS_PILL[m.status] || "inactive"}">${esc(m.status.replace("_", " "))}</span></div></div>
+    </div>
+    ${m.status !== "active" && m.cancel_reason ? `<div class="warn ${m.status === "cancelled" ? "danger" : "watch"}" style="margin-top:10px">
+      <span class="warn-ic">${m.status === "cancelled" ? "⚠" : "›"}</span>
+      <span><b>${m.status === "cancelled" ? t("Project cancelled") : t("On hold")}</b> — ${esc(m.cancel_reason)}</span></div>` : ""}
+    ${canWrite() ? `<div class="filters" style="margin-top:10px">
+      <label class="muted">${t("Project status")}</label>
+      <div class="seg-group" id="mtStatusSeg">
+        <button class="seg ${m.status === "active" ? "active" : ""}" data-st="active">${t("Active")}</button>
+        <button class="seg ${m.status === "on_hold" ? "active" : ""}" data-st="on_hold">${t("On hold")}</button>
+        <button class="seg ${m.status === "cancelled" ? "active" : ""}" data-st="cancelled">${t("Cancelled")}</button>
+        <button class="seg ${m.status === "done" ? "active" : ""}" data-st="done">${t("Done")}</button>
+      </div></div>` : ""}
+    ${mtStepper(m.history)}
+    ${canWrite() && !m.is_final ? `<div class="filters" style="margin-top:12px">
+      <button class="btn btn-primary" id="mtAdvance">${t("Mark done / advance phase")}</button>
+      <label class="muted">${t("or jump to")} <select id="mtJump">
+        ${m.history.map(h => `<option value="${esc(h.key)}" ${h.key === m.phase_key ? "selected" : ""}>${esc(h.label)} — ${esc(h.name)}</option>`).join("")}
+      </select></label>
+      <button class="btn btn-sm" id="mtGo">${t("Move")}</button>
+    </div>` : ""}
+    <h3 style="margin-top:16px">${t("Phase history")}</h3>
+    <div style="max-height:340px;overflow:auto"><table class="tbl">
+      <thead><tr><th>#</th><th>${t("Phase")}</th><th class="num">${t("Plan")}</th><th>${t("Entered")}</th>
+        <th>${t("Est. end")}</th><th>${t("Completed")}</th><th>${t("Status")}</th><th>${t("Notes")}</th></tr></thead>
+      <tbody>${m.history.map(h => `<tr ${h.state === "current" ? 'style="background:rgba(0,162,182,.06)"' : ""}>
+        <td>${h.no}</td>
+        <td><b>${esc(h.label)}</b><br><span class="muted">${esc(h.name)}</span></td>
+        <td class="num">${h.plan_days ? h.plan_days + " days" : "—"}</td>
+        <td>${esc(h.entered_at || "—")}</td>
+        <td class="muted">${esc(h.est_end || "—")}</td>
+        <td>${esc(h.completed_at || "—")}</td>
+        <td><span class="pill ${MT_STATE_PILL[h.state] || "inactive"}">${h.state}</span></td>
+        <td><button class="mt-badge ${h.comment_count ? "has" : ""}" data-phase="${esc(h.key)}"
+              title="${t("Notes & context for this phase")}">&#128172; ${h.comment_count || 0}</button></td></tr>
+        <tr class="mt-phase-cmt" data-pc="${esc(h.key)}" hidden><td colspan="8">
+          <div class="muted" style="font-size:11.5px;margin-bottom:4px"><b>${esc(h.label)}</b> — ${esc(h.name)}</div>
+          <div class="pc-list">${mtComments(byPhase[h.key] || [], { empty: t("No notes for this phase yet.") })}</div>
+          ${canWrite() ? `<div class="filters" style="margin-top:6px">
+            <input class="pc-in" data-phase="${esc(h.key)}" placeholder="${t("Add context for this phase…")}" style="flex:1;min-width:200px">
+            <button class="btn btn-sm btn-primary pc-add" data-phase="${esc(h.key)}">${t("Add")}</button></div>` : ""}
+        </td></tr>`).join("")}
+      </tbody></table></div>
+    ${m.notes ? `<p class="muted mt">${esc(m.notes)}</p>` : ""}
+    <h3 style="margin-top:16px">${t("Comments")}</h3>
+    <div id="mtGeneral" style="max-height:220px;overflow:auto">${mtComments(general)}</div>
+    <div class="filters" style="margin-top:8px">
+      <input id="mtNewComment" placeholder="${t("Write a message…")}" style="flex:1;min-width:220px">
+      <button class="btn btn-primary" id="mtPost">${t("Add comment")}</button>
+    </div>
+    <div class="form-actions">
+      ${canWrite() ? `<button class="btn" id="mtEdit">Edit</button>
+      <button class="btn btn-danger" id="mtDel">Delete</button>` : ""}
+    </div>`, { title: name });
+  const advance = async (body) => {
+    try { await api(`/api/money-tracker/${tid}/advance`, { json: body || {} });
+      toast("Phase updated"); moneyTrackerDetail(tid, reload); reload && reload();
+    } catch (e) { toast(e.message, true); }
+  };
+  if ($("#mtAdvance")) $("#mtAdvance").onclick = () => advance({});
+  if ($("#mtGo")) $("#mtGo").onclick = () => advance({ phase_key: $("#mtJump").value });
+  // project status toggle — on hold / cancelled ask for the reason
+  $$("#mtStatusSeg .seg").forEach(b => b.onclick = async () => {
+    const st = b.dataset.st;
+    let reason = m.cancel_reason || "";
+    if (st === "cancelled" || st === "on_hold") {
+      reason = prompt(st === "cancelled"
+        ? "Why is this project cancelled?" : "Why is this project on hold?", reason) || "";
+      if (!reason.trim()) { toast("A reason is required", true); return; }
+    } else { reason = ""; }
+    try {
+      await api(`/api/money-tracker/${tid}/status`, { json: { status: st, cancel_reason: reason } });
+      toast("Project status updated"); moneyTrackerDetail(tid, reload); reload && reload();
+    } catch (e) { toast(e.message, true); }
+  });
+  // per-phase notes: toggle the sub-row, add a note
+  $$("#modalRoot [data-phase].mt-badge").forEach(b => b.onclick = () => {
+    const row = $(`#modalRoot tr[data-pc="${cssEsc(b.dataset.phase)}"]`);
+    if (row) row.hidden = !row.hidden;
+  });
+  const addPhaseComment = async key => {
+    const inp = $(`#modalRoot .pc-in[data-phase="${cssEsc(key)}"]`);
+    const body = (inp && inp.value || "").trim();
+    if (!body) return;
+    try {
+      await api(`/api/money-tracker/${tid}/comments`, { json: { body, phase_key: key } });
+      toast("Note added"); moneyTrackerDetail(tid, reload);
+    } catch (e) { toast(e.message, true); }
+  };
+  $$("#modalRoot .pc-add").forEach(b => b.onclick = () => addPhaseComment(b.dataset.phase));
+  $$("#modalRoot .pc-in").forEach(i => i.onkeydown = e => { if (e.key === "Enter") addPhaseComment(i.dataset.phase); });
+  // general comments
+  const postGeneral = async () => {
+    const body = $("#mtNewComment").value.trim();
+    if (!body) return;
+    try { await api(`/api/money-tracker/${tid}/comments`, { json: { body } });
+      $("#mtNewComment").value = ""; moneyTrackerDetail(tid, reload);
+    } catch (e) { toast(e.message, true); }
+  };
+  $("#mtPost").onclick = postGeneral;
+  $("#mtNewComment").onkeydown = e => { if (e.key === "Enter") postGeneral(); };
+  $$("#modalRoot .mt-cdel").forEach(a => a.onclick = async e => {
+    e.preventDefault();
+    if (!confirm("Delete this comment?")) return;
+    try { await api("/api/money-tracker-comments/" + a.dataset.cid, { method: "DELETE" });
+      moneyTrackerDetail(tid, reload);
+    } catch (err) { toast(err.message, true); }
+  });
+  if ($("#mtEdit")) $("#mtEdit").onclick = () => moneyTrackerEditor(m, reload);
+  if ($("#mtDel")) $("#mtDel").onclick = async () => {
+    if (!confirm("Delete this invoice track and its phase history?")) return;
+    try { await api("/api/money-tracker/" + tid, { method: "DELETE" });
+      toast("Deleted"); closeModal(); reload && reload();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+async function moneyTrackerEditor(m, reload) {
+  const projects = await api("/api/projects?company_id=all").catch(() => []);
+  const cid = m ? m.company_id : (state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10));
+  const phases = await api("/api/money-tracker/phases");
+  const byCo = {};
+  projects.forEach(p => { (byCo[p.company_code] = byCo[p.company_code] || []).push(p); });
+  const projOpts = `<option value="">— no project (free-text title) —</option>` +
+    Object.keys(byCo).sort().map(co => `<optgroup label="${esc(co)}">` + byCo[co].map(p =>
+      `<option value="${p.id}" ${m && String(m.project_id) === String(p.id) ? "selected" : ""}>${esc(p.code)} — ${esc(p.name)}</option>`).join("") + "</optgroup>").join("");
+  openModal(`<div class="form-grid">
+    ${m ? "" : `<label class="full">Company <select id="mtCompany">${companyOptions(cid)}</select></label>`}
+    <label class="full">Project <select id="mtProject">${projOpts}</select></label>
+    <label class="full">Title / package <input id="mtTitle" value="${esc(m ? m.title : "")}" placeholder="e.g. Termin 1 — Consulting fee"></label>
+    <label>Client <input id="mtClient" value="${esc(m ? m.client : "")}" placeholder="e.g. Dinas PU Provinsi"></label>
+    <label>Invoice No <input id="mtInv" value="${esc(m ? m.invoice_no : "")}" placeholder="INV-2026-001"></label>
+    <label>Amount (Rp) <input id="mtAmount" inputmode="numeric" value="${m ? fmt(m.amount) : ""}"></label>
+    <label>Started <input type="date" id="mtStart" value="${esc(m ? (m.started_at || "") : new Date().toISOString().slice(0, 10))}"></label>
+    <label>Phase <select id="mtPhase">${phases.map(p =>
+      `<option value="${esc(p.key)}" ${m && m.phase_key === p.key ? "selected" : ""}>${esc(p.label)} — ${esc(p.name)}</option>`).join("")}</select></label>
+    <label>Status <select id="mtStatus">${["active", "done", "on_hold", "cancelled"].map(s =>
+      `<option value="${s}" ${m && m.status === s ? "selected" : ""}>${s.replace("_", " ")}</option>`).join("")}</select></label>
+    <label class="full">Notes <input id="mtNotes" value="${esc(m ? m.notes : "")}"></label>
+    </div><div class="form-actions"><button class="btn btn-primary" id="mtSave">Save</button></div>`,
+    { title: m ? "Edit invoice track" : "New invoice track" });
+  $("#mtSave").onclick = async () => {
+    const body = {
+      project_id: $("#mtProject").value || null,
+      title: $("#mtTitle").value, client: $("#mtClient").value,
+      invoice_no: $("#mtInv").value,
+      amount: parseInt(($("#mtAmount").value || "0").replace(/[^\d-]/g, ""), 10) || 0,
+      started_at: $("#mtStart").value || null,
+      phase_key: $("#mtPhase").value, status: $("#mtStatus").value,
+      notes: $("#mtNotes").value,
+    };
+    try {
+      if (m) await api("/api/money-tracker/" + m.id, { method: "PUT", json: body });
+      else await api("/api/money-tracker", { json: Object.assign(body, { company_id: parseInt($("#mtCompany").value, 10) }) });
+      toast("Invoice track saved"); closeModal(); reload && reload();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
 /* ------------------------------------------------------------------ accountant section (audit) */
 async function pageAccountant(el) {
   if (!state.acctTab) state.acctTab = "tb";
@@ -3026,7 +3296,7 @@ function renderAcctLedger(body, d) {
 
 async function pageSettings(el) {
   const tabs = [["coa", "Chart of Accounts"], ["fields", "Custom Fields"], ["companies", "Companies"]];
-  if (isAdmin()) tabs.push(["users", "Users"], ["thresholds", "Thresholds"], ["cash", "Cash & Bank"]);
+  if (isAdmin()) tabs.push(["users", "Users"], ["thresholds", "Thresholds"], ["cash", "Cash & Bank"], ["dashboard", "Dashboard"]);
   el.innerHTML = `
     <div class="page-head"><h2>${t("Settings")}</h2></div>
     <div class="tabs" id="sTabs">${tabs.map(([k, l], i) =>
@@ -3047,6 +3317,7 @@ async function pageSettings(el) {
     else if (tab === "users") await settingsUsers(body);
     else if (tab === "thresholds") await settingsThresholds(body);
     else if (tab === "cash") await settingsCash(body);
+    else if (tab === "dashboard") await settingsDashboard(body);
   }
   await show();
 }
@@ -3074,6 +3345,7 @@ async function settingsCoa(body) {
         <label class="muted">Company <select id="cCompany">${companyOptions(cid)}</select></label>
         <a class="btn btn-sm" href="#" id="cExport">&#x2913; Export</a>
         <a class="btn btn-sm" href="/api/templates/coa">&#x2913; Template</a>
+        <button class="btn btn-sm" id="cAudit" title="Scan this company's accounts for self-referencing / looping / orphan parents">&#x26A0; Integrity check</button>
         ${canWrite() ? `<button class="btn btn-sm" id="cImport">&#x2912; Import</button>
         <button class="btn btn-sm" id="cStd">Apply Standard COA</button>
         ${isAdmin() ? `<button class="btn btn-sm" id="cStdAll" title="Apply the standard accounts (incl. intercompany 1900/2900) to every company">Uniform across all companies</button>` : ""}
@@ -3086,8 +3358,13 @@ async function settingsCoa(body) {
     $("#cExport").href = "/api/export/coa?company_id=" + company();
     // level + ordering from the real parent chain (handles 5100-01-01 and C-AKUN alike)
     const byCode = {}; rows.forEach(a => byCode[a.code] = a);
-    const levelOf = a => { let lvl = 0, p = a.parent_code; while (p && byCode[p] && lvl < 6) { lvl++; p = byCode[p].parent_code; } return lvl; };
-    const sortKey = a => { const chain = []; let x = a; while (x) { chain.unshift(x.code); x = x.parent_code ? byCode[x.parent_code] : null; } return chain.join("/"); };
+    // parent-chain walks are cycle-guarded: a self-referencing or cyclic
+    // parent_code (e.g. a bad 6600→6600) must never hang the page.
+    const levelOf = a => { let lvl = 0, p = a.parent_code; const seen = new Set([a.code]);
+      while (p && byCode[p] && !seen.has(p) && lvl < 8) { seen.add(p); lvl++; p = byCode[p].parent_code; } return lvl; };
+    const sortKey = a => { const chain = []; const seen = new Set(); let x = a;
+      while (x && !seen.has(x.code)) { seen.add(x.code); chain.unshift(x.code); x = x.parent_code ? byCode[x.parent_code] : null; }
+      return chain.join("/"); };
     const ordered = rows.slice().sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
     $("#cList").innerHTML = `<table class="tbl"><thead><tr><th>Code</th><th>Name <span class="muted" style="font-weight:400;text-transform:none">(3-level: 5100 → 5100-01 → 5100-01-01)</span></th><th>Type</th>
       <th>Parent</th><th>Flags</th><th style="min-width:130px"></th></tr></thead>
@@ -3109,6 +3386,23 @@ async function settingsCoa(body) {
     });
   };
   $("#cCompany").onchange = load;
+  $("#cAudit").onclick = async () => {
+    try {
+      const d = await api("/api/accounts/integrity?company_id=" + company());
+      const KIND = { self_parent: "Self-referencing", cycle: "Loop / cycle", orphan_parent: "Missing parent", duplicate_code: "Duplicate code" };
+      openModal(`
+        <div class="muted" style="margin-top:-4px">${d.accounts} accounts scanned</div>
+        ${d.ok
+          ? `<p class="pos" style="margin-top:12px">&#10003; <b>No integrity problems.</b> The account tree is clean — no self-referencing, looping, orphaned or duplicate accounts.</p>`
+          : `<p class="neg" style="margin-top:12px"><b>${d.issues.length} problem account(s) found.</b> These break the tree view; fix each account's Parent below (edit it and clear/correct the Parent).</p>
+             <table class="tbl"><thead><tr><th>Code</th><th>Name</th><th>Problem</th><th>Detail</th></tr></thead>
+             <tbody>${d.issues.map(i => `<tr><td><b>${esc(i.code)}</b></td><td>${esc(i.name || "")}</td>
+               <td><span class="pill bad">${esc(KIND[i.kind] || i.kind)}</span></td>
+               <td class="muted">${esc(i.detail)}</td></tr>`).join("")}</tbody></table>
+             <p class="muted mt">The app now blocks creating these, and the list still renders safely — but fixing them restores the correct hierarchy &amp; grouped reports.</p>`}`,
+        { title: "Chart of Accounts — Integrity check" });
+    } catch (e) { toast(e.message, true); }
+  };
   if ($("#cNew")) $("#cNew").onclick = () => accountEditor(null, load, parseInt(company(), 10));
   if ($("#cStd")) $("#cStd").onclick = async () => {
     const r = await api("/api/accounts/apply-standard", { json: { company_id: parseInt(company(), 10) } });
@@ -3353,6 +3647,31 @@ async function settingsCash(body) {
       // "count all" -> save empty list (= default all); otherwise the ticked codes
       const codes = $("#csAll").checked ? [] : rows().filter(c => c.checked).map(c => c.value);
       try { await api("/api/settings/cash-accounts", { json: { codes } }); toast("Cash & Bank accounts saved — dashboard updated"); load(); }
+      catch (e) { toast(e.message, true); }
+    };
+  };
+  await load();
+}
+
+async function settingsDashboard(body) {
+  const load = async () => {
+    const d = await api("/api/settings/dashboard-kpis");
+    const sel = new Set(d.selected || []);
+    const allOn = sel.size === 0;
+    body.innerHTML = `<div class="card">
+      <div class="page-head"><h3 style="margin:0">Dashboard company-information resume</h3>
+        <button class="btn btn-sm btn-primary" id="dkSave">Save</button></div>
+      <p class="muted" style="margin-top:-6px">Pick which summary tiles appear at the top of the dashboard. Leave <b>all</b> ticked to show every tile.</p>
+      <label class="seg-check" style="margin-bottom:8px"><input type="checkbox" id="dkAll" ${allOn ? "checked" : ""}> Show all tiles</label>
+      <div class="chk-grid">${d.all.map(a =>
+        `<label class="chk"><input type="checkbox" class="dk-in" value="${esc(a.key)}" ${allOn || sel.has(a.key) ? "checked" : ""}> ${esc(a.label)}</label>`).join("")}</div>
+      </div>`;
+    const rows = () => $$("#sBody .dk-in");
+    $("#dkAll").onchange = () => rows().forEach(c => { if ($("#dkAll").checked) c.checked = true; c.disabled = $("#dkAll").checked; });
+    if (allOn) rows().forEach(c => c.disabled = true);
+    $("#dkSave").onclick = async () => {
+      const keys = $("#dkAll").checked ? [] : rows().filter(c => c.checked).map(c => c.value);
+      try { await api("/api/settings/dashboard-kpis", { json: { keys } }); toast("Dashboard resume saved"); load(); }
       catch (e) { toast(e.message, true); }
     };
   };

@@ -634,6 +634,85 @@ def list_accounts():
     return jsonify([dict(r) for r in rows])
 
 
+def _validate_account_parent(company_id, code, parent, exclude_id=None):
+    """Reject a parent_code that would break the account tree: self-parent,
+    a non-existent parent, or one that would create a cycle (the parent is a
+    descendant of this account). Returns the cleaned parent (or None)."""
+    if not parent:
+        return None
+    parent = str(parent).strip()
+    if not parent:
+        return None
+    if parent == code:
+        raise ValueError("An account cannot be its own parent (%s)" % code)
+    rows = db().execute("SELECT code, parent_code FROM accounts WHERE company_id=?",
+                        (company_id,)).fetchall()
+    by_code = {r["code"]: r["parent_code"] for r in rows}
+    if parent not in by_code:
+        raise ValueError("Parent account %s does not exist — create it first" % parent)
+    # walk up from the proposed parent; if we reach `code`, this makes a cycle
+    seen, cur = set(), parent
+    while cur:
+        if cur == code:
+            raise ValueError("Parent %s is below %s — that would create a loop" % (parent, code))
+        if cur in seen:
+            break  # existing loop elsewhere; don't hang
+        seen.add(cur)
+        cur = by_code.get(cur)
+    return parent
+
+
+def account_integrity(company_id):
+    """Read-only audit of a company's chart of accounts. Flags self-referencing,
+    cyclic, orphaned (parent missing) and duplicate-code accounts."""
+    rows = db().execute(
+        "SELECT id, code, name, parent_code FROM accounts WHERE company_id=? ORDER BY code",
+        (company_id,)).fetchall()
+    by_code = {}
+    dups = []
+    for r in rows:
+        if r["code"] in by_code:
+            dups.append(r["code"])
+        by_code[r["code"]] = r["parent_code"]
+    issues = []
+    for r in rows:
+        code, parent = r["code"], r["parent_code"]
+        if not parent:
+            continue
+        if parent == code:
+            issues.append({"code": code, "name": r["name"], "kind": "self_parent",
+                           "detail": "parent_code points to itself (%s)" % code})
+            continue
+        if parent not in by_code:
+            issues.append({"code": code, "name": r["name"], "kind": "orphan_parent",
+                           "detail": "parent %s does not exist" % parent})
+            continue
+        seen, cur, chain = set(), parent, []
+        while cur:
+            chain.append(cur)
+            if cur == code:
+                issues.append({"code": code, "name": r["name"], "kind": "cycle",
+                               "detail": "loops back to itself via %s" % " → ".join(chain)})
+                break
+            if cur in seen:
+                break
+            seen.add(cur)
+            cur = by_code.get(cur)
+    for code in sorted(set(dups)):
+        issues.append({"code": code, "name": "", "kind": "duplicate_code",
+                       "detail": "code %s appears more than once" % code})
+    return {"company_id": company_id, "accounts": len(rows),
+            "issues": issues, "ok": not issues}
+
+
+@app.get("/api/accounts/integrity")
+@login_required
+def accounts_integrity_api():
+    cid = int(request.args.get("company_id"))
+    check_company_access(cid)
+    return jsonify(account_integrity(cid))
+
+
 @app.post("/api/accounts")
 @role_required("admin", "finance")
 def create_account():
@@ -648,12 +727,7 @@ def create_account():
         raise ValueError("Maximum 3 levels: e.g. 5100, 5100-01, 5100-01-01")
     # derivative accounts: 5100-01-01 -> parent 5100-01 (auto, unless given)
     parent = d.get("parent_code") or (code.rsplit("-", 1)[0] if "-" in code else None)
-    if "-" in code:
-        exists = db().execute(
-            "SELECT 1 FROM accounts WHERE company_id=? AND code=?",
-            (d["company_id"], parent)).fetchone()
-        if not exists:
-            raise ValueError("Parent account %s does not exist — create it first" % parent)
+    parent = _validate_account_parent(d["company_id"], code, parent)
     cur = db().execute(
         "INSERT INTO accounts (company_id, code, name, type, parent_code, is_intercompany)"
         " VALUES (?,?,?,?,?,?)",
@@ -666,14 +740,16 @@ def create_account():
 @app.put("/api/accounts/<int:aid>")
 @role_required("admin", "finance")
 def update_account(aid):
-    row = db().execute("SELECT company_id FROM accounts WHERE id=?", (aid,)).fetchone()
+    row = db().execute("SELECT company_id, code FROM accounts WHERE id=?", (aid,)).fetchone()
     if not row:
         raise ValueError("Account not found")
     check_company_access(row["company_id"])
     d = request.get_json(force=True)
+    parent = _validate_account_parent(row["company_id"], row["code"],
+                                      d.get("parent_code"), exclude_id=aid)
     db().execute(
         "UPDATE accounts SET name=?, type=?, parent_code=?, is_intercompany=?, is_active=? WHERE id=?",
-        (d["name"], d["type"], d.get("parent_code") or None,
+        (d["name"], d["type"], parent,
          1 if d.get("is_intercompany") else 0, 1 if d.get("is_active", True) else 0, aid))
     db().commit()
     return jsonify({"ok": True})
@@ -1144,6 +1220,48 @@ def get_cash_codes():
     return None
 
 
+# the dashboard "company information resume" tiles, in display order
+DASHBOARD_KPIS = [
+    ("revenue_ytd", "Revenue YTD"), ("net_profit", "Net Profit"),
+    ("gross_margin", "Gross Margin"), ("operating_profit", "Operating Profit"),
+    ("cash_buffer", "Cash Buffer"), ("dso", "DSO"), ("current_ratio", "Current Ratio"),
+    ("working_capital", "Working Capital · Today"), ("cash_bank", "Cash & Bank"),
+    ("receivables", "Receivables"), ("payables", "Payables"), ("budget_used", "Budget Used"),
+]
+_DASHBOARD_KPI_KEYS = {k for k, _ in DASHBOARD_KPIS}
+
+
+def get_dashboard_kpis():
+    """Which company-resume tiles the dashboard shows, or None = all of them."""
+    try:
+        row = db().execute("SELECT value FROM app_settings WHERE key='dashboard_kpis'").fetchone()
+        parsed = json.loads(row["value"]) if row and row["value"] else None
+        if isinstance(parsed, list) and parsed:
+            keep = [k for k in parsed if k in _DASHBOARD_KPI_KEYS]
+            return keep or None
+    except Exception:
+        pass
+    return None
+
+
+@app.get("/api/settings/dashboard-kpis")
+@login_required
+def get_dashboard_kpis_api():
+    return jsonify({"all": [{"key": k, "label": l} for k, l in DASHBOARD_KPIS],
+                    "selected": get_dashboard_kpis() or []})
+
+
+@app.post("/api/settings/dashboard-kpis")
+@role_required("admin")
+def set_dashboard_kpis_api():
+    d = request.get_json(force=True)
+    keys = [k for k in (d.get("keys") or []) if k in _DASHBOARD_KPI_KEYS]
+    db().execute("INSERT INTO app_settings (key, value) VALUES ('dashboard_kpis', ?)"
+                 " ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(keys),))
+    db().commit()
+    return jsonify({"ok": True, "selected": keys})
+
+
 @app.get("/api/settings/cash-accounts")
 @login_required
 def get_cash_accounts_api():
@@ -1199,6 +1317,7 @@ def report_dashboard():
                              project_attribution=_attribution_from_request(True),
                              cash_codes=get_cash_codes())
     data["scope"] = label
+    data["kpi_visible"] = get_dashboard_kpis()
     return jsonify(data)
 
 
@@ -2241,6 +2360,312 @@ def delete_investment_comment(cid):
 
 
 # --------------------------------------------------------------------------
+# Money Tracker — the invoicing pipeline of a project, phase by phase, from
+# pre-administration through SPM / SPP / KASDA / SP2D to "clear and clear".
+# --------------------------------------------------------------------------
+
+# (key, short label, full name, default plan days)
+MONEY_PHASES = [
+    ("p1",  "Phase 1",  "Pre-administration Process", 7),
+    ("p2",  "Phase 2",  "Contract Signed / eProc Click Start", 7),
+    ("p3",  "Phase 3",  "Ongoing Project", 30),
+    ("p4",  "Phase 4",  "Project End Admin (click end)", 7),
+    ("p5a", "Phase 5a", "Documentation — Final Report", 14),
+    ("p5b", "Phase 5b", "Documentation — Administration Report", 14),
+    ("p6",  "Phase 6",  "Client Side — Document Filling", 14),
+    ("p7",  "Phase 7",  "Process SPM", 14),
+    ("p8",  "Phase 8",  "Process SPP", 14),
+    ("p9",  "Phase 9",  "Boss Approval", 7),
+    ("p10", "Phase 10", "KASDA / Treasurer Process", 14),
+    ("p11", "Phase 11", "SP2D / Payment Process", 14),
+    ("p12", "Phase 12", "Done — Clear and Clear (received & done)", 0),
+]
+_PHASE_KEYS = [p[0] for p in MONEY_PHASES]
+_PHASE_BY_KEY = {p[0]: p for p in MONEY_PHASES}
+MONEY_STATUSES = ("active", "done", "on_hold", "cancelled")
+
+
+def _phase_index(key):
+    try:
+        return _PHASE_KEYS.index(key)
+    except ValueError:
+        return 0
+
+
+def _money_row(r):
+    d = dict(r)
+    idx = _phase_index(d.get("phase_key"))
+    ph = MONEY_PHASES[idx]
+    d["phase_index"] = idx + 1
+    d["phase_label"] = ph[1]
+    d["phase_name"] = ph[2]
+    d["phase_total"] = len(MONEY_PHASES)
+    d["progress_pct"] = round(100.0 * (idx + 1) / len(MONEY_PHASES))
+    d["is_final"] = (idx == len(MONEY_PHASES) - 1)
+    return d
+
+
+def _money_access(tid):
+    row = db().execute("SELECT company_id FROM money_tracker WHERE id=?", (tid,)).fetchone()
+    if not row:
+        raise ValueError("Money tracker entry not found")
+    check_company_access(row["company_id"])
+    return row
+
+
+@app.get("/api/money-tracker/phases")
+@login_required
+def money_phases():
+    return jsonify([{"key": k, "label": l, "name": n, "plan_days": d}
+                    for k, l, n, d in MONEY_PHASES])
+
+
+@app.get("/api/money-tracker")
+@login_required
+def list_money_tracker():
+    ids, label = scope_from_request()
+    ph = ",".join("?" * len(ids))
+    rows = db().execute(
+        "SELECT m.*, c.code AS company_code, p.code AS project_code, p.name AS project_name "
+        "FROM money_tracker m JOIN companies c ON c.id = m.company_id "
+        "LEFT JOIN projects p ON p.id = m.project_id "
+        "WHERE m.company_id IN (%s) ORDER BY m.id DESC" % ph, ids).fetchall()
+    items = [_money_row(r) for r in rows]
+    active = [i for i in items if i["status"] == "active"]
+    return jsonify({
+        "items": items, "scope": label,
+        "phases": [{"key": k, "label": l, "name": n} for k, l, n, _ in MONEY_PHASES],
+        "total_amount": round(sum(i["amount"] or 0 for i in items), 2),
+        "outstanding": round(sum(i["amount"] or 0 for i in active), 2),
+        "received": round(sum(i["amount"] or 0 for i in items if i["status"] == "done"), 2),
+        "count_active": len(active),
+    })
+
+
+@app.get("/api/money-tracker/<int:tid>")
+@login_required
+def get_money_tracker(tid):
+    _money_access(tid)
+    row = db().execute(
+        "SELECT m.*, c.code AS company_code, p.code AS project_code, p.name AS project_name "
+        "FROM money_tracker m JOIN companies c ON c.id = m.company_id "
+        "LEFT JOIN projects p ON p.id = m.project_id WHERE m.id=?", (tid,)).fetchone()
+    item = _money_row(row)
+    stages = db().execute(
+        "SELECT * FROM money_tracker_stages WHERE tracker_id=? ORDER BY id", (tid,)).fetchall()
+    by_key = {s["phase_key"]: dict(s) for s in stages}
+    cur = _phase_index(item["phase_key"])
+    history = []
+    for i, (k, l, n, dflt) in enumerate(MONEY_PHASES):
+        s = by_key.get(k, {})
+        plan = s.get("plan_days") or dflt
+        entered, completed = s.get("entered_at"), s.get("completed_at")
+        est_end = None
+        if entered:
+            try:
+                est_end = (datetime.strptime(entered[:10], "%Y-%m-%d")
+                           + timedelta(days=int(plan or 0))).strftime("%Y-%m-%d")
+            except ValueError:
+                est_end = None
+        state = ("completed" if completed else
+                 "current" if i == cur else
+                 "pending" if i > cur else "skipped")
+        history.append({"no": i + 1, "key": k, "label": l, "name": n,
+                        "plan_days": plan, "entered_at": entered, "est_end": est_end,
+                        "completed_at": completed, "state": state,
+                        "notes": s.get("notes", "")})
+    # how many comments each phase carries, so the history can show a badge
+    counts = {}
+    for r in db().execute(
+            "SELECT phase_key, COUNT(*) AS n FROM money_tracker_comments"
+            " WHERE tracker_id=? GROUP BY phase_key", (tid,)).fetchall():
+        counts[r["phase_key"]] = r["n"]
+    for h in history:
+        h["comment_count"] = counts.get(h["key"], 0)
+    item["history"] = history
+    return jsonify(item)
+
+
+def _money_fields(d):
+    status = d.get("status", "active")
+    if status not in MONEY_STATUSES:
+        raise ValueError("Invalid status")
+    key = d.get("phase_key", "p1")
+    if key not in _PHASE_BY_KEY:
+        raise ValueError("Invalid phase")
+    return (d.get("title", "").strip(), d.get("invoice_no", "").strip(),
+            d.get("client", "").strip(), round(float(d.get("amount") or 0), 2),
+            key, status, (d.get("started_at") or None), d.get("notes", "").strip(),
+            d.get("cancel_reason", "").strip())
+
+
+@app.post("/api/money-tracker")
+@role_required("admin", "finance")
+def create_money_tracker():
+    d = request.get_json(force=True)
+    company_id = int(d["company_id"])
+    check_company_access(company_id)
+    project_id = d.get("project_id") or None
+    if project_id:
+        project_id = int(project_id)
+    fields = _money_fields(d)
+    if not fields[0] and not project_id:
+        raise ValueError("Pick a project or give the entry a title")
+    cur = db().execute(
+        "INSERT INTO money_tracker (company_id, project_id, title, invoice_no, client,"
+        " amount, phase_key, status, started_at, notes, cancel_reason)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (company_id, project_id) + fields)
+    tid = cur.lastrowid
+    # open the starting phase so the history shows when it was entered
+    started = fields[6] or datetime.now().date().isoformat()
+    db().execute(
+        "INSERT INTO money_tracker_stages (tracker_id, phase_key, plan_days, entered_at)"
+        " VALUES (?,?,?,?)",
+        (tid, fields[4], _PHASE_BY_KEY[fields[4]][3], started))
+    db().commit()
+    return jsonify({"id": tid}), 201
+
+
+@app.put("/api/money-tracker/<int:tid>")
+@role_required("admin", "finance")
+def update_money_tracker(tid):
+    _money_access(tid)
+    d = request.get_json(force=True)
+    project_id = d.get("project_id") or None
+    if project_id:
+        project_id = int(project_id)
+    fields = _money_fields(d)
+    db().execute(
+        "UPDATE money_tracker SET project_id=?, title=?, invoice_no=?, client=?, amount=?,"
+        " phase_key=?, status=?, started_at=?, notes=?, cancel_reason=? WHERE id=?",
+        (project_id,) + fields + (tid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.post("/api/money-tracker/<int:tid>/status")
+@role_required("admin", "finance")
+def set_money_tracker_status(tid):
+    """Toggle a track active / on hold / cancelled, with the reason why."""
+    _money_access(tid)
+    d = request.get_json(force=True)
+    status = d.get("status")
+    if status not in MONEY_STATUSES:
+        raise ValueError("Invalid status")
+    reason = (d.get("cancel_reason") or "").strip()
+    if status in ("cancelled", "on_hold") and not reason:
+        raise ValueError("Please explain why this project is %s"
+                         % ("cancelled" if status == "cancelled" else "on hold"))
+    db().execute("UPDATE money_tracker SET status=?, cancel_reason=? WHERE id=?",
+                 (status, reason, tid))
+    db().commit()
+    return jsonify({"ok": True, "status": status})
+
+
+@app.get("/api/money-tracker/<int:tid>/comments")
+@login_required
+def list_money_comments(tid):
+    _money_access(tid)
+    rows = db().execute(
+        "SELECT id, phase_key, author, body, created_at FROM money_tracker_comments"
+        " WHERE tracker_id=? ORDER BY id", (tid,)).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.post("/api/money-tracker/<int:tid>/comments")
+@role_required("admin", "finance", "viewer")
+def add_money_comment(tid):
+    _money_access(tid)
+    d = request.get_json(force=True)
+    body = (d.get("body") or "").strip()
+    if not body:
+        raise ValueError("Comment cannot be empty")
+    phase_key = d.get("phase_key") or ""
+    if phase_key and phase_key not in _PHASE_BY_KEY:
+        raise ValueError("Invalid phase")
+    author = (g.user["full_name"] or g.user["username"])
+    cur = db().execute(
+        "INSERT INTO money_tracker_comments (tracker_id, phase_key, author, body)"
+        " VALUES (?,?,?,?)", (tid, phase_key, author, body))
+    db().commit()
+    return jsonify({"id": cur.lastrowid, "author": author}), 201
+
+
+@app.delete("/api/money-tracker-comments/<int:cid>")
+@role_required("admin", "finance")
+def delete_money_comment(cid):
+    row = db().execute(
+        "SELECT m.company_id FROM money_tracker_comments mc"
+        " JOIN money_tracker m ON m.id = mc.tracker_id WHERE mc.id=?", (cid,)).fetchone()
+    if not row:
+        raise ValueError("Comment not found")
+    check_company_access(row["company_id"])
+    db().execute("DELETE FROM money_tracker_comments WHERE id=?", (cid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/money-tracker/<int:tid>")
+@role_required("admin", "finance")
+def delete_money_tracker(tid):
+    _money_access(tid)
+    db().execute("DELETE FROM money_tracker_stages WHERE tracker_id=?", (tid,))
+    db().execute("DELETE FROM money_tracker_comments WHERE tracker_id=?", (tid,))
+    db().execute("DELETE FROM money_tracker WHERE id=?", (tid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.post("/api/money-tracker/<int:tid>/advance")
+@role_required("admin", "finance")
+def advance_money_tracker(tid):
+    """Complete the current phase and move to the next (or to a chosen phase)."""
+    _money_access(tid)
+    d = request.get_json(force=True) if request.data else {}
+    row = db().execute("SELECT phase_key FROM money_tracker WHERE id=?", (tid,)).fetchone()
+    cur_key = row["phase_key"]
+    cur_idx = _phase_index(cur_key)
+    target = d.get("phase_key")
+    if target:
+        if target not in _PHASE_BY_KEY:
+            raise ValueError("Invalid phase")
+        nxt_idx = _phase_index(target)
+    else:
+        nxt_idx = min(cur_idx + 1, len(MONEY_PHASES) - 1)
+    today = (d.get("date") or datetime.now().date().isoformat())[:10]
+    # close the current phase
+    st = db().execute(
+        "SELECT id FROM money_tracker_stages WHERE tracker_id=? AND phase_key=?",
+        (tid, cur_key)).fetchone()
+    if st:
+        db().execute("UPDATE money_tracker_stages SET completed_at=? WHERE id=?", (today, st["id"]))
+    else:
+        db().execute(
+            "INSERT INTO money_tracker_stages (tracker_id, phase_key, plan_days, entered_at, completed_at)"
+            " VALUES (?,?,?,?,?)",
+            (tid, cur_key, _PHASE_BY_KEY[cur_key][3], today, today))
+    if nxt_idx != cur_idx:
+        nxt_key = _PHASE_KEYS[nxt_idx]
+        exists = db().execute(
+            "SELECT id FROM money_tracker_stages WHERE tracker_id=? AND phase_key=?",
+            (tid, nxt_key)).fetchone()
+        if exists:
+            db().execute("UPDATE money_tracker_stages SET entered_at=COALESCE(entered_at,?),"
+                         " completed_at=NULL WHERE id=?", (today, exists["id"]))
+        else:
+            db().execute(
+                "INSERT INTO money_tracker_stages (tracker_id, phase_key, plan_days, entered_at)"
+                " VALUES (?,?,?,?)", (tid, nxt_key, _PHASE_BY_KEY[nxt_key][3], today))
+        db().execute("UPDATE money_tracker SET phase_key=? WHERE id=?", (nxt_key, tid))
+        # reaching the last phase marks the invoice received & done
+        if nxt_idx == len(MONEY_PHASES) - 1:
+            db().execute("UPDATE money_tracker SET status='done' WHERE id=?", (tid,))
+    db().commit()
+    return jsonify({"ok": True, "phase_key": _PHASE_KEYS[nxt_idx]})
+
+
+# --------------------------------------------------------------------------
 # Custom fields
 # --------------------------------------------------------------------------
 
@@ -2442,7 +2867,7 @@ def switch_database_api():
 
 # left-nav routes a user may be granted; kept in sync with the frontend NAV_ITEMS
 MENU_ROUTES = {"dashboard", "projecthv", "journals", "bank", "receivables", "payables",
-               "budgets", "investments", "projects", "reports", "accountant", "settings"}
+               "budgets", "investments", "projects", "money", "reports", "accountant", "settings"}
 
 
 def _clean_menu_access(val):

@@ -354,6 +354,44 @@ CREATE TABLE IF NOT EXISTS bank_format_profiles (
     UNIQUE (name)
 );
 
+CREATE TABLE IF NOT EXISTS money_tracker (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER NOT NULL REFERENCES companies(id),
+    project_id INTEGER REFERENCES projects(id),
+    title TEXT NOT NULL DEFAULT '',
+    invoice_no TEXT NOT NULL DEFAULT '',
+    client TEXT NOT NULL DEFAULT '',
+    amount REAL NOT NULL DEFAULT 0,
+    phase_key TEXT NOT NULL DEFAULT 'p1',
+    status TEXT NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active','done','on_hold','cancelled')),
+    started_at TEXT,
+    notes TEXT NOT NULL DEFAULT '',
+    cancel_reason TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS money_tracker_stages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tracker_id INTEGER NOT NULL REFERENCES money_tracker(id) ON DELETE CASCADE,
+    phase_key TEXT NOT NULL,
+    plan_days INTEGER NOT NULL DEFAULT 0,
+    entered_at TEXT,
+    completed_at TEXT,
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- discussion on an invoice track: phase_key '' = general, otherwise per-phase
+CREATE TABLE IF NOT EXISTS money_tracker_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tracker_id INTEGER NOT NULL REFERENCES money_tracker(id) ON DELETE CASCADE,
+    phase_key TEXT NOT NULL DEFAULT '',
+    author TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_entry ON journal_lines(entry_id);
 CREATE INDEX IF NOT EXISTS idx_receivables_company ON receivables(company_id);
 CREATE INDEX IF NOT EXISTS idx_lines_account ON journal_lines(account_id);
@@ -777,6 +815,11 @@ def delete_company_cascade(conn, company_id):
     conn.execute("DELETE FROM investments WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM receivables WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM payables WHERE company_id=?", (cid,))
+    conn.execute("DELETE FROM money_tracker_stages WHERE tracker_id IN "
+                 "(SELECT id FROM money_tracker WHERE company_id=?)", (cid,))
+    conn.execute("DELETE FROM money_tracker_comments WHERE tracker_id IN "
+                 "(SELECT id FROM money_tracker WHERE company_id=?)", (cid,))
+    conn.execute("DELETE FROM money_tracker WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM cash_budget WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM journal_lines WHERE entry_id IN "
                  "(SELECT id FROM journal_entries WHERE company_id=?)", (cid,))
@@ -851,6 +894,33 @@ def migrate_database(conn):
         "id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,"
         "format_type TEXT NOT NULL DEFAULT 'csv', config_json TEXT NOT NULL DEFAULT '{}',"
         "created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE (name))")
+    # Money Tracker — per-project invoicing pipeline (13 phases)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS money_tracker ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "company_id INTEGER NOT NULL REFERENCES companies(id),"
+        "project_id INTEGER REFERENCES projects(id),"
+        "title TEXT NOT NULL DEFAULT '', invoice_no TEXT NOT NULL DEFAULT '',"
+        "client TEXT NOT NULL DEFAULT '', amount REAL NOT NULL DEFAULT 0,"
+        "phase_key TEXT NOT NULL DEFAULT 'p1', status TEXT NOT NULL DEFAULT 'active',"
+        "started_at TEXT, notes TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS money_tracker_stages ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "tracker_id INTEGER NOT NULL REFERENCES money_tracker(id) ON DELETE CASCADE,"
+        "phase_key TEXT NOT NULL, plan_days INTEGER NOT NULL DEFAULT 0,"
+        "entered_at TEXT, completed_at TEXT, notes TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS money_tracker_comments ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "tracker_id INTEGER NOT NULL REFERENCES money_tracker(id) ON DELETE CASCADE,"
+        "phase_key TEXT NOT NULL DEFAULT '', author TEXT NOT NULL DEFAULT '',"
+        "body TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    # why a track was put on hold / cancelled
+    _add_column(conn, "money_tracker", "cancel_reason", "TEXT NOT NULL DEFAULT ''")
     # per-user menu visibility (which left-nav items a user may see); 'all' = every menu
     _add_column(conn, "users", "menu_access", "TEXT NOT NULL DEFAULT 'all'")
     # Investment Center — contribution-margin manual inputs per investment
