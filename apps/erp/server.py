@@ -893,6 +893,33 @@ def project_monthly(pid):
     return jsonify(reports.project_monthly(db(), pid, year_param()))
 
 
+@app.get("/api/projects/<int:pid>/performance")
+@login_required
+def project_performance_detail(pid):
+    """Per-account revenue & cost for one project (Performance scheme).
+    Attributed by project, so lines booked in another entity are included."""
+    row = db().execute("SELECT company_id FROM projects WHERE id=?", (pid,)).fetchone()
+    if not row:
+        raise ValueError("Project not found")
+    check_company_access(row["company_id"])
+    return jsonify(reports.project_budget_vs_actual(
+        db(), row["company_id"], pid, year_param()))
+
+
+@app.get("/api/projects/<int:pid>/account-ledger")
+@login_required
+def project_account_ledger_api(pid):
+    """Transactions behind one account on one project — the drill-down popup."""
+    row = db().execute("SELECT company_id FROM projects WHERE id=?", (pid,)).fetchone()
+    if not row:
+        raise ValueError("Project not found")
+    check_company_access(row["company_id"])
+    code = (request.args.get("code") or "").strip()
+    if not code:
+        raise ValueError("code is required")
+    return jsonify(reports.project_account_ledger(db(), pid, code, year_param()))
+
+
 # --------------------------------------------------------------------------
 # Journal entries
 # --------------------------------------------------------------------------
@@ -2431,14 +2458,18 @@ def list_money_tracker():
         "LEFT JOIN projects p ON p.id = m.project_id "
         "WHERE m.company_id IN (%s) ORDER BY m.id DESC" % ph, ids).fetchall()
     items = [_money_row(r) for r in rows]
+    # only genuinely active tracks count as outstanding — a track on hold (or
+    # cancelled) is parked and must not inflate the money still in process
     active = [i for i in items if i["status"] == "active"]
+    on_hold = [i for i in items if i["status"] == "on_hold"]
     return jsonify({
         "items": items, "scope": label,
         "phases": [{"key": k, "label": l, "name": n} for k, l, n, _ in MONEY_PHASES],
         "total_amount": round(sum(i["amount"] or 0 for i in items), 2),
         "outstanding": round(sum(i["amount"] or 0 for i in active), 2),
+        "on_hold": round(sum(i["amount"] or 0 for i in on_hold), 2),
         "received": round(sum(i["amount"] or 0 for i in items if i["status"] == "done"), 2),
-        "count_active": len(active),
+        "count_active": len(active), "count_on_hold": len(on_hold),
     })
 
 
@@ -2623,7 +2654,10 @@ def advance_money_tracker(tid):
     """Complete the current phase and move to the next (or to a chosen phase)."""
     _money_access(tid)
     d = request.get_json(force=True) if request.data else {}
-    row = db().execute("SELECT phase_key FROM money_tracker WHERE id=?", (tid,)).fetchone()
+    row = db().execute("SELECT phase_key, status FROM money_tracker WHERE id=?", (tid,)).fetchone()
+    if row["status"] in ("on_hold", "cancelled"):
+        raise ValueError("This project is %s — set it back to Active before moving phases"
+                         % row["status"].replace("_", " "))
     cur_key = row["phase_key"]
     cur_idx = _phase_index(cur_key)
     target = d.get("phase_key")

@@ -613,6 +613,41 @@ def project_budget_vs_actual(conn, company_id, project_id, year):
     }
 
 
+def project_account_ledger(conn, project_id, code, year):
+    """Every posted journal line for one project + account code in a year —
+    backs the click-through transaction popup on the Project Details page.
+    Attributed by PROJECT, so lines booked in another entity still show."""
+    rows = conn.execute(
+        """
+        SELECT je.date AS date, je.entry_no AS entry_no, je.description AS description,
+               je.reference AS reference, COALESCE(je.source,'manual') AS source,
+               c.code AS company_code, a.name AS account_name, a.type AS type,
+               jl.debit AS debit, jl.credit AS credit, jl.description AS line_desc,
+               COALESCE(u.username,'—') AS inputter
+        FROM journal_lines jl
+        JOIN journal_entries je ON je.id = jl.entry_id
+        JOIN accounts a ON a.id = jl.account_id
+        JOIN companies c ON c.id = je.company_id
+        LEFT JOIN users u ON u.id = je.created_by
+        WHERE je.status='posted' AND jl.project_id = ? AND a.code = ?
+          AND strftime('%Y', je.date) = ?
+        ORDER BY je.date, je.entry_no
+        """, (project_id, code, str(year))).fetchall()
+    entries, name, typ, td, tc = [], code, "", 0.0, 0.0
+    for r in rows:
+        d = dict(r)
+        name = d.pop("account_name") or name
+        typ = d.pop("type") or typ
+        d["source_label"] = SOURCE_LABELS.get(d["source"], d["source"])
+        td += d["debit"] or 0
+        tc += d["credit"] or 0
+        entries.append(d)
+    sign = SIGN.get(typ, 1)
+    return {"code": code, "name": name, "type": typ, "entries": entries,
+            "total_debit": round(td, 2), "total_credit": round(tc, 2),
+            "balance": round(sign * (td - tc), 2), "year": year}
+
+
 def project_performance(conn, company_ids, year):
     """Per project for a year: revenue, direct cost, opex, profit, margin, budget."""
     ph, ids = _company_filter(company_ids)

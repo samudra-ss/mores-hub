@@ -247,6 +247,11 @@ html[data-theme="dark"] .warn.watch { background: rgba(200,122,8,.16); border-co
   border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
 .mt-line.passed { background: var(--teal); }
 .mt-line.passed::after { border-left-color: var(--teal); }
+/* left-nav section headers (HV / Devil in Detail / Admin Panel) */
+.nav-sec { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--muted); opacity: .75; font-weight: 600;
+  padding: 4px 12px 5px; margin: 14px 0 2px; border-top: 1px solid var(--border); padding-top: 12px; }
+.nav-sec:first-child { margin-top: 2px; border-top: none; padding-top: 4px; }
 .chk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 4px 14px; margin: 4px 0 6px; }
 .chk-grid .chk { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; margin: 0; cursor: pointer; }
 .chk-grid .chk input { width: 15px; height: 15px; accent-color: var(--teal); }

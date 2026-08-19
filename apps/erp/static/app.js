@@ -399,6 +399,20 @@ const TR = {
   "Contribution Margin": "Margin Kontribusi",
   "Entries": "Entri", "Discussion": "Diskusi",
   "Add a comment for the team…": "Tambahkan komentar untuk tim…", "Post": "Kirim",
+  // v1.05 — nav sections, project schemes, money tracker labels
+  "HV Sections": "Bagian HV", "Devil in Detail": "Rincian Detail", "Admin Panel": "Panel Admin",
+  "Project Details": "Detail Proyek",
+  "Monthly basis": "Basis Bulanan", "Monthly performance": "Kinerja Bulanan",
+  "Total Revenue": "Total Pendapatan", "Total Cost": "Total Biaya",
+  "Revenue by account": "Pendapatan per Akun", "Cost by account": "Biaya per Akun",
+  "Cost budget": "Anggaran Biaya", "cost budget": "anggaran biaya", "budget": "anggaran",
+  "margin": "margin", "Month": "Bulan", "Total": "Total",
+  "No revenue posted to this project": "Belum ada pendapatan pada proyek ini",
+  "No cost posted to this project": "Belum ada biaya pada proyek ini",
+  "Back to project": "Kembali ke proyek", "Date": "Tanggal", "Entry": "Entri",
+  "Description": "Keterangan", "Source": "Sumber", "Inputter": "Penginput",
+  "Debit": "Debit", "Credit": "Kredit",
+  "Outstanding": "Belum Diterima",
   // Money Tracker
   "Money Tracker": "Pelacak Uang", "invoicing process per project": "proses penagihan per proyek",
   "New invoice track": "Tagihan Baru", "Total tracked": "Total Dilacak", "In process": "Dalam Proses",
@@ -475,15 +489,20 @@ function fmtInputStamp(ts) {
 }
 
 const NAV_ITEMS = [
+  // HV sections
   ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
+  ["projects", "△", "Project Details"], ["money", "◈", "Money Tracker"],
+  ["investments", "✦", "Investment Center"],
+  // Devil in Detail
   ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Account Parsing"],
   ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
-  ["budgets", "◎", "Budgets"], ["investments", "✦", "Investment Center"],
-  ["projects", "△", "Projects"], ["money", "◈", "Money Tracker"],
-  ["reports", "▤", "Reports"],
+  ["budgets", "◎", "Budgets"], ["reports", "▤", "Reports"],
   ["accountant", "⚖", "Accountant Section"],
+  // Admin panel
   ["settings", "⚙", "Settings"],
 ];
+// left-nav grouping headers (data-sec on each link/header in app.html)
+const NAV_SECTIONS = { hv: "HV Sections", detail: "Devil in Detail", admin: "Admin Panel" };
 function relabelChrome() {
   // per-user menu access: 'all' or a CSV of allowed routes. Admins always see
   // everything; Settings stays admin-only via its own gate below.
@@ -495,6 +514,13 @@ function relabelChrome() {
     const route = a.dataset.route;
     const hide = !isAdmin() && allowed && route !== "settings" && !allowed.has(route);
     a.style.display = hide ? "none" : "";
+  });
+  // section headers: translate, and hide a header whose links are all hidden
+  $$("#nav .nav-sec").forEach(h => {
+    const sec = h.dataset.sec;
+    h.textContent = t(NAV_SECTIONS[sec] || sec);
+    const any = $$(`#nav a[data-sec="${sec}"]`).some(a => a.style.display !== "none");
+    h.style.display = any ? "" : "none";
   });
   const set = (sel, s) => { const el = $(sel); if (el) el.textContent = s; };
   set("#lblCompany", t("Company"));
@@ -2560,21 +2586,107 @@ async function pageProjects(el) {
 }
 
 async function projectDetail(pid, name) {
-  const monthly = await api(`/api/projects/${pid}/monthly?year=${state.year}`);
-  openModal(`
-    <h3 class="muted" style="margin-top:0">Monthly performance — ${state.year}</h3>
-    ${chartBars(MONTH_NAMES, [
-      { name: "Revenue", color: C_REV, values: monthly.map(m => m.revenue) },
-      { name: "Expense", color: C_EXP, values: monthly.map(m => m.expense) },
-      { name: "Profit", color: C_PROFIT, values: monthly.map(m => m.profit), type: "line" },
-    ])}
-    <table class="tbl mt"><thead><tr><th>Month</th><th class="num">Revenue</th><th class="num">Expense</th><th class="num">Profit</th></tr></thead>
-    <tbody>${monthly.map((m, i) => `<tr><td>${MONTH_NAMES[i]}</td><td class="num">${fmt(m.revenue)}</td>
-      <td class="num">${fmt(m.expense)}</td><td class="num ${m.profit >= 0 ? "pos" : "neg"}">${fmt(m.profit)}</td></tr>`).join("")}
-    <tr class="total"><td>Total</td><td class="num">${fmt(monthly.reduce((a, m) => a + m.revenue, 0))}</td>
-      <td class="num">${fmt(monthly.reduce((a, m) => a + m.expense, 0))}</td>
-      <td class="num">${fmt(monthly.reduce((a, m) => a + m.profit, 0))}</td></tr></tbody></table>`,
-    { title: name });
+  if (!state.prjScheme) state.prjScheme = "monthly";
+  const render = async () => {
+    const monthly = state.prjScheme === "monthly"
+      ? await api(`/api/projects/${pid}/monthly?year=${state.year}`) : null;
+    const perf = state.prjScheme === "performance"
+      ? await api(`/api/projects/${pid}/performance?year=${state.year}`) : null;
+    const seg = `<div class="seg-group" id="prjScheme" style="margin-bottom:12px">
+      <button class="seg ${state.prjScheme === "monthly" ? "active" : ""}" data-s="monthly">${t("Monthly basis")}</button>
+      <button class="seg ${state.prjScheme === "performance" ? "active" : ""}" data-s="performance">${t("Performance")}</button>
+    </div>`;
+    let body;
+    if (state.prjScheme === "monthly") {
+      const tR = monthly.reduce((a, m) => a + m.revenue, 0);
+      const tE = monthly.reduce((a, m) => a + m.expense, 0);
+      body = `${seg}
+        <h3 class="muted" style="margin-top:0">${t("Monthly performance")} — ${state.year}</h3>
+        ${chartBars(MONTH_NAMES, [
+          { name: "Revenue", color: C_REV, values: monthly.map(m => m.revenue) },
+          { name: "Expense", color: C_EXP, values: monthly.map(m => m.expense) },
+          { name: "Profit", color: C_PROFIT, values: monthly.map(m => m.profit), type: "line" },
+        ])}
+        <table class="tbl mt"><thead><tr><th>${t("Month")}</th><th class="num">${t("Revenue")}</th>
+          <th class="num">${t("Expense")}</th><th class="num">${t("Profit")}</th></tr></thead>
+        <tbody>${monthly.map((m, i) => `<tr><td>${MONTH_NAMES[i]}</td><td class="num">${fmt(m.revenue)}</td>
+          <td class="num">${fmt(m.expense)}</td><td class="num ${m.profit >= 0 ? "pos" : "neg"}">${fmt(m.profit)}</td></tr>`).join("")}
+        <tr class="total"><td>${t("Total")}</td><td class="num">${fmt(tR)}</td>
+          <td class="num">${fmt(tE)}</td><td class="num ${tR - tE >= 0 ? "pos" : "neg"}">${fmt(tR - tE)}</td></tr></tbody></table>`;
+    } else {
+      const rev = perf.rows.filter(r => r.type === "revenue");
+      const cost = perf.rows.filter(r => r.type === "expense");
+      const tR = perf.total_actual_revenue, tC = perf.total_actual_expense;
+      const bR = perf.total_budget_revenue, bC = perf.total_budget_expense;
+      const profit = round2(tR - tC);
+      const margin = tR ? Math.round(1000 * profit / tR) / 10 : 0;
+      const accRows = (list, kind) => list.map(r => {
+        const used = r.budget ? Math.round(100 * r.actual / r.budget) : null;
+        return `<tr><td><a href="#" class="prj-acc" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.code)} ${esc(r.name)}</a></td>
+          <td class="num">${fmt(r.actual)}</td><td class="num muted">${fmt(r.budget)}</td>
+          <td class="num ${r.variance >= 0 ? (kind === "rev" ? "pos" : "neg") : (kind === "rev" ? "neg" : "pos")}">${fmt(r.variance)}</td>
+          <td class="num ${used != null && used > 100 && kind === "cost" ? "neg" : ""}">${used == null ? "—" : used + "%"}</td></tr>`;
+      }).join("");
+      body = `${seg}
+        <div class="grid kpis">
+          <div class="kpi hl"><div class="kpi-label">${t("Total Revenue")}</div><div class="kpi-value">${fmtShortRp(tR)}</div>
+            <div class="kpi-sub">${t("budget")} ${fmtShortRp(bR)}</div></div>
+          <div class="kpi"><div class="kpi-label">${t("Total Cost")}</div><div class="kpi-value">${fmtShortRp(tC)}</div>
+            <div class="kpi-sub">${t("cost budget")} ${fmtShortRp(bC)}</div></div>
+          <div class="kpi ${profit >= 0 ? "green" : "red"}"><div class="kpi-label">${t("Profit")}</div>
+            <div class="kpi-value">${fmtShortRp(profit)}</div><div class="kpi-sub">${t("margin")} ${margin}%</div></div>
+        </div>
+        ${chartBars([t("Revenue"), t("Cost")], [
+          { name: t("Budget"), color: "#c87a08", values: [bR, bC] },
+          { name: t("Realization"), color: C_REV, values: [tR, tC] },
+        ], { height: 240, valueLabels: true, valueFmt: fmtShort })}
+        <h3 style="margin-top:14px">${t("Revenue by account")}</h3>
+        <table class="tbl"><thead><tr><th>${t("Account")}</th><th class="num">${t("Realization")}</th>
+          <th class="num">${t("Budget")}</th><th class="num">${t("Variance")}</th><th class="num">${t("Used")}</th></tr></thead>
+          <tbody>${accRows(rev, "rev") || `<tr><td colspan="5" class="empty">${t("No revenue posted to this project")}</td></tr>`}
+          ${rev.length ? `<tr class="total"><td>${t("Total Revenue")}</td><td class="num">${fmt(tR)}</td>
+            <td class="num">${fmt(bR)}</td><td class="num">${fmt(round2(tR - bR))}</td><td></td></tr>` : ""}</tbody></table>
+        <h3 style="margin-top:14px">${t("Cost by account")}</h3>
+        <table class="tbl"><thead><tr><th>${t("Account")}</th><th class="num">${t("Realization")}</th>
+          <th class="num">${t("Cost budget")}</th><th class="num">${t("Variance")}</th><th class="num">${t("Used")}</th></tr></thead>
+          <tbody>${accRows(cost, "cost") || `<tr><td colspan="5" class="empty">${t("No cost posted to this project")}</td></tr>`}
+          ${cost.length ? `<tr class="total"><td>${t("Total Cost")}</td><td class="num">${fmt(tC)}</td>
+            <td class="num">${fmt(bC)}</td><td class="num">${fmt(round2(bC - tC))}</td><td></td></tr>` : ""}</tbody></table>
+        <p class="muted mt" style="font-size:12px">Cost accounts (5100-01 Direct Labor, 5100-04 Fixed / Misc …) come from journal lines tagged to
+          this project. <b>Click an account</b> to see the transactions behind it. Set this project&rsquo;s revenue &amp; cost budget in
+          <b>Budgets &rarr; Per-project budget</b>.</p>`;
+    }
+    openModal(body, { title: name });
+    $$("#prjScheme .seg").forEach(b => b.onclick = () => { state.prjScheme = b.dataset.s; render(); });
+    $$("#modalRoot .prj-acc").forEach(a => a.onclick = e => {
+      e.preventDefault(); projectAccountLedger(pid, a.dataset.code, a.dataset.name, name, render);
+    });
+  };
+  await render();
+}
+
+async function projectAccountLedger(pid, code, accName, projName, back) {
+  try {
+    const d = await api(`/api/projects/${pid}/account-ledger?code=${encodeURIComponent(code)}&year=${state.year}`);
+    openModal(`
+      <div class="muted" style="margin-top:-4px">${esc(projName)} · ${state.year} · ${d.entries.length} transaction(s)</div>
+      <div style="max-height:52vh;overflow:auto" class="mt"><table class="tbl">
+        <thead><tr><th>${t("Date")}</th><th>${t("Entry")}</th><th>Co.</th><th>${t("Description")}</th>
+          <th>${t("Source")}</th><th>${t("Inputter")}</th><th class="num">${t("Debit")}</th><th class="num">${t("Credit")}</th></tr></thead>
+        <tbody>${d.entries.map(e => `<tr>
+          <td>${esc(e.date)}</td><td><b>${esc(e.entry_no)}</b></td><td>${esc(e.company_code)}</td>
+          <td>${esc(e.line_desc || e.description || "")}</td>
+          <td><span class="pill ${SOURCE_CLASS[e.source] || "inactive"}">${esc(e.source_label)}</span></td>
+          <td>${esc(e.inputter)}</td>
+          <td class="num">${e.debit ? fmt(e.debit) : ""}</td>
+          <td class="num">${e.credit ? fmt(e.credit) : ""}</td></tr>`).join("")
+          || `<tr><td colspan="8" class="empty">No transactions for this account on this project.</td></tr>`}
+        <tr class="total"><td colspan="6">${t("TOTAL")}</td><td class="num">${fmt(d.total_debit)}</td>
+          <td class="num">${fmt(d.total_credit)}</td></tr></tbody></table></div>
+      <div class="form-actions"><button class="btn" id="prjBack">&#8592; ${t("Back to project")}</button></div>`,
+      { title: `${code} — ${accName}` });
+    $("#prjBack").onclick = () => back();
+  } catch (e) { toast(e.message, true); }
 }
 
 async function projectEditor(p, reload, defaultCompanyId) {
@@ -2957,7 +3069,7 @@ async function pageMoneyTracker(el) {
         <td><b>${name}</b>${m.title && m.project_code ? `<br><span class="muted">${esc(m.title)}</span>` : ""}</td>
         <td>${esc(m.company_code)}</td>
         <td>${esc(m.client || "")}<br><span class="muted">${esc(m.invoice_no || "")}</span></td>
-        <td class="num"><b>${fmt(m.amount)}</b></td>
+        <td class="num"><b>${fmtRp(m.amount)}</b></td>
         <td style="min-width:190px">
           <div><span class="pill ${MT_STATE_PILL[m.status === "done" ? "completed" : "current"]}">${esc(m.phase_label)}</span>
             <span class="muted" style="font-size:11.5px"> ${esc(m.phase_name)}</span></div>
@@ -2969,11 +3081,13 @@ async function pageMoneyTracker(el) {
     }).join("") || `<tr><td colspan="6" class="empty">No invoice tracks yet — add one to follow a project's money from contract to payment.</td></tr>`;
     $("#mtBody").innerHTML = `
       <div class="grid kpis">
-        <div class="kpi"><div class="kpi-label">${t("Total tracked")}</div><div class="kpi-value">${fmtShortRp(d.total_amount)}</div>
+        <div class="kpi"><div class="kpi-label">${t("Total tracked")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.total_amount)}</div>
           <div class="kpi-sub">${d.items.length} invoice track(s)</div></div>
-        <div class="kpi hl"><div class="kpi-label">${t("In process")}</div><div class="kpi-value">${fmtShortRp(d.outstanding)}</div>
+        <div class="kpi hl"><div class="kpi-label">${t("Outstanding")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.outstanding)}</div>
           <div class="kpi-sub">${d.count_active} still moving</div></div>
-        <div class="kpi green"><div class="kpi-label">${t("Received")}</div><div class="kpi-value">${fmtShortRp(d.received)}</div>
+        <div class="kpi ${d.on_hold ? "amber" : ""}"><div class="kpi-label">${t("On hold")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.on_hold || 0)}</div>
+          <div class="kpi-sub">${d.count_on_hold || 0} parked &middot; not in outstanding</div></div>
+        <div class="kpi green"><div class="kpi-label">${t("Received")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.received)}</div>
           <div class="kpi-sub">clear &amp; clear</div></div>
       </div>
       <div class="card mt"><div style="overflow-x:auto"><table class="tbl">
@@ -3024,7 +3138,7 @@ async function moneyTrackerDetail(tid, reload) {
     <div class="muted" style="margin-top:-4px">${esc(m.company_code)}${m.client ? " · " + esc(m.client) : ""}
       ${m.invoice_no ? " · invoice " + esc(m.invoice_no) : ""}${m.started_at ? " · started " + esc(m.started_at) : ""}</div>
     <div class="grid kpis mt">
-      <div class="kpi"><div class="kpi-label">${t("Amount")}</div><div class="kpi-value">${fmtShortRp(m.amount)}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Amount")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(m.amount)}</div></div>
       <div class="kpi hl"><div class="kpi-label">${t("Current phase")}</div><div class="kpi-value" style="font-size:16px">${esc(m.phase_label)}</div>
         <div class="kpi-sub">${esc(m.phase_name)}</div></div>
       <div class="kpi"><div class="kpi-label">${t("Progress")}</div><div class="kpi-value">${m.progress_pct}%</div>
@@ -3044,7 +3158,7 @@ async function moneyTrackerDetail(tid, reload) {
         <button class="seg ${m.status === "done" ? "active" : ""}" data-st="done">${t("Done")}</button>
       </div></div>` : ""}
     ${mtStepper(m.history)}
-    ${canWrite() && !m.is_final ? `<div class="filters" style="margin-top:12px">
+    ${canWrite() && !m.is_final && m.status !== "on_hold" && m.status !== "cancelled" ? `<div class="filters" style="margin-top:12px">
       <button class="btn btn-primary" id="mtAdvance">${t("Mark done / advance phase")}</button>
       <label class="muted">${t("or jump to")} <select id="mtJump">
         ${m.history.map(h => `<option value="${esc(h.key)}" ${h.key === m.phase_key ? "selected" : ""}>${esc(h.label)} — ${esc(h.name)}</option>`).join("")}

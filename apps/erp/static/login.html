@@ -19,7 +19,8 @@ body {
   font-family: Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif; min-height: 100vh;
   display: flex; align-items: center; justify-content: center; padding: 26px;
   background:
-    radial-gradient(900px 500px at 85% 0%, rgba(0,162,182,.12), transparent 55%),
+    linear-gradient(180deg, rgba(8,11,13,.78), rgba(8,11,13,.90)),
+    url("/static/assets/login-bg.jpg") center/cover no-repeat fixed,
     linear-gradient(180deg, #0b0e10 0%, #0a0d0f 100%);
   color: var(--text); -webkit-font-smoothing: antialiased;
 }
@@ -30,7 +31,8 @@ body {
 }
 /* left brand panel */
 .brandside { position: relative; overflow: hidden; background: #0c0f12; }
-.brandside svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.brandside svg, .brandside .photo { position: absolute; inset: 0; width: 100%; height: 100%; }
+.brandside .photo { background: url("/static/assets/login-bg.jpg") center/cover no-repeat; }
 .brandside .glow1 { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(0,140,160,.34), rgba(8,11,13,.82)); mix-blend-mode: multiply; }
 .brandside .glow2 { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(0,162,182,.10), rgba(10,13,15,.45) 78%); }
 .brandside .foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 32px; z-index: 3; }
@@ -65,25 +67,7 @@ button[type=submit]:hover { filter: brightness(1.07); }
 <body>
   <div class="card">
     <div class="brandside">
-      <svg viewBox="0 0 400 520" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a2127"/><stop offset="1" stop-color="#0c0f12"/></linearGradient>
-          <linearGradient id="con" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1c242b"/><stop offset="1" stop-color="#28323a"/></linearGradient>
-        </defs>
-        <rect width="400" height="520" fill="url(#sky)"/>
-        <rect x="20" y="170" width="120" height="350" fill="#161d23"/>
-        <g fill="#202a31" opacity=".8">
-          <rect x="34" y="190" width="20" height="14"/><rect x="62" y="190" width="20" height="14"/><rect x="90" y="190" width="20" height="14"/>
-          <rect x="34" y="216" width="20" height="14"/><rect x="62" y="216" width="20" height="14"/><rect x="90" y="216" width="20" height="14"/>
-          <rect x="34" y="242" width="20" height="14"/><rect x="62" y="242" width="20" height="14"/><rect x="90" y="242" width="20" height="14"/>
-        </g>
-        <rect x="120" y="90" width="210" height="430" fill="url(#con)"/>
-        <rect x="120" y="90" width="14" height="430" fill="#161d23"/>
-        <g fill="#11171c"><rect x="134" y="130" width="196" height="6"/><rect x="134" y="190" width="196" height="6"/><rect x="134" y="250" width="196" height="6"/><rect x="134" y="310" width="196" height="6"/><rect x="134" y="370" width="196" height="6"/><rect x="134" y="430" width="196" height="6"/></g>
-        <g fill="#0c1115"><rect x="146" y="142" width="172" height="38"/><rect x="146" y="202" width="172" height="38"/><rect x="146" y="262" width="172" height="38"/><rect x="146" y="322" width="172" height="38"/><rect x="146" y="382" width="172" height="38"/></g>
-        <g stroke="#2a343c" stroke-width="2"><line x1="178" y1="142" x2="178" y2="420"/><line x1="210" y1="142" x2="210" y2="420"/><line x1="242" y1="142" x2="242" y2="420"/><line x1="274" y1="142" x2="274" y2="420"/><line x1="306" y1="142" x2="306" y2="420"/></g>
-        <g fill="#00a2b6" opacity=".55"><rect x="148" y="144" width="28" height="34"/><rect x="244" y="264" width="28" height="34"/><rect x="180" y="324" width="28" height="34"/><rect x="276" y="204" width="28" height="34"/></g>
-      </svg>
+      <div class="photo"></div>
       <div class="glow1"></div><div class="glow2"></div>
       <div class="foot">
         <img src="/static/assets/mores-logo-ondark.png" alt="Mores Strategics">
