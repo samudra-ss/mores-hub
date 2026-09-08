@@ -12,6 +12,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import bank_import
 import database
 import excel_io
+import fpa_cash
 import pdf_export
 import reports
 
@@ -536,6 +537,7 @@ def api_me():
         "companies": companies,
         "menu_access": (g.user["menu_access"] if "menu_access" in g.user.keys() else "all") or "all",
         "active_db": active_db_name(),
+        "data_as_of": database.get_db_profile(db()).get("data_as_of", ""),
         "databases": database.list_databases() if g.user["role"] == "admin" else [],
     })
 
@@ -765,7 +767,10 @@ def delete_account(aid):
     used = db().execute(
         "SELECT COUNT(*) AS n FROM journal_lines WHERE account_id=?", (aid,)).fetchone()["n"]
     budgeted = db().execute(
-        "SELECT COUNT(*) AS n FROM budgets WHERE account_id=?", (aid,)).fetchone()["n"]
+        # a budget line of zero is not a budget - week grain makes all-zero rows
+        # common, and counting them would make ordinary accounts undeletable
+        "SELECT COUNT(*) AS n FROM budgets WHERE account_id=? AND amount<>0",
+        (aid,)).fetchone()["n"]
     if used or budgeted:
         raise ValueError("Account has transactions or budgets — deactivate it instead")
     db().execute("DELETE FROM accounts WHERE id=?", (aid,))
@@ -1112,30 +1117,59 @@ def bulk_journals():
 # Budgets
 # --------------------------------------------------------------------------
 
+MIXED_CERTAINTY = "mixed"
+
+
 @app.get("/api/budgets")
 @login_required
 def get_budgets():
+    """The Budget Center grid: one row per (account, project), 12 months x 4 weeks.
+
+    `amounts` is kept alongside `weeks` as the month roll-up. Every older reader
+    - the Excel export most of all - already speaks months, and a roll-up is the
+    honest month figure; reading one arbitrary week as if it were the month is
+    not.
+    """
     company_id = int(request.args.get("company_id"))
     check_company_access(company_id)
     year = year_param()
     rows = db().execute(
-        """SELECT b.account_id, a.code, a.name, a.type, b.project_id, b.month, b.amount
+        """SELECT b.account_id, a.code, a.name, a.type, b.project_id, b.month, b.week,
+                  b.amount, b.certainty, b.cf_class, a.cash_flow_class AS acct_cf_class
            FROM budgets b JOIN accounts a ON a.id = b.account_id
-           WHERE b.company_id=? AND b.year=? ORDER BY a.code""",
+           WHERE b.company_id=? AND b.year=? ORDER BY a.code, b.month, b.week""",
         (company_id, year)).fetchall()
-    grid = {}
+    grid, seen_certainty = {}, {}
     for r in rows:
         key = (r["account_id"], r["project_id"])
         g_ = grid.setdefault(key, {
             "account_id": r["account_id"], "code": r["code"], "name": r["name"],
-            "type": r["type"], "project_id": r["project_id"], "amounts": [0.0] * 12})
-        g_["amounts"][r["month"] - 1] = r["amount"]
-    return jsonify({"year": year, "rows": sorted(grid.values(), key=lambda x: x["code"])})
+            "type": r["type"], "project_id": r["project_id"],
+            "cf_class": r["cf_class"] or r["acct_cf_class"] or "",
+            "weeks": [[0.0] * fpa_cash.WEEKS_IN_MONTH for _ in range(12)],
+            "amounts": [0.0] * 12})
+        m, w = r["month"] - 1, r["week"] - 1
+        if 0 <= m < 12 and 0 <= w < fpa_cash.WEEKS_IN_MONTH:
+            g_["weeks"][m][w] = round(g_["weeks"][m][w] + (r["amount"] or 0), 2)
+            g_["amounts"][m] = round(g_["amounts"][m] + (r["amount"] or 0), 2)
+        seen_certainty.setdefault(key, set()).add(r["certainty"] or "planned")
+    for key, g_ in grid.items():
+        c = seen_certainty.get(key) or {"planned"}
+        # one line can hold cells of different certainty; saying "mixed" out loud
+        # beats picking one of them and pretending the rest agree
+        g_["certainty"] = c.pop() if len(c) == 1 else MIXED_CERTAINTY
+        g_["total"] = round(sum(g_["amounts"]), 2)
+    return jsonify({"year": year, "company_id": company_id,
+                    "weeks_in_month": fpa_cash.WEEKS_IN_MONTH,
+                    "certainties": list(fpa_cash.CERTAINTIES),
+                    "rows": sorted(grid.values(), key=lambda x: x["code"])})
 
 
 @app.delete("/api/budgets")
 @role_required("admin", "finance")
 def delete_budget_row():
+    """Clear a budget line. Without month/week it clears the whole year, with
+    them just that month or that single week."""
     company_id = int(request.args.get("company_id"))
     check_company_access(company_id)
     year = year_param()
@@ -1144,9 +1178,17 @@ def delete_budget_row():
     if project_id:
         project_id = int(project_id)
         project_in_company(project_id, company_id)
-    cur = db().execute(
-        "DELETE FROM budgets WHERE company_id=? AND account_id=? AND year=? AND project_id IS ?",
-        (company_id, account_id, year, project_id))
+    where = ["company_id=?", "account_id=?", "year=?", "project_id IS ?"]
+    params = [company_id, account_id, year, project_id]
+    month = request.args.get("month")
+    if month:
+        where.append("month=?")
+        params.append(int(month))
+        week = request.args.get("week")
+        if week:
+            where.append("week=?")
+            params.append(int(week))
+    cur = db().execute("DELETE FROM budgets WHERE %s" % " AND ".join(where), params)
     db().commit()
     return jsonify({"deleted": cur.rowcount})
 
@@ -1154,21 +1196,60 @@ def delete_budget_row():
 @app.put("/api/budgets")
 @role_required("admin", "finance")
 def save_budgets():
+    """Save the Budget Center grid at week grain.
+
+    Accepts `weeks` (12 x 4) and still accepts the old `amounts` (12 months), in
+    which case a month lands in WEEK 1 - the same rule everywhere else in the app
+    when there is no week-level information to go on.
+    """
     d = request.get_json(force=True)
     company_id = int(d["company_id"])
     check_company_access(company_id)
     year = int(d["year"])
+    nweeks = fpa_cash.WEEKS_IN_MONTH
     checked_projects = set()
+    written = 0
     for row in d.get("rows", []):
-        pidv = row.get("project_id")
+        pidv = row.get("project_id") or None
         if pidv and pidv not in checked_projects:
             project_in_company(int(pidv), company_id)  # block budgeting a foreign project
             checked_projects.add(pidv)
-        for m, amount in enumerate(row.get("amounts", [])[:12], start=1):
-            excel_io.upsert_budget(db(), company_id, row["account_id"],
-                                   row.get("project_id"), year, m, float(amount or 0))
+        pidv = int(pidv) if pidv else None
+        account_id = int(row["account_id"])
+        certainty = row.get("certainty")
+        # "mixed" means the row's cells disagree and the user did not touch it -
+        # passing None leaves each cell's stored certainty exactly as it was
+        default_certainty = None
+        if certainty in (None, "", MIXED_CERTAINTY):
+            certainty = None
+            # ...but a cell that has to be CREATED has no stored value to keep.
+            # Falling back to the 'planned' default would quietly turn a new week
+            # of otherwise-contracted revenue into money the Bound run ignores,
+            # so a new cell inherits whatever carries the most money on that line.
+            dom = db().execute(
+                "SELECT certainty FROM budgets WHERE company_id=? AND account_id=?"
+                " AND project_id IS ? AND year=? GROUP BY certainty"
+                " ORDER BY SUM(ABS(amount)) DESC LIMIT 1",
+                (company_id, account_id, pidv, year)).fetchone()
+            default_certainty = dom["certainty"] if dom else None
+        elif certainty not in fpa_cash.CERTAINTIES:
+            raise ValueError("Invalid certainty '%s'" % certainty)
+        cf_class = row.get("cf_class")
+        if cf_class and cf_class not in database.CASH_FLOW_CLASSES:
+            raise ValueError("Invalid cash-flow class '%s'" % cf_class)
+        weeks = row.get("weeks")
+        if weeks is None:
+            weeks = [[float(a or 0)] + [0.0] * (nweeks - 1)
+                     for a in (row.get("amounts") or [])[:12]]
+        for mi, wk in enumerate(weeks[:12]):
+            for wi, amount in enumerate((wk or [])[:nweeks]):
+                database.upsert_budget(db(), company_id, account_id, pidv, year,
+                                       mi + 1, float(amount or 0), week=wi + 1,
+                                       certainty=certainty, cf_class=cf_class,
+                                       default_certainty=default_certainty)
+                written += 1
     db().commit()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "cells": written})
 
 
 # --------------------------------------------------------------------------
@@ -1714,7 +1795,7 @@ def report_project_bva():
 @login_required
 def report_cash_flow():
     ids, label = scope_from_request()
-    data = reports.cash_flow(db(), ids, year_param())
+    data = reports.cash_flow(db(), ids, year_param(), cash_codes=get_cash_codes())
     data["scope"] = label
     return jsonify(data)
 
@@ -1723,7 +1804,7 @@ def report_cash_flow():
 @login_required
 def report_cash_flow_weekly():
     ids, label = scope_from_request()
-    data = reports.weekly_cash_flow(db(), ids, year_param())
+    data = reports.weekly_cash_flow(db(), ids, year_param(), cash_codes=get_cash_codes())
     data["scope"] = label
     return jsonify(data)
 
@@ -1757,7 +1838,7 @@ def save_cash_budget():
 @login_required
 def export_cash_flow():
     ids, label = scope_from_request()
-    cf = reports.cash_flow(db(), ids, year_param())
+    cf = reports.cash_flow(db(), ids, year_param(), cash_codes=get_cash_codes())
     return _xlsx(excel_io.export_cash_flow(cf, label), "cash_flow_%d.xlsx" % cf["year"])
 
 
@@ -1810,7 +1891,7 @@ def export_tb_pdf():
 @login_required
 def export_cf_pdf():
     ids, label = scope_from_request()
-    cf = reports.cash_flow(db(), ids, year_param())
+    cf = reports.cash_flow(db(), ids, year_param(), cash_codes=get_cash_codes())
     return _pdf(pdf_export.export_cash_flow_pdf(cf, label), "cash_flow_%d.pdf" % cf["year"])
 
 
@@ -1888,7 +1969,10 @@ def export_budget():
     else:
         rows = [r for r in grid["rows"] if not r["project_id"]]
         label = _company_name(company_id)
-    return _xlsx(excel_io.export_budget_grid(rows, label, year), "budget_%d.xlsx" % year)
+    pcodes = {r["id"]: r["code"] for r in db().execute(
+        "SELECT id, code FROM projects WHERE company_id=?", (company_id,))}
+    return _xlsx(excel_io.export_budget_grid(rows, label, year, pcodes),
+                 "budget_%d.xlsx" % year)
 
 
 @app.get("/api/export/journals")
@@ -2409,7 +2493,7 @@ MONEY_PHASES = [
 ]
 _PHASE_KEYS = [p[0] for p in MONEY_PHASES]
 _PHASE_BY_KEY = {p[0]: p for p in MONEY_PHASES}
-MONEY_STATUSES = ("active", "done", "on_hold", "cancelled")
+MONEY_STATUSES = ("prospectus", "active", "done", "on_hold", "cancelled")
 
 
 def _phase_index(key):
@@ -2462,14 +2546,17 @@ def list_money_tracker():
     # cancelled) is parked and must not inflate the money still in process
     active = [i for i in items if i["status"] == "active"]
     on_hold = [i for i in items if i["status"] == "on_hold"]
+    prospectus = [i for i in items if i["status"] == "prospectus"]
     return jsonify({
         "items": items, "scope": label,
         "phases": [{"key": k, "label": l, "name": n} for k, l, n, _ in MONEY_PHASES],
         "total_amount": round(sum(i["amount"] or 0 for i in items), 2),
         "outstanding": round(sum(i["amount"] or 0 for i in active), 2),
         "on_hold": round(sum(i["amount"] or 0 for i in on_hold), 2),
+        "prospectus": round(sum(i["amount"] or 0 for i in prospectus), 2),
         "received": round(sum(i["amount"] or 0 for i in items if i["status"] == "done"), 2),
         "count_active": len(active), "count_on_hold": len(on_hold),
+        "count_prospectus": len(prospectus), "count_hot": len([i for i in prospectus if i.get("is_hot")]),
     })
 
 
@@ -2527,7 +2614,7 @@ def _money_fields(d):
     return (d.get("title", "").strip(), d.get("invoice_no", "").strip(),
             d.get("client", "").strip(), round(float(d.get("amount") or 0), 2),
             key, status, (d.get("started_at") or None), d.get("notes", "").strip(),
-            d.get("cancel_reason", "").strip())
+            d.get("cancel_reason", "").strip(), 1 if d.get("is_hot") else 0)
 
 
 @app.post("/api/money-tracker")
@@ -2544,8 +2631,8 @@ def create_money_tracker():
         raise ValueError("Pick a project or give the entry a title")
     cur = db().execute(
         "INSERT INTO money_tracker (company_id, project_id, title, invoice_no, client,"
-        " amount, phase_key, status, started_at, notes, cancel_reason)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        " amount, phase_key, status, started_at, notes, cancel_reason, is_hot)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
         (company_id, project_id) + fields)
     tid = cur.lastrowid
     # open the starting phase so the history shows when it was entered
@@ -2569,7 +2656,7 @@ def update_money_tracker(tid):
     fields = _money_fields(d)
     db().execute(
         "UPDATE money_tracker SET project_id=?, title=?, invoice_no=?, client=?, amount=?,"
-        " phase_key=?, status=?, started_at=?, notes=?, cancel_reason=? WHERE id=?",
+        " phase_key=?, status=?, started_at=?, notes=?, cancel_reason=?, is_hot=? WHERE id=?",
         (project_id,) + fields + (tid,))
     db().commit()
     return jsonify({"ok": True})
@@ -2592,6 +2679,18 @@ def set_money_tracker_status(tid):
                  (status, reason, tid))
     db().commit()
     return jsonify({"ok": True, "status": status})
+
+
+@app.post("/api/money-tracker/<int:tid>/hot")
+@role_required("admin", "finance")
+def set_money_tracker_hot(tid):
+    """Flag a prospectus as HOT (worth chasing now) or cool it down."""
+    _money_access(tid)
+    d = request.get_json(force=True)
+    hot = 1 if d.get("is_hot") else 0
+    db().execute("UPDATE money_tracker SET is_hot=? WHERE id=?", (hot, tid))
+    db().commit()
+    return jsonify({"ok": True, "is_hot": hot})
 
 
 @app.get("/api/money-tracker/<int:tid>/comments")
@@ -2655,7 +2754,7 @@ def advance_money_tracker(tid):
     _money_access(tid)
     d = request.get_json(force=True) if request.data else {}
     row = db().execute("SELECT phase_key, status FROM money_tracker WHERE id=?", (tid,)).fetchone()
-    if row["status"] in ("on_hold", "cancelled"):
+    if row["status"] in ("on_hold", "cancelled", "prospectus"):
         raise ValueError("This project is %s — set it back to Active before moving phases"
                          % row["status"].replace("_", " "))
     cur_key = row["phase_key"]
@@ -2697,6 +2796,689 @@ def advance_money_tracker(tid):
             db().execute("UPDATE money_tracker SET status='done' WHERE id=?", (tid,))
     db().commit()
     return jsonify({"ok": True, "phase_key": _PHASE_KEYS[nxt_idx]})
+
+
+# --------------------------------------------------------------------------
+# THE ORACLE - weekly cash plan (Steps 1-3)
+#
+# The plan is CASH BASIS at (year, month, week-in-month) grain: a row against
+# 4100 is money COLLECTED that week, not money invoiced. The screen says so; the
+# API keeps the vocabulary (Penerimaan / Pengeluaran) rather than revenue/expense.
+# --------------------------------------------------------------------------
+
+PLAN_KINDS = ("budget", "forecast", "scenario")
+PLAN_STATUSES = ("draft", "submitted", "approved", "locked")
+PLAN_LOCKED = ("approved", "locked")
+
+
+def check_version_writable(vid):
+    """Raise on an approved/locked version. EVERY write path calls this."""
+    row = db().execute("SELECT id, status, company_id FROM plan_versions WHERE id=?",
+                       (vid,)).fetchone()
+    if not row:
+        raise ValueError("Plan version not found")
+    if row["status"] in PLAN_LOCKED:
+        raise ValueError("This plan version is %s and can no longer be edited - "
+                         "copy it to a new draft first" % row["status"])
+    if row["company_id"]:
+        check_company_access(row["company_id"])
+    return row
+
+
+@app.get("/api/settings/cash-flow-classes")
+@login_required
+def get_cash_flow_classes():
+    """How each account moves cash (operating / investing / financing / noncash)."""
+    ids = accessible_company_ids()
+    ph = ",".join("?" * len(ids))
+    rows = db().execute(
+        "SELECT code, MIN(name) AS name, MIN(type) AS type,"
+        " MIN(cash_flow_class) AS cash_flow_class FROM accounts"
+        " WHERE company_id IN (%s) AND is_active=1 GROUP BY code ORDER BY code" % ph,
+        ids).fetchall()
+    return jsonify({"accounts": [dict(r) for r in rows],
+                    "classes": list(database.CASH_FLOW_CLASSES)})
+
+
+@app.post("/api/settings/cash-flow-classes")
+@role_required("admin")
+def set_cash_flow_classes():
+    d = request.get_json(force=True)
+    changes = d.get("classes") or {}
+    valid = set(database.CASH_FLOW_CLASSES) | {""}
+    n = 0
+    for code, cls in changes.items():
+        if cls not in valid:
+            raise ValueError("Invalid cash-flow class '%s'" % cls)
+        db().execute("UPDATE accounts SET cash_flow_class=? WHERE code=?", (cls, str(code)))
+        n += 1
+    db().commit()
+    return jsonify({"ok": True, "updated": n})
+
+
+# ---- plan versions --------------------------------------------------------
+
+@app.get("/api/plan/versions")
+@login_required
+def list_plan_versions():
+    year = request.args.get("year")
+    where, params = [], []
+    if year:
+        where.append("v.year = ?")
+        params.append(int(year))
+    sql = ("SELECT v.*, c.code AS company_code,"
+           " (SELECT COUNT(*) FROM plan_weeks w WHERE w.version_id = v.id) AS rows"
+           " FROM plan_versions v LEFT JOIN companies c ON c.id = v.company_id")
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY v.year DESC, v.id DESC"
+    rows = db().execute(sql, params).fetchall()
+    return jsonify({"versions": [dict(r) for r in rows],
+                    "kinds": list(PLAN_KINDS), "statuses": list(PLAN_STATUSES),
+                    "certainties": list(fpa_cash.CERTAINTIES)})
+
+
+@app.post("/api/plan/versions")
+@role_required("admin", "finance")
+def create_plan_version():
+    d = request.get_json(force=True)
+    name = (d.get("name") or "").strip()
+    if not name:
+        raise ValueError("Give the plan version a name")
+    kind = d.get("kind", "budget")
+    if kind not in PLAN_KINDS:
+        raise ValueError("Invalid plan kind")
+    company_id = d.get("company_id") or None
+    if company_id:
+        company_id = int(company_id)
+        check_company_access(company_id)
+    cur = db().execute(
+        "INSERT INTO plan_versions (company_id, year, name, kind, base_version_id)"
+        " VALUES (?,?,?,?,?)",
+        (company_id, int(d.get("year") or year_param()), name, kind,
+         d.get("base_version_id") or None))
+    db().commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.post("/api/plan/versions/<int:vid>/status")
+@role_required("admin", "finance")
+def set_plan_version_status(vid):
+    d = request.get_json(force=True)
+    status = d.get("status")
+    if status not in PLAN_STATUSES:
+        raise ValueError("Invalid status")
+    row = db().execute("SELECT status, company_id FROM plan_versions WHERE id=?",
+                       (vid,)).fetchone()
+    if not row:
+        raise ValueError("Plan version not found")
+    if row["company_id"]:
+        check_company_access(row["company_id"])
+    # only an admin may re-open an approved/locked plan
+    if row["status"] in PLAN_LOCKED and status not in PLAN_LOCKED \
+            and g.user["role"] != "admin":
+        raise ValueError("Only an admin can re-open an approved or locked plan")
+    db().execute("UPDATE plan_versions SET status=? WHERE id=?", (status, vid))
+    db().commit()
+    return jsonify({"ok": True, "status": status})
+
+
+@app.post("/api/plan/versions/<int:vid>/copy")
+@role_required("admin", "finance")
+def copy_plan_version(vid):
+    """New draft from any version - the only way to edit an approved plan."""
+    src = db().execute("SELECT * FROM plan_versions WHERE id=?", (vid,)).fetchone()
+    if not src:
+        raise ValueError("Plan version not found")
+    if src["company_id"]:
+        check_company_access(src["company_id"])
+    d = request.get_json(force=True) if request.data else {}
+    name = (d.get("name") or (src["name"] + " (copy)")).strip()
+    year = int(d.get("year") or src["year"])
+    cur = db().execute(
+        "INSERT INTO plan_versions (company_id, year, name, kind, base_version_id)"
+        " VALUES (?,?,?,?,?)", (src["company_id"], year, name, src["kind"], vid))
+    new_id = cur.lastrowid
+    db().execute(
+        "INSERT INTO plan_weeks (version_id, company_id, project_id, account_id,"
+        " year, month, week, flow, amount, certainty, cf_class, note)"
+        " SELECT ?, company_id, project_id, account_id, ?, month, week, flow,"
+        " amount, certainty, cf_class, note FROM plan_weeks WHERE version_id=?",
+        (new_id, year, vid))
+    db().commit()
+    return jsonify({"id": new_id}), 201
+
+
+@app.delete("/api/plan/versions/<int:vid>")
+@role_required("admin", "finance")
+def delete_plan_version(vid):
+    check_version_writable(vid)
+    db().execute("DELETE FROM plan_weeks WHERE version_id=?", (vid,))
+    # a later version may have been copied FROM this one; keep those versions and
+    # just forget the lineage, otherwise the FK raises an opaque 500
+    db().execute("UPDATE plan_versions SET base_version_id=NULL WHERE base_version_id=?", (vid,))
+    db().execute("DELETE FROM plan_versions WHERE id=?", (vid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+# ---- the weekly cash plan itself -----------------------------------------
+
+@app.get("/api/plan/weeks")
+@login_required
+def get_plan_weeks():
+    """One month of the cash plan: the week buckets, the rows, and the totals."""
+    vid = int(request.args.get("version_id"))
+    ver = db().execute("SELECT * FROM plan_versions WHERE id=?", (vid,)).fetchone()
+    if not ver:
+        raise ValueError("Plan version not found")
+    year = int(request.args.get("year") or ver["year"])
+    month = int(request.args.get("month") or 1)
+    cid = request.args.get("company_id")
+    where = ["w.version_id = ?", "w.year = ?", "w.month = ?"]
+    params = [vid, year, month]
+    if cid and cid not in ("all", ""):
+        check_company_access(int(cid))
+        where.append("w.company_id = ?")
+        params.append(int(cid))
+    else:
+        ids = accessible_company_ids()
+        where.append("w.company_id IN (%s)" % ",".join("?" * len(ids)))
+        params += ids
+    rows = db().execute(
+        "SELECT w.*, a.code AS account_code, a.name AS account_name, a.type AS account_type,"
+        " a.cash_flow_class AS account_cf_class, c.code AS company_code,"
+        " p.code AS project_code FROM plan_weeks w"
+        " JOIN accounts a ON a.id = w.account_id"
+        " JOIN companies c ON c.id = w.company_id"
+        " LEFT JOIN projects p ON p.id = w.project_id"
+        " WHERE %s ORDER BY w.flow DESC, a.code, w.week" % " AND ".join(where),
+        params).fetchall()
+    items = [dict(r) for r in rows]
+    weeks = fpa_cash.weeks_of_month(year, month)
+    tin = round(sum(i["amount"] for i in items if i["flow"] == "in"), 2)
+    tout = round(sum(i["amount"] for i in items if i["flow"] == "out"), 2)
+    # year-to-date running position through the end of this month
+    ph2 = ",".join("?" * len(accessible_company_ids()))
+    ytd = db().execute(
+        "SELECT COALESCE(SUM(CASE WHEN flow='in' THEN amount ELSE -amount END),0)"
+        " FROM plan_weeks WHERE version_id=? AND year=? AND month<=?"
+        " AND company_id IN (%s)" % ph2,
+        [vid, year, month] + accessible_company_ids()).fetchone()[0]
+    return jsonify({
+        "version": dict(ver), "year": year, "month": month, "weeks": weeks,
+        "items": items, "total_in": tin, "total_out": tout,
+        "net": round(tin - tout, 2), "ytd_net": round(ytd or 0, 2),
+        "certainties": list(fpa_cash.CERTAINTIES),
+        "cf_classes": list(database.CASH_FLOW_CLASSES),
+        "editable": ver["status"] not in PLAN_LOCKED,
+    })
+
+
+@app.post("/api/plan/weeks")
+@role_required("admin", "finance")
+def save_plan_weeks():
+    """Upsert cash-plan cells. NULL-safe, so a group-level row (no project)
+    updates in place instead of duplicating."""
+    d = request.get_json(force=True)
+    vid = int(d["version_id"])
+    check_version_writable(vid)
+    saved = 0
+    for cell in d.get("cells", []):
+        company_id = int(cell["company_id"])
+        check_company_access(company_id)
+        project_id = cell.get("project_id") or None
+        if project_id:
+            project_id = int(project_id)
+            project_in_company(project_id, company_id)
+        year, month, week = int(cell["year"]), int(cell["month"]), int(cell["week"])
+        if fpa_cash.week_dates(year, month, week) is None:
+            raise ValueError("Week %d of %d/%d has no days - nothing can be planned in it"
+                             % (week, month, year))
+        flow = cell.get("flow")
+        if flow not in fpa_cash.FLOWS:
+            raise ValueError("flow must be 'in' or 'out'")
+        certainty = cell.get("certainty", "planned")
+        if certainty not in fpa_cash.CERTAINTIES:
+            raise ValueError("Invalid certainty")
+        cf_class = cell.get("cf_class", "") or ""
+        if cf_class and cf_class not in database.CASH_FLOW_CLASSES:
+            raise ValueError("Invalid cash-flow class")
+        database.upsert_plan_week(
+            db(), vid, company_id, project_id, int(cell["account_id"]),
+            year, month, week, flow, round(float(cell.get("amount") or 0), 2),
+            certainty, cf_class, cell.get("note", ""))
+        saved += 1
+    # a zero cell is not a plan line - drop it so the grid stays honest
+    db().execute("DELETE FROM plan_weeks WHERE version_id=? AND amount=0", (vid,))
+    db().commit()
+    return jsonify({"ok": True, "saved": saved})
+
+
+@app.post("/api/plan/weeks/seed-from-budget/<int:vid>")
+@role_required("admin", "finance")
+def seed_plan_from_budget(vid):
+    """Freeze the live budget into a plan version: a faithful WEEK-FOR-WEEK copy.
+
+    This used to sum the budget back to a month and re-spread it across the weeks
+    from a setting. Once the budget itself carries a week that is destructive - a
+    deliberately W4-heavy month would come back as a W1 spike. A snapshot must
+    record what is there, not re-derive it.
+    """
+    ver = check_version_writable(vid)
+    d = request.get_json(force=True) if request.data else {}
+    year = int(d.get("year") or ver["year"])
+    ids = accessible_company_ids()
+    if ver["company_id"]:
+        ids = [ver["company_id"]]
+    ph = ",".join("?" * len(ids))
+    rows = db().execute(
+        "SELECT b.company_id, b.account_id, b.project_id, b.month, b.week, b.amount,"
+        " b.certainty, b.cf_class, a.type AS type, a.cash_flow_class AS acct_cf"
+        " FROM budgets b JOIN accounts a ON a.id = b.account_id"
+        " WHERE b.company_id IN (%s) AND b.year = ? AND a.type IN ('revenue','expense')"
+        " AND b.amount <> 0" % ph,
+        ids + [year]).fetchall()
+    made = 0
+    for r in rows:
+        database.upsert_plan_week(
+            db(), vid, r["company_id"], r["project_id"], r["account_id"],
+            year, r["month"], r["week"],
+            "in" if r["type"] == "revenue" else "out", round(r["amount"], 2),
+            r["certainty"] or "planned", r["cf_class"] or r["acct_cf"] or "",
+            "frozen from Budget Center")
+        made += 1
+    db().commit()
+    return jsonify({"ok": True, "cells": made, "year": year, "mode": "snapshot"})
+
+
+@app.post("/api/budgets/collapse-to-week1")
+@role_required("admin", "finance")
+def collapse_budget_to_week1():
+    """Fold every month of the budget into its first week.
+
+    A monthly budget knows the month and not the week, so W1 is its honest
+    reading and the safest one for cash - money out as early as it could go.
+    Weeks 2-4 are ADDED into week 1, never dropped: the month total is identical
+    before and after, and the response says so.
+    """
+    d = request.get_json(force=True) if request.data else {}
+    year = int(d.get("year") or year_param())
+    cid = d.get("company_id")
+    ids = [int(cid)] if cid else accessible_company_ids()
+    for i in ids:
+        check_company_access(i)
+    ph = ",".join("?" * len(ids))
+    before = db().execute(
+        "SELECT COALESCE(SUM(amount),0) FROM budgets WHERE year=? AND company_id IN (%s)" % ph,
+        [year] + ids).fetchone()[0]
+    groups = db().execute(
+        "SELECT company_id, account_id, project_id, month, ROUND(SUM(amount),2) AS total,"
+        " COUNT(*) AS cells, MIN(week) AS lo, MAX(week) AS hi FROM budgets"
+        " WHERE year=? AND company_id IN (%s)"
+        " GROUP BY company_id, account_id, project_id, month" % ph,
+        [year] + ids).fetchall()
+    moved = 0
+    for g in groups:
+        # nothing to do only when the month is ALREADY one row and that row is in
+        # week 1 - a single row sitting in week 3 still has to move
+        if g["cells"] == 1 and g["lo"] == 1:
+            continue
+        # Carry the certainty and cash-flow class of the BIGGEST cell in the month
+        # into week 1. Letting the upsert fall back to its 'planned' default would
+        # quietly demote contracted revenue, and since the Bound run counts no
+        # planned money in, a tidy-up action would flip the verdict to KRITIS.
+        keep = db().execute(
+            "SELECT certainty, cf_class FROM budgets WHERE year=? AND company_id=?"
+            " AND account_id=? AND project_id IS ? AND month=?"
+            " ORDER BY ABS(amount) DESC, week LIMIT 1",
+            (year, g["company_id"], g["account_id"], g["project_id"], g["month"])).fetchone()
+        db().execute(
+            "DELETE FROM budgets WHERE year=? AND company_id=? AND account_id=?"
+            " AND project_id IS ? AND month=? AND week<>1",
+            (year, g["company_id"], g["account_id"], g["project_id"], g["month"]))
+        database.upsert_budget(db(), g["company_id"], g["account_id"], g["project_id"],
+                               year, g["month"], g["total"], week=1,
+                               certainty=keep["certainty"] if keep else None,
+                               cf_class=keep["cf_class"] if keep else None)
+        moved += 1
+    db().commit()
+    after = db().execute(
+        "SELECT COALESCE(SUM(amount),0) FROM budgets WHERE year=? AND company_id IN (%s)" % ph,
+        [year] + ids).fetchone()[0]
+    return jsonify({"ok": True, "months_folded": moved, "year": year,
+                    "total_before": round(before, 2), "total_after": round(after, 2),
+                    "unchanged": round(before, 2) == round(after, 2)})
+
+
+# ---- Oracle Step 4: investment commitment schedule ------------------------
+
+@app.get("/api/investments/<int:iid>/commitments")
+@login_required
+def list_investment_commitments(iid):
+    """The week-grain schedule for an investment, plus the unscheduled remainder
+    the Oracle has to assume a date for."""
+    _investment_access(iid)
+    inv = db().execute(
+        "SELECT id, name, committed_amount FROM investments WHERE id=?", (iid,)).fetchone()
+    rows = db().execute(
+        "SELECT * FROM investment_commitments WHERE investment_id=? "
+        "ORDER BY year, month, week", (iid,)).fetchall()
+    items = []
+    for r in rows:
+        d = dict(r)
+        span = fpa_cash.week_dates(r["year"], r["month"], r["week"])
+        d["start"], d["end"] = (span or (None, None))
+        d["settles"] = fpa_cash.settlement_date(r["year"], r["month"], r["week"], "out")
+        items.append(d)
+    scheduled = round(sum(r["amount"] or 0 for r in rows), 2)
+    already_out = db().execute(
+        "SELECT COALESCE(SUM(amount),0) FROM investment_events "
+        "WHERE investment_id=? AND kind='outflow'", (iid,)).fetchone()[0] or 0
+    committed = round(inv["committed_amount"] or 0, 2)
+    unscheduled = round(max(0.0, committed - scheduled - already_out), 2)
+    return jsonify({
+        "investment_id": iid, "name": inv["name"], "committed_amount": committed,
+        "scheduled": scheduled, "already_out": round(already_out, 2),
+        "unscheduled": unscheduled, "commitments": items,
+        "certainties": ["committed", "planned", "expected"],
+        "note": ("This amount is committed with no date. Until it is scheduled the Oracle "
+                 "spreads it evenly across the remaining weeks of the year at 'committed' "
+                 "certainty — a defensible default, not a safe one."
+                 if unscheduled > 0.005 else ""),
+    })
+
+
+@app.post("/api/investments/<int:iid>/commitments")
+@role_required("admin", "finance")
+def add_investment_commitment(iid):
+    _investment_access(iid)
+    d = request.get_json(force=True)
+    year, month, week = int(d["year"]), int(d["month"]), int(d["week"])
+    if fpa_cash.week_dates(year, month, week) is None:
+        raise ValueError("Week %d of %d/%d has no days - nothing can be scheduled in it"
+                         % (week, month, year))
+    certainty = d.get("certainty", "committed")
+    if certainty not in ("committed", "planned", "expected"):
+        raise ValueError("Invalid certainty")
+    cur = db().execute(
+        "INSERT INTO investment_commitments (investment_id, year, month, week, amount,"
+        " certainty, note) VALUES (?,?,?,?,?,?,?)",
+        (iid, year, month, week, round(float(d.get("amount") or 0), 2),
+         certainty, d.get("note", "").strip()))
+    db().commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.delete("/api/investments/commitments/<int:cid>")
+@role_required("admin", "finance")
+def delete_investment_commitment(cid):
+    row = db().execute(
+        "SELECT i.company_id FROM investment_commitments ic "
+        "JOIN investments i ON i.id = ic.investment_id WHERE ic.id=?", (cid,)).fetchone()
+    if not row:
+        raise ValueError("Commitment not found")
+    check_company_access(row["company_id"])
+    db().execute("DELETE FROM investment_commitments WHERE id=?", (cid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+# ---- Oracle Step 5: buffer policy + the consult ---------------------------
+
+def get_buffer_policy():
+    """The buffer policy, merged over the engine defaults the way get_thresholds
+    already does. cash_pooling stays FALSE unless someone deliberately sets it."""
+    policy = dict(fpa_cash.DEFAULT_BUFFER_POLICY)
+    policy["absolute_floor"] = dict(policy.get("absolute_floor") or {})
+    try:
+        row = db().execute(
+            "SELECT value FROM app_settings WHERE key='oracle_buffer_policy'").fetchone()
+        stored = json.loads(row["value"]) if row and row["value"] else {}
+        if isinstance(stored, dict):
+            for k, v in stored.items():
+                if k in policy and v is not None:
+                    policy[k] = v
+    except Exception:
+        pass
+    return policy
+
+
+@app.get("/api/oracle/buffer-policy")
+@login_required
+def get_buffer_policy_api():
+    policy = get_buffer_policy()
+    ids = accessible_company_ids()
+    floors, warnings = fpa_cash.buffer_floors(db(), ids, policy, year_param())
+    return jsonify({"policy": policy, "floors": list(floors.values()),
+                    "warnings": warnings,
+                    "defaults": fpa_cash.DEFAULT_BUFFER_POLICY})
+
+
+@app.post("/api/oracle/buffer-policy")
+@role_required("admin")
+def set_buffer_policy_api():
+    d = request.get_json(force=True)
+    incoming = d.get("policy") or {}
+    clean = {}
+    if "months_cover" in incoming:
+        clean["months_cover"] = float(incoming["months_cover"])
+    if "cash_pooling" in incoming:
+        clean["cash_pooling"] = bool(incoming["cash_pooling"])
+    if "speculative_weight" in incoming:
+        w = float(incoming["speculative_weight"])
+        if not 0 <= w <= 1:
+            raise ValueError("speculative_weight must be between 0 and 1")
+        clean["speculative_weight"] = w
+    if "default_collection_lag_days" in incoming:
+        clean["default_collection_lag_days"] = max(0, int(incoming["default_collection_lag_days"]))
+    if "week_settlement" in incoming:
+        if incoming["week_settlement"] not in fpa_cash.SETTLEMENT_MODES:
+            raise ValueError("Invalid week_settlement mode")
+        clean["week_settlement"] = incoming["week_settlement"]
+    if "absolute_floor" in incoming and isinstance(incoming["absolute_floor"], dict):
+        clean["absolute_floor"] = {str(k): float(v or 0)
+                                   for k, v in incoming["absolute_floor"].items()}
+    merged = dict(get_buffer_policy(), **clean)
+    db().execute("INSERT INTO app_settings (key, value) VALUES ('oracle_buffer_policy', ?)"
+                 " ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                 (json.dumps(merged),))
+    db().commit()
+    return jsonify({"ok": True, "policy": merged})
+
+
+def version_param(value=None):
+    """The plan version to read, or None for the live Budget Center.
+
+    Absent, empty, "live", and the string "undefined" a URL builder can produce
+    all mean the same thing: nobody picked a saved scenario, so read the budget
+    the finance team is actually maintaining.
+    """
+    if value is None:
+        value = request.args.get("version_id")
+    if value in (None, "", "live", "null", "undefined"):
+        return None
+    return int(value)
+
+
+@app.post("/api/oracle/consult")
+@login_required
+def oracle_consult():
+    """Ask the Oracle. READ-ONLY: this must never write a plan or a commitment."""
+    d = request.get_json(force=True) if request.data else {}
+    vid = version_param(d.get("version_id"))
+    ids = accessible_company_ids()
+    result = fpa_cash.consult(db(), vid, get_buffer_policy(), ids,
+                              d.get("year") or year_param(), get_cash_codes())
+    return jsonify(result)
+
+
+@app.get("/api/oracle/readiness")
+@login_required
+def oracle_readiness():
+    """Is the Oracle being given enough to answer with?
+
+    Documentation that only explains the concepts leaves the reader to work out
+    which step THEY are missing. This reports the six things that actually decide
+    whether a verdict means anything, each as a plain pass/warn/fail with the real
+    number behind it, so the guide can point at the one screen worth opening next.
+    """
+    year = year_param()
+    ids = accessible_company_ids()
+    if not ids:
+        return jsonify({"year": year, "checks": []})
+    ph = ",".join("?" * len(ids))
+    conn = db()
+
+    # 1 - is there a budget at all
+    brow = conn.execute(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(amount),0) AS total FROM budgets"
+        " WHERE year=? AND company_id IN (%s) AND amount<>0" % ph, [year] + ids).fetchone()
+
+    # 2 - is any money IN marked committed (this is what decides KRITIS-by-default)
+    crow = conn.execute(
+        "SELECT COALESCE(SUM(CASE WHEN b.certainty='committed' THEN b.amount ELSE 0 END),0) AS committed,"
+        " COALESCE(SUM(b.amount),0) AS total FROM budgets b JOIN accounts a ON a.id=b.account_id"
+        " WHERE b.year=? AND b.company_id IN (%s) AND a.type='revenue' AND b.amount<>0" % ph,
+        [year] + ids).fetchone()
+
+    # 3 - is a minimum cash floor set
+    policy = get_buffer_policy()
+    floors, _fw = fpa_cash.buffer_floors(conn, ids, policy, year)
+    with_floor = sum(1 for f in floors.values() if f["absolute_floor"])
+
+    # 4 - unscheduled investment commitment the Oracle has to guess a date for.
+    # Derived PER INVESTMENT with the same formula fpa_cash.materialise uses -
+    # committed less everything scheduled (any year) less what has already been
+    # paid out, floored at zero - so this screen and the Oracle's own warning
+    # can never quote two different numbers for the same thing.
+    unscheduled = 0.0
+    for inv in conn.execute(
+            "SELECT id, committed_amount FROM investments WHERE company_id IN (%s)" % ph,
+            ids).fetchall():
+        sched = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) FROM investment_commitments WHERE investment_id=?",
+            (inv["id"],)).fetchone()[0] or 0
+        already = conn.execute(
+            "SELECT COALESCE(SUM(amount),0) FROM investment_events"
+            " WHERE investment_id=? AND kind='outflow'", (inv["id"],)).fetchone()[0] or 0
+        unscheduled += max(0.0, (inv["committed_amount"] or 0) - sched - already)
+    unscheduled = round(unscheduled, 2)
+
+    # 5 - receivables the Oracle has to guess a collection date for
+    ar = conn.execute(
+        "SELECT COUNT(*) AS n, SUM(CASE WHEN paid_date IS NULL OR paid_date='' THEN 1 ELSE 0 END) AS guessed"
+        " FROM receivables WHERE company_id IN (%s) AND (amount - COALESCE(paid,0)) > 0.005" % ph,
+        ids).fetchone()
+
+    # 6 - accounts whose cash-flow class is still unset
+    unclassed = conn.execute(
+        "SELECT COUNT(DISTINCT code) FROM accounts WHERE company_id IN (%s) AND is_active=1"
+        " AND type IN ('revenue','expense') AND COALESCE(cash_flow_class,'')=''" % ph, ids).fetchone()[0]
+
+    def chk(key, state_, title, detail, route, cta):
+        return {"key": key, "state": state_, "title": title, "detail": detail,
+                "route": route, "cta": cta}
+
+    n_co = len(floors) or 1
+    rev_total = crow["total"] or 0
+    rev_pct = round(100.0 * (crow["committed"] or 0) / rev_total, 1) if rev_total else 0.0
+    checks = [
+        chk("budget", "pass" if brow["n"] else "fail",
+            "A budget exists for this year",
+            ("%d budget lines for %d, totalling %s."
+             % (brow["n"], year, fpa_cash._rp(brow["total"])) if brow["n"] else
+             "Nothing is budgeted for %d, so there is nothing to forecast." % year),
+            "budgets", "Open Budget Center"),
+        chk("committed", "pass" if rev_pct >= 50 else ("warn" if rev_pct > 0 else "fail"),
+            "Contracted revenue is marked 'committed'",
+            ("%s%% of budgeted revenue is committed (%s of %s). The Bound run counts "
+             "ONLY committed money in, so anything left as 'planned' is treated as "
+             "income that may never arrive."
+             % (rev_pct, fpa_cash._rp(crow["committed"]), fpa_cash._rp(rev_total))
+             if rev_total else "No revenue is budgeted yet."),
+            "budgets", "Set certainty in Budget Center"),
+        chk("floor", "pass" if with_floor == n_co else ("warn" if with_floor else "fail"),
+            "Every company has a minimum cash floor",
+            "%d of %d companies have a minimum set. Without one the only test is "
+            "'not below zero', which is far too late to be useful."
+            % (with_floor, n_co),
+            "oracle", "Open Cash policy"),
+        chk("commitments", "pass" if unscheduled <= 0.005 else "warn",
+            "Investment commitments carry a schedule",
+            ("Everything committed has a week." if unscheduled <= 0.005 else
+             "%s of committed investment has no date, so the Oracle spreads it evenly "
+             "across the rest of the year — a defensible guess, not a safe one."
+             % fpa_cash._rp(unscheduled)),
+            "investments", "Open Investment Center"),
+        chk("receivables", "pass" if not (ar["guessed"] or 0) else "warn",
+            "Open receivables have a payment history",
+            ("Every open receivable has a recorded paid date." if not (ar["guessed"] or 0) else
+             "%d of %d open receivables have no paid date, so collection is assumed "
+             "%d days after the due date." % (ar["guessed"], ar["n"],
+                                              int(policy.get("default_collection_lag_days", 14)))),
+            "receivables", "Open Receivables"),
+        chk("cfclass", "pass" if not unclassed else "warn",
+            "Accounts say how they move cash",
+            ("Every revenue and expense account is classified." if not unclassed else
+             "%d accounts have no cash-flow class. Anything non-cash (depreciation) "
+             "must be marked 'noncash' or it is treated as real spending." % unclassed),
+            "settings", "Settings \u2192 Budget & Oracle"),
+    ]
+    order = {"fail": 0, "warn": 1, "pass": 2}
+    checks.sort(key=lambda c: order.get(c["state"], 3))
+    return jsonify({
+        "year": year, "checks": checks,
+        "ready": all(c["state"] == "pass" for c in checks),
+        "blocking": sum(1 for c in checks if c["state"] == "fail"),
+    })
+
+
+@app.get("/api/oracle/sensitivity")
+@login_required
+def oracle_sensitivity():
+    """One-way tornado, break-even, the two-way grid and the crisis shock.
+    READ-ONLY, and always computed on the Bound run."""
+    vid = version_param()
+    axes = request.args.get("axes")
+    axes = [a for a in axes.split(",") if a in fpa_cash.SENS_AXES] if axes else None
+    data = fpa_cash.sensitivity(db(), vid, get_buffer_policy(), accessible_company_ids(),
+                                request.args.get("year") or year_param(),
+                                get_cash_codes(), axes)
+    return jsonify(data)
+
+
+@app.get("/api/oracle/ledger")
+@login_required
+def oracle_ledger():
+    """One run's ledger, daily or aggregated to the planning weeks."""
+    vid = version_param()
+    run = request.args.get("run", "bound")
+    if run not in fpa_cash.RUNS:
+        raise ValueError("run must be bound, base or optimistic")
+    grain = request.args.get("grain", "week")
+    scope = request.args.get("scope", "group")
+    ids = accessible_company_ids()
+    if scope not in ("group", "", None):
+        cid = int(scope)
+        check_company_access(cid)
+        ids = [cid]
+    policy = get_buffer_policy()
+    ver = fpa_cash.resolve_version(db(), vid, year_param())
+    year = int(request.args.get("year") or ver["year"])
+    start, end = "%d-01-01" % year, "%d-12-31" % year
+    items, warnings = fpa_cash.materialise(db(), vid, policy, year, ids)
+    opening = fpa_cash.opening_cash(db(), ids, start, get_cash_codes())
+    ledger = fpa_cash.daily_ledger(fpa_cash.filter_run(items, run, policy),
+                                   opening, start, end)
+    floors, fw = fpa_cash.buffer_floors(db(), ids, policy, year)
+    floor = round(sum(f["floor"] for f in floors.values()), 2)
+    return jsonify({
+        "version_id": vid, "run": run, "grain": grain, "year": year,
+        "opening_cash": opening, "floor": floor,
+        "ledger": ledger if grain == "day" else fpa_cash.weekly_view(ledger, year),
+        "warnings": warnings + fw,
+    })
 
 
 # --------------------------------------------------------------------------
@@ -2801,6 +3583,7 @@ def list_databases_api():
         dbs.append({
             "name": n, "active": n == active, "deletable": n != database.DEFAULT_DB,
             "icon": prof["icon"], "color": prof["color"], "frozen": prof["frozen"],
+            "data_as_of": prof.get("data_as_of", ""),
             "enter_roles": prof["enter_roles"], "edit_roles": prof["edit_roles"],
             "can_enter": _can_enter(prof, role), "can_edit": _can_edit(prof, role),
             "last_entry": act["last_entry"], "last_at": act["last_at"],
@@ -2826,6 +3609,11 @@ def set_database_profile_api(name):
     for key in ("icon", "color"):
         if key in d:
             updates[key] = str(d.get(key) or "")
+    if "data_as_of" in d:
+        v = str(d.get("data_as_of") or "").strip()[:10]
+        if v and not _valid_date(v):
+            raise ValueError("Data-as-of must be a date, e.g. 2026-07-31")
+        updates["data_as_of"] = v
     if "frozen" in d:
         updates["frozen"] = bool(d.get("frozen"))
     for key in ("enter_roles", "edit_roles"):
@@ -2901,7 +3689,7 @@ def switch_database_api():
 
 # left-nav routes a user may be granted; kept in sync with the frontend NAV_ITEMS
 MENU_ROUTES = {"dashboard", "projecthv", "journals", "bank", "receivables", "payables",
-               "budgets", "investments", "projects", "money", "reports", "accountant", "settings"}
+               "budgets", "investments", "oracle", "projects", "money", "reports", "accountant", "settings"}
 
 
 def _clean_menu_access(val):

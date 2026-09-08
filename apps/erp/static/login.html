@@ -6,113 +6,241 @@
 <title>MORES HV — Sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=Archivo+Black&family=JetBrains+Mono:wght@400;700&display=swap">
 <style>
-:root {
-  --bg: #0a0d0f; --panel: #15191e; --field: #0f1318; --field-border: #262d35;
-  --text: #f4f6f8; --muted: #93a0ab; --teal: #00a2b6; --teal-bright: #00bcd2; --teal-link: #33c2d2;
-  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
-}
+/* MORES HV sign-in — brutalist plate.
+   Heavy rules, one accent, no rounded corners: the console behind this is a set
+   of financial statements, and the door to it should look like a press plate
+   rather than a consumer app. */
+:root { --accent: #00b8d4; --ink: #eef4f5; --void: #0b0f10; --panel: #11171a; --deep: #04191d; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
-body {
-  font-family: Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif; min-height: 100vh;
-  display: flex; align-items: center; justify-content: center; padding: 26px;
-  background:
-    linear-gradient(180deg, rgba(8,11,13,.78), rgba(8,11,13,.90)),
-    url("/static/assets/login-bg.jpg") center/cover no-repeat fixed,
-    linear-gradient(180deg, #0b0e10 0%, #0a0d0f 100%);
-  color: var(--text); -webkit-font-smoothing: antialiased;
+body { background: var(--void); color: var(--ink); font-family: "Archivo", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--void); background: var(--accent); }
+::selection { background: var(--accent); color: var(--void); }
+input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+input::placeholder { color: #6d7a7d; opacity: 1; }
+.mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
+
+@keyframes marq  { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@keyframes driftA { 0%,100% { transform: translate3d(0,0,0) } 50% { transform: translate3d(10px,-12px,0) } }
+@keyframes driftB { 0%,100% { transform: translate3d(0,0,0) } 50% { transform: translate3d(-14px,10px,0) } }
+@keyframes blink { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
+@keyframes slam  { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition: none !important }
 }
-.card {
-  width: min(960px, 100%); min-height: 520px; display: grid; grid-template-columns: 1fr 1fr;
-  background: var(--panel); border: 1px solid #20262d; border-radius: 16px; overflow: hidden;
-  box-shadow: 0 40px 100px rgba(0,0,0,.55);
+
+.shell { min-height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ---- masthead ---- */
+.top { display: flex; align-items: stretch; border-bottom: 3px solid var(--ink); flex-wrap: wrap; }
+.top .brand { display: flex; align-items: center; gap: 11px; padding: 12px 20px; border-right: 3px solid var(--ink); flex: 0 0 auto; }
+.bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 26px; }
+.bars i { display: block; width: 5px; background: var(--ink); }
+.bars i:nth-child(1) { height: 17px } .bars i:nth-child(2) { height: 26px }
+.bars i:nth-child(3) { height: 11px; background: var(--accent) } .bars i:nth-child(4) { height: 21px }
+.wordmark { display: flex; flex-direction: column; gap: 3px; font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px; line-height: 1; letter-spacing: .24em; text-transform: uppercase; }
+.wordmark sup { font-size: 7px; letter-spacing: 0; }
+.ticker { flex: 1 1 240px; min-width: 0; overflow: hidden; display: flex; align-items: center; white-space: nowrap; background: var(--ink); color: var(--void); }
+.ticker > div { display: inline-block; animation: marq 34s linear infinite; font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+.ticker span { padding: 0 30px; }
+.status { flex: 0 0 auto; display: flex; align-items: center; padding: 12px 20px; border-left: 3px solid var(--ink); font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.status i { display: inline-block; width: 9px; height: 9px; background: var(--accent); margin-left: 10px; animation: blink 1.6s steps(1) infinite; }
+
+/* ---- body split ---- */
+.split { flex: 1; display: flex; flex-wrap: wrap; align-items: stretch; }
+.left { flex: 1 1 460px; min-width: 320px; padding: 44px 36px; display: flex; flex-direction: column; justify-content: center; position: relative; }
+.grid-bg { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(#ffffff0f 1px, transparent 1px), linear-gradient(90deg, #ffffff0f 1px, transparent 1px); background-size: 28px 28px; }
+.head { position: relative; animation: slam 500ms cubic-bezier(.2,.8,.2,1) both; }
+.eyebrow { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .24em; text-transform: uppercase; margin-bottom: 14px; color: var(--accent); }
+h1 { font-family: "Archivo Black", system-ui, sans-serif; font-size: clamp(44px, 7vw, 92px); line-height: .88; letter-spacing: -.03em; text-transform: uppercase; font-weight: 400; }
+h1 .cur { color: var(--accent); }
+.lead { margin-top: 22px; max-width: 30em; font-size: 17px; line-height: 1.45; color: #c3cfd1; }
+
+/* ---- the plate ---- */
+form { position: relative; margin-top: 38px; max-width: 460px; display: flex; flex-direction: column; border: 3px solid var(--ink); background: var(--panel); box-shadow: 10px 10px 0 var(--accent); }
+form label.cap { display: block; padding: 12px 16px 0; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #9fb0b3; }
+form input[type=text], form input[type=password] {
+  border: 0; background: transparent; padding: 8px 16px 16px; font-family: "Archivo", system-ui, sans-serif;
+  font-size: 19px; font-weight: 600; color: var(--ink); min-height: 44px; width: 100%;
 }
-/* left brand panel */
-.brandside { position: relative; overflow: hidden; background: #0c0f12; }
-.brandside svg, .brandside .photo { position: absolute; inset: 0; width: 100%; height: 100%; }
-.brandside .photo { background: url("/static/assets/login-bg.jpg") center/cover no-repeat; }
-.brandside .glow1 { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(0,140,160,.34), rgba(8,11,13,.82)); mix-blend-mode: multiply; }
-.brandside .glow2 { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(0,162,182,.10), rgba(10,13,15,.45) 78%); }
-.brandside .foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 32px; z-index: 3; }
-.brandside .foot img { height: 26px; width: auto; display: block; margin-bottom: 12px; }
-.brandside .foot .cuan { font-family: "Chakra Petch", sans-serif; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7fd3dd; }
-/* right form */
-.formside { background: var(--panel); padding: 46px 46px; display: flex; flex-direction: column; justify-content: center; }
-.kicker { margin-bottom: 24px; }
-.kicker .brand { font-family: "Chakra Petch", sans-serif; font-size: 18px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #f4f6f8; }
-.kicker .brand span { color: var(--teal-bright); }
-.kicker .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
-.formside h2 { font-size: 25px; font-weight: 700; letter-spacing: -.4px; color: #f4f6f8; }
-.formside .lead { color: var(--muted); font-size: 13px; margin: 6px 0 24px; }
-.fld { margin-bottom: 16px; }
-.fld label { display: block; font-size: 12px; font-weight: 600; color: #c2c8cd; margin: 0 0 7px; }
-.fld input { width: 100%; padding: 12px 14px; font-size: 14px; color: var(--text); font-family: inherit; background: var(--field); border: 1px solid var(--field-border); border-radius: 9px; outline: none; transition: border-color .15s, box-shadow .15s; }
-.fld input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.20); }
-.row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 22px; font-size: 13px; }
-.remember { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; }
-.remember input { width: 15px; height: 15px; accent-color: var(--teal); cursor: pointer; }
-.forgot { color: var(--teal-link); cursor: pointer; }
-.forgot:hover { color: #4fd3e3; }
-button[type=submit] { width: 100%; padding: 13px; cursor: pointer; font-family: inherit; font-weight: 600; font-size: 14.5px; color: #fff; border: none; border-radius: 9px; background: var(--teal); box-shadow: 0 10px 26px rgba(0,162,182,.30); transition: filter .15s; }
-button[type=submit]:hover { filter: brightness(1.07); }
-.err { background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: #ff9d9d; padding: 10px 13px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
-.note { color: var(--muted); font-size: 12px; margin-top: 12px; }
-.hint { color: #5d6168; font-size: 11.5px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid #20262d; line-height: 1.8; }
-.hint b { color: #9aa6af; }
-@media (max-width: 760px) { .card { grid-template-columns: 1fr; } .brandside { min-height: 180px; } }
+.fld { border-bottom: 3px solid var(--ink); }
+.fld.pw { display: flex; align-items: stretch; }
+.fld.pw input { flex: 1; min-width: 0; }
+.peek { flex: 0 0 auto; border: 0; border-left: 3px solid var(--ink); background: transparent; cursor: pointer; padding: 0 16px; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink); min-height: 44px; }
+.peek:hover { background: var(--accent); color: var(--void); }
+.optrow { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 3px solid var(--ink); }
+.optrow label { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #c3cfd1; }
+.optrow input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.optrow .forgot { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; padding: 0; }
+.optrow .forgot:hover { color: var(--void); background: var(--accent); }
+button[type=submit] { border: 0; background: var(--accent); color: var(--deep); cursor: pointer; padding: 0 22px; min-height: 60px; font-family: "Archivo Black", system-ui, sans-serif; font-size: 20px; letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; text-align: left; }
+button[type=submit]:hover { background: var(--ink); color: var(--void); }
+button[type=submit][disabled] { cursor: progress; }
+button[type=submit] .arrow { font-family: "JetBrains Mono", monospace; font-size: 14px; letter-spacing: .1em; }
+
+/* an error has to shout as loudly as everything else here */
+.err { border-bottom: 3px solid var(--ink); background: #2a0d0d; color: #ffb4b4; padding: 12px 16px; font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.note { margin-top: 16px; max-width: 460px; border: 3px solid #2a3438; padding: 12px 14px; font-family: "JetBrains Mono", monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: #9fb0b3; }
+
+.motto { position: relative; margin-top: 44px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.motto .latin { background: var(--accent); border: 3px solid var(--ink); padding: 8px 12px; font-family: "Archivo Black", system-ui, sans-serif; font-size: 16px; text-transform: uppercase; letter-spacing: -.01em; color: var(--deep); }
+.motto .en { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #9fb0b3; }
+.madeby { position: relative; margin-top: 18px; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #6d7a7d; }
+
+/* ---- hero ---- */
+.right { flex: 1 1 380px; min-width: 280px; min-height: 58vh; position: relative; border-left: 3px solid var(--ink); background: var(--deep); overflow: hidden; }
+.plate { position: absolute; inset: -7%; will-change: transform; transition: transform 200ms cubic-bezier(.2,.7,.2,1); }
+.plate .shot { position: absolute; inset: 0; filter: grayscale(1) contrast(1.35) brightness(.85); background: url("/static/assets/login-hero.webp") center/cover no-repeat; }
+.plate .wash { position: absolute; inset: 0; pointer-events: none; background: var(--accent); mix-blend-mode: screen; opacity: .22; }
+.plate .scan { position: absolute; inset: 0; pointer-events: none; background-image: repeating-linear-gradient(0deg, #00000073 0 1px, transparent 1px 3px); }
+.chips { position: absolute; left: 18px; bottom: 64px; pointer-events: none; will-change: transform; transition: transform 300ms cubic-bezier(.2,.7,.2,1); display: flex; flex-direction: column; gap: 10px; }
+.chips span { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; border: 3px solid var(--ink); padding: 7px 12px; }
+.chips .c1 { background: var(--void); animation: driftA 9s ease-in-out infinite; }
+.chips .c2 { background: var(--accent); color: var(--deep); animation: driftB 11s ease-in-out infinite; align-self: flex-start; }
+
+@media (max-width: 900px) { .right { min-height: 40vh; border-left: 0; border-top: 3px solid var(--ink); } .left { padding: 32px 22px; } }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="brandside">
-      <div class="photo"></div>
-      <div class="glow1"></div><div class="glow2"></div>
-      <div class="foot">
-        <img src="/static/assets/mores-logo-ondark.png" alt="Mores Strategics">
-        <div class="cuan">More More Cuan</div>
+<div class="shell">
+
+  <div class="top">
+    <div class="brand">
+      <span class="bars"><i></i><i></i><i></i><i></i></span>
+      <span class="wordmark"><span>MORES</span><span>STRATEGICS<sup>TM</sup></span></span>
+    </div>
+    <div class="ticker"><div id="ticker"></div></div>
+    <div class="status">synced <i></i></div>
+  </div>
+
+  <div class="split">
+    <div class="left">
+      <div class="grid-bg"></div>
+
+      <div class="head">
+        <div class="eyebrow">01 / access</div>
+        <h1>Sign<br>in.<span class="cur">_</span></h1>
+        <p class="lead">Help The Director Make (Or) Break Deals</p>
       </div>
+
+      <form id="loginForm" autocomplete="on">
+        <div id="loginError" class="err" hidden></div>
+
+        <label class="cap" for="username">username / email</label>
+        <div class="fld">
+          <input type="text" id="username" name="username" autocomplete="username" placeholder="name@mores.id" required autofocus>
+        </div>
+
+        <label class="cap" for="password">password</label>
+        <div class="fld pw">
+          <input type="password" id="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
+          <button type="button" class="peek" id="peek" aria-label="Show password">show</button>
+        </div>
+
+        <div class="optrow">
+          <label><input type="checkbox" id="remember"> remember this desk</label>
+          <button type="button" class="forgot" id="forgot">forgot?</button>
+        </div>
+
+        <button type="submit" id="submitBtn"><span id="cta">Sign in</span><span class="arrow">&rarr;</span></button>
+      </form>
+
+      <div id="forgotNote" class="note" hidden>Password resets are manual — ask your system administrator.</div>
+
+      <div class="motto">
+        <span class="latin">Audentes fortuna iuvat</span>
+        <span class="en">fortune favors the brave</span>
+      </div>
+      <div class="madeby">Made by Uncle Sam &mdash; With Love</div>
     </div>
 
-    <div class="formside">
-      <div class="kicker">
-        <div class="brand">Mores-HV <span>Console</span></div>
-        <div class="sub">Helicopter View · Group Finance</div>
+    <div class="right">
+      <div class="plate" id="plate">
+        <div class="shot"></div><div class="wash"></div><div class="scan"></div>
       </div>
-      <h2>Welcome back</h2>
-      <p class="lead">Please enter your details to sign in.</p>
-      <form id="loginForm">
-        <div id="loginError" class="err" hidden></div>
-        <div class="fld"><label for="username">Username / Email</label>
-          <input type="text" id="username" autocomplete="username" placeholder="Enter your username or email" required autofocus></div>
-        <div class="fld"><label for="password">Password</label>
-          <input type="password" id="password" autocomplete="current-password" placeholder="Enter your password" required></div>
-        <div class="row">
-          <label class="remember"><input type="checkbox" id="remember"> Remember me</label>
-          <span class="forgot" id="forgot">Forgot Password?</span>
-        </div>
-        <button type="submit">Sign In</button>
-      </form>
-      <div id="forgotNote" class="note" hidden>Please contact your system administrator to reset your password.</div>
+      <div class="chips" id="chips">
+        <span class="c1">encrypted session</span>
+        <span class="c2">role-scoped view</span>
+      </div>
     </div>
   </div>
+</div>
+
 <script>
-document.getElementById('forgot').addEventListener('click', () => { document.getElementById('forgotNote').hidden = false; });
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
+// ---- masthead ticker. It carries the local clock and what this door is for -
+// deliberately NOT "latest database update", because nothing here is signed in
+// yet and the app must not state a data cut-off it cannot know.
+function stamp() {
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  const mon = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()];
+  return `${p(d.getDate())} ${mon} ${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())} LOCAL`;
+}
+function paintTicker() {
+  const line = ["helicopter view · group finance", "secure sign-in required",
+                "roles — admin · accountant · viewer", stamp()];
+  // duplicated once so the -50% marquee loop is seamless
+  document.getElementById("ticker").innerHTML =
+    [...line, ...line].map(t => `<span>${t}</span>`).join("");
+}
+paintTicker();
+setInterval(paintTicker, 30000);
+
+// ---- parallax, skipped entirely when the viewer asked for less motion -------
+if (!window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const plate = document.getElementById("plate"), chips = document.getElementById("chips");
+  window.addEventListener("pointermove", e => {
+    const nx = (e.clientX / window.innerWidth - 0.5) * 2;
+    const ny = (e.clientY / window.innerHeight - 0.5) * 2;
+    plate.style.transform = `translate3d(${(-nx * 24).toFixed(1)}px, ${(-ny * 18).toFixed(1)}px, 0) scale(1.03)`;
+    chips.style.transform = `translate3d(${(nx * 30).toFixed(1)}px, ${(ny * 22).toFixed(1)}px, 0)`;
+  }, { passive: true });
+}
+
+// ---- show / hide password --------------------------------------------------
+const pw = document.getElementById("password"), peek = document.getElementById("peek");
+peek.addEventListener("click", () => {
+  const showing = pw.type === "text";
+  pw.type = showing ? "password" : "text";
+  peek.textContent = showing ? "show" : "hide";
+  peek.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+  pw.focus();
+});
+
+document.getElementById("forgot").addEventListener("click", () => {
+  document.getElementById("forgotNote").hidden = false;
+});
+
+// ---- sign in ---------------------------------------------------------------
+const form = document.getElementById("loginForm");
+const btn = document.getElementById("submitBtn"), cta = document.getElementById("cta");
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const err = document.getElementById('loginError'); err.hidden = true;
-  const res = await fetch('/api/login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      username: document.getElementById('username').value,
-      password: document.getElementById('password').value,
-      remember: document.getElementById('remember').checked,
-    }),
-  });
-  if (res.ok) { window.location.href = '/databases'; return; }
-  const data = await res.json().catch(() => ({}));
-  err.textContent = data.error || 'Login failed'; err.hidden = false;
+  const err = document.getElementById("loginError");
+  err.hidden = true;
+  btn.disabled = true;
+  cta.textContent = "Authenticating";
+  try {
+    const res = await fetch("/api/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: document.getElementById("username").value,
+        password: pw.value,
+        remember: document.getElementById("remember").checked,
+      }),
+    });
+    if (res.ok) { cta.textContent = "Access granted"; window.location.href = "/databases"; return; }
+    const data = await res.json().catch(() => ({}));
+    err.textContent = data.error || "Login failed";
+    err.hidden = false;
+  } catch (_) {
+    err.textContent = "Cannot reach the server";
+    err.hidden = false;
+  }
+  btn.disabled = false;
+  cta.textContent = "Sign in";
 });
 </script>
 </body>

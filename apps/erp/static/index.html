@@ -6,193 +6,187 @@
 <title>MORES HV — Helicopter View</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=Archivo+Black&family=JetBrains+Mono:wght@400;700&display=swap">
 <style>
-:root {
-  --bg: #0a0d0f; --panel: #15191e; --field: #0f1318; --field-border: #262d35;
-  --text: #f4f6f8; --muted: #93a0ab; --line: #1a1f25;
-  --teal: #00a2b6; --teal-bright: #00bcd2; --teal-link: #33c2d2;
-  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
-}
+/* MORES HV landing — same press plate as /login.
+   The door and the room behind it should look like one building, so this page
+   shares the sign-in page's rules exactly: three-pixel borders, one accent, no
+   rounded corners, Archivo Black for anything that shouts. */
+:root { --accent: #00b8d4; --ink: #eef4f5; --void: #0b0f10; --panel: #11171a; --deep: #04191d; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
-body {
-  font-family: Arial, "Helvetica Neue", Helvetica, system-ui, -apple-system, sans-serif;
-  background:
-    radial-gradient(1100px 620px at 86% -12%, rgba(0,162,182,.16), transparent 60%),
-    radial-gradient(760px 460px at -5% 112%, rgba(0,162,182,.07), transparent 55%),
-    var(--bg);
-  color: var(--text); min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+html { height: 100%; }
+/* a column so the footer sits on the floor of a tall screen instead of floating
+   in the middle of one; the motto band takes up whatever slack is left */
+body { min-height: 100vh; display: flex; flex-direction: column; background: var(--void); color: var(--ink); font-family: "Archivo", system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--void); background: var(--accent); }
+::selection { background: var(--accent); color: var(--void); }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+@keyframes marq  { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@keyframes driftA { 0%,100% { transform: translate3d(0,0,0) } 50% { transform: translate3d(10px,-12px,0) } }
+@keyframes driftB { 0%,100% { transform: translate3d(0,0,0) } 50% { transform: translate3d(-14px,10px,0) } }
+@keyframes blink { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
+@keyframes slam  { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition: none !important }
 }
-body::before {
-  content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .5;
-  background-image:
-    linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
-  background-size: 46px 46px;
+
+/* ---- masthead: identical to the sign-in page ---- */
+.top { display: flex; align-items: stretch; border-bottom: 3px solid var(--ink); flex-wrap: wrap; }
+.top .brand { display: flex; align-items: center; gap: 11px; padding: 12px 20px; border-right: 3px solid var(--ink); flex: 0 0 auto; }
+.bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 26px; }
+.bars i { display: block; width: 5px; background: var(--ink); }
+.bars i:nth-child(1) { height: 17px } .bars i:nth-child(2) { height: 26px }
+.bars i:nth-child(3) { height: 11px; background: var(--accent) } .bars i:nth-child(4) { height: 21px }
+.wordmark { display: flex; flex-direction: column; gap: 3px; font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px; line-height: 1; letter-spacing: .24em; text-transform: uppercase; }
+.wordmark sup { font-size: 7px; letter-spacing: 0; }
+.ticker { flex: 1 1 240px; min-width: 0; overflow: hidden; display: flex; align-items: center; white-space: nowrap; background: var(--ink); color: var(--void); }
+.ticker > div { display: inline-block; animation: marq 34s linear infinite; font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+.ticker span { padding: 0 30px; }
+/* the right-hand cell of the masthead is the action, not a status light */
+.top .enter { flex: 0 0 auto; display: flex; align-items: center; border-left: 3px solid var(--ink); }
+.top .enter button { border: 0; background: transparent; color: var(--ink); cursor: pointer; height: 100%; padding: 12px 22px; font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px; letter-spacing: .18em; text-transform: uppercase; }
+.top .enter button:hover { background: var(--accent); color: var(--void); }
+
+/* ---- hero split ---- */
+.split { display: flex; flex-wrap: wrap; align-items: stretch; border-bottom: 3px solid var(--ink); }
+.left { flex: 1 1 520px; min-width: 320px; padding: 54px 36px; display: flex; flex-direction: column; justify-content: center; position: relative; }
+.grid-bg { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(#ffffff0f 1px, transparent 1px), linear-gradient(90deg, #ffffff0f 1px, transparent 1px); background-size: 28px 28px; }
+.head { position: relative; animation: slam 500ms cubic-bezier(.2,.8,.2,1) both; }
+.eyebrow { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .24em; text-transform: uppercase; margin-bottom: 14px; color: var(--accent); }
+h1 { font-family: "Archivo Black", system-ui, sans-serif; font-weight: 400; font-size: clamp(34px, 4.6vw, 62px); line-height: .92; letter-spacing: -.03em; text-transform: uppercase; max-width: 15ch; }
+h1 .hl { color: var(--accent); }
+h1 .cur { color: var(--accent); }
+.lead { margin-top: 22px; max-width: 34em; font-size: 18px; line-height: 1.45; color: #c3cfd1; }
+.cta { position: relative; margin-top: 34px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.go { border: 3px solid var(--ink); background: var(--accent); color: var(--deep); cursor: pointer; padding: 0 26px; min-height: 60px; font-family: "Archivo Black", system-ui, sans-serif; font-size: 19px; letter-spacing: .02em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 18px; box-shadow: 10px 10px 0 var(--accent); }
+.go:hover { background: var(--ink); color: var(--void); box-shadow: 10px 10px 0 var(--ink); }
+.go .arrow { font-family: "JetBrains Mono", monospace; font-size: 14px; letter-spacing: .1em; }
+.meta { position: relative; margin-top: 26px; font-family: "JetBrains Mono", monospace; font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: #6d7a7d; }
+
+/* ---- hero plate ---- */
+.right { flex: 1 1 380px; min-width: 280px; min-height: 56vh; position: relative; border-left: 3px solid var(--ink); background: var(--deep); overflow: hidden; }
+.plate { position: absolute; inset: -7%; will-change: transform; transition: transform 200ms cubic-bezier(.2,.7,.2,1); }
+.plate .shot { position: absolute; inset: 0; filter: grayscale(1) contrast(1.35) brightness(.85); background: url("/static/assets/login-hero.webp") center/cover no-repeat; }
+.plate .wash { position: absolute; inset: 0; pointer-events: none; background: var(--accent); mix-blend-mode: screen; opacity: .22; }
+.plate .scan { position: absolute; inset: 0; pointer-events: none; background-image: repeating-linear-gradient(0deg, #00000073 0 1px, transparent 1px 3px); }
+.chips { position: absolute; left: 18px; bottom: 40px; pointer-events: none; will-change: transform; transition: transform 300ms cubic-bezier(.2,.7,.2,1); display: flex; flex-direction: column; gap: 10px; }
+.chips span { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; border: 3px solid var(--ink); padding: 7px 12px; }
+.chips .c1 { background: var(--void); animation: driftA 9s ease-in-out infinite; }
+.chips .c2 { background: var(--accent); color: var(--deep); animation: driftB 11s ease-in-out infinite; align-self: flex-start; }
+
+/* ---- the motto, given the whole width ---- */
+.motto { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border-bottom: 3px solid var(--ink); padding: 64px 36px; text-align: center; position: relative; }
+.motto .latin { font-family: "Archivo Black", system-ui, sans-serif; font-size: clamp(28px, 5vw, 64px); line-height: 1; letter-spacing: -.02em; text-transform: uppercase; color: var(--accent); }
+.motto .en { margin-top: 18px; font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: #9fb0b3; }
+
+/* ---- footer as a row of cells ---- */
+.foot { flex: 0 0 auto; display: flex; flex-wrap: wrap; }
+.foot > span { flex: 1 1 240px; padding: 16px 20px; border-right: 3px solid var(--ink); font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #6d7a7d; }
+.foot > span:last-child { border-right: 0; }
+.foot .cuan { color: var(--accent); }
+
+@media (max-width: 900px) {
+  .right { min-height: 40vh; border-left: 0; border-top: 3px solid var(--ink); }
+  .left { padding: 38px 22px; }
+  .motto { padding: 44px 22px; }
+  .foot > span { border-right: 0; border-bottom: 3px solid var(--ink); }
+  .foot > span:last-child { border-bottom: 0; }
 }
-nav.top { display: flex; align-items: center; justify-content: space-between; padding: 22px 7vw; position: relative; z-index: 2; }
-nav.top img { height: 30px; width: auto; display: block; }
-.nav-right { display: flex; align-items: center; gap: 14px; }
-.pill-mono {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
-  color: #5e686e; border: 1px solid #1f242a; border-radius: 99px; padding: 6px 13px;
-}
-.btn { font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 9px;
-  padding: 10px 20px; border: 1px solid #2b323a; background: transparent; color: var(--text);
-  transition: filter .15s, transform .1s, background .15s; text-decoration: none; display: inline-block; }
-.btn:hover { background: rgba(255,255,255,.06); }
-.btn-primary { border: none; color: #fff; background: var(--teal); box-shadow: 0 10px 28px rgba(0,162,182,.28); }
-.btn-primary:hover { filter: brightness(1.07); }
-.btn-primary:active { transform: translateY(1px); }
-.hero { padding: 64px 7vw 40px; position: relative; z-index: 2; max-width: 1080px; }
-.badge {
-  display: inline-flex; align-items: center; gap: 9px; font-size: 12px; color: var(--teal-link);
-  background: rgba(0,162,182,.12); border: 1px solid rgba(0,162,182,.35);
-  padding: 6px 14px; border-radius: 99px; margin-bottom: 28px;
-}
-.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #2fd584; box-shadow: 0 0 8px #2fd584; animation: pulse 2.2s infinite; }
-@keyframes pulse { 50% { opacity: .35; } }
-.hero h1 { font-size: clamp(34px, 6vw, 60px); font-weight: 800; line-height: 1.04; letter-spacing: -1.6px; max-width: 17ch; color: #f7f9fa; }
-.hero h1 b { color: var(--teal-bright); font-weight: 800; }
-.hero p.lead { color: #c2c8cd; font-size: clamp(15px, 2vw, 18.5px); margin: 24px 0 32px; max-width: 58ch; line-height: 1.6; }
-.cta { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
-.cta .btn { padding: 14px 30px; font-size: 15px; }
-.meta { color: #6b7480; font-size: 13px; margin-top: 20px; }
-.features { padding: 24px 7vw 60px; position: relative; z-index: 2; max-width: 1180px; }
-.features h2 { font-family: var(--mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #6b7480; margin-bottom: 22px; }
-.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.card { background: rgba(255,255,255,.03); border: 1px solid #1f242a; border-radius: 14px; padding: 22px; transition: border-color .15s, background .15s; }
-.card:hover { border-color: #2c343c; background: rgba(0,162,182,.045); }
-.card .ic { font-size: 19px; color: var(--teal-bright); margin-bottom: 12px; display: block; }
-.card h3 { font-size: 15.5px; font-weight: 700; color: #eef1f3; margin-bottom: 7px; }
-.card p { color: #8b95a0; font-size: 13.5px; line-height: 1.55; }
-/* brand quote (replaces the feature grid) */
-.quote-sec { padding: 40px 7vw 72px; position: relative; z-index: 2; max-width: 1080px; }
-.quote { margin: 0; padding: 40px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center; }
-.quote .q-latin { font-family: "Chakra Petch", sans-serif; font-weight: 700; font-style: italic;
-  font-size: clamp(26px, 4.5vw, 46px); letter-spacing: -.5px; line-height: 1.15;
-  color: var(--teal-bright); margin: 0; }
-.quote .q-en { color: #8b95a0; font-size: clamp(13px, 1.6vw, 16px); letter-spacing: .04em; margin: 14px 0 0; }
-.foot .ver { font-family: var(--mono); font-size: 11.5px; letter-spacing: .06em; color: #7a828b; }
-.foot { padding: 22px 7vw; color: #5d6168; font-size: 12.5px; border-top: 1px solid var(--line); position: relative; z-index: 2; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.foot .cuan { font-family: "Chakra Petch", sans-serif; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7fd3dd; }
-/* login popup */
-.backdrop { position: fixed; inset: 0; background: rgba(5,7,9,.74); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 50; }
-.backdrop.show { display: flex; animation: fade .15s ease-out; }
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-.login-pop { width: min(400px, 100%); background: var(--panel); border: 1px solid var(--field-border); border-radius: 16px; padding: 34px 32px; position: relative; box-shadow: 0 30px 90px rgba(0,0,0,.6); animation: pop .18s ease-out; }
-@keyframes pop { from { transform: translateY(10px) scale(.985); opacity: 0; } to { transform: none; opacity: 1; } }
-.login-pop .close { position: absolute; top: 14px; right: 16px; background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }
-.login-pop img.logo { height: 26px; width: auto; display: block; margin-bottom: 18px; }
-.login-pop h3 { font-size: 21px; margin: 0 0 4px; color: #f4f6f8; font-weight: 700; }
-.login-pop .sub { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
-.fld { margin-bottom: 16px; }
-.fld label { display: block; font-size: 11.5px; font-weight: 600; color: #c2c8cd; margin: 0 0 7px; }
-.fld input { width: 100%; padding: 12px 14px; font-size: 14px; color: var(--text); font-family: inherit; background: var(--field); border: 1px solid var(--field-border); border-radius: 9px; outline: none; transition: border-color .15s, box-shadow .15s; }
-.fld input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.20); }
-.row { display: flex; align-items: center; justify-content: space-between; margin: 2px 0 20px; font-size: 13px; }
-.remember { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; }
-.remember input { accent-color: var(--teal); }
-.forgot { color: var(--teal-link); cursor: pointer; }
-.forgot:hover { color: #4fd3e3; }
-.login-pop button[type=submit] { width: 100%; padding: 13px; font-weight: 600; font-size: 14.5px; font-family: inherit; color: #fff; border: none; border-radius: 9px; background: var(--teal); box-shadow: 0 10px 26px rgba(0,162,182,.30); cursor: pointer; transition: filter .15s; }
-.login-pop button[type=submit]:hover { filter: brightness(1.07); }
-.err { background: rgba(189,54,47,.14); border: 1px solid rgba(189,54,47,.5); color: #ff9d9d; padding: 10px 13px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
-.hint { color: #5d6168; font-size: 11.5px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #20262d; line-height: 1.7; }
-.hint b { color: #9aa6af; }
-.note { color: var(--muted); font-size: 12px; margin-top: 12px; }
-@media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-  <nav class="top">
-    <img src="/static/assets/mores-logo-ondark.png" alt="Mores Strategics">
-    <div class="nav-right">
-      <span class="pill-mono">Helicopter View</span>
-      <button class="btn" id="navSignIn">Sign In</button>
-    </div>
-  </nav>
 
-  <header class="hero">
-    <h1>Mores <b>Helicopter View</b> for Consolidate Finance Analysis</h1>
-    <p class="lead">Help BOD to make&thinsp;/&thinsp;or break Deals</p>
-    <div class="cta">
-      <button class="btn btn-primary" id="heroCta">Go Live — Sign In</button>
+  <div class="top">
+    <div class="brand">
+      <span class="bars"><i></i><i></i><i></i><i></i></span>
+      <span class="wordmark"><span>MORES</span><span>STRATEGICS<sup>TM</sup></span></span>
     </div>
-    <div class="meta" id="heroMeta">Secure sign-in · Admin · Accountant · Viewer/Auditor roles</div>
-  </header>
+    <div class="ticker"><div id="ticker"></div></div>
+    <div class="enter"><button id="navSignIn">Sign In</button></div>
+  </div>
 
-  <section class="quote-sec" id="features">
-    <blockquote class="quote">
-      <p class="q-latin">&ldquo;Audentes fortuna iuvat&rdquo;</p>
-      <p class="q-en">Fortune favors the brave.</p>
-    </blockquote>
-  </section>
+  <div class="split">
+    <div class="left">
+      <div class="grid-bg"></div>
+      <div class="head">
+        <div class="eyebrow">01 / helicopter view</div>
+        <h1>Mores <span class="hl">Helicopter View</span> for Consolidate Finance Analysis<span class="cur">_</span></h1>
+        <p class="lead">Help BOD to make&thinsp;/&thinsp;or break Deals</p>
+      </div>
+      <div class="cta">
+        <button class="go" id="heroCta"><span id="heroCtaText">Go Live — Sign In</span><span class="arrow">&rarr;</span></button>
+      </div>
+      <div class="meta" id="heroMeta">Secure sign-in · Admin · Accountant · Viewer/Auditor roles</div>
+    </div>
+
+    <div class="right">
+      <div class="plate" id="plate">
+        <div class="shot"></div><div class="wash"></div><div class="scan"></div>
+      </div>
+      <div class="chips" id="chips">
+        <span class="c1">consolidated finance</span>
+        <span class="c2">role-scoped view</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="motto">
+    <div class="latin">Audentes fortuna iuvat</div>
+    <div class="en">fortune favors the brave</div>
+  </div>
 
   <div class="foot">
-    <span>PT Mores Data Analitika · Sibernetika MA · Mores Lintas Teknika · Kultura Media Antara · Modus Reform Studio</span>
-    <span class="ver">Version 1.05 · updated 21 August 2026</span>
+    <span>Made by Uncle Sam &mdash; With Love</span>
+    <span class="ver">Version 1.07 · updated 8 September 2026</span>
     <span class="cuan">More More Cuan</span>
   </div>
 
-  <!-- login popup -->
-  <div class="backdrop" id="loginBackdrop">
-    <div class="login-pop">
-      <button class="close" id="loginClose" title="Close">&times;</button>
-      <img class="logo" src="/static/assets/mores-logo-ondark.png" alt="Mores Strategics">
-      <h3>Welcome back</h3>
-      <div class="sub">Please enter your details to sign in.</div>
-      <form id="loginForm">
-        <div id="loginError" class="err" hidden></div>
-        <div class="fld"><label for="username">Username / Email</label>
-          <input type="text" id="username" autocomplete="username" placeholder="Enter your username or email" required></div>
-        <div class="fld"><label for="password">Password</label>
-          <input type="password" id="password" autocomplete="current-password" placeholder="Enter your password" required></div>
-        <div class="row">
-          <label class="remember"><input type="checkbox" id="remember"> Remember me</label>
-          <span class="forgot" id="forgot">Forgot Password?</span>
-        </div>
-        <button type="submit">Sign In</button>
-      </form>
-      <div id="forgotNote" class="note" hidden>Please contact your system administrator to reset your password.</div>
-    </div>
-  </div>
-
 <script>
-const backdrop = document.getElementById('loginBackdrop');
-function openLogin() { backdrop.classList.add('show'); setTimeout(() => document.getElementById('username').focus(), 50); }
-function closeLogin() { backdrop.classList.remove('show'); }
+// ---- masthead ticker, same rule as /login: it states what this is and the
+// local clock, never a data cut-off the page has no right to know.
+function stamp() {
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  const mon = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()];
+  return `${p(d.getDate())} ${mon} ${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())} LOCAL`;
+}
+function paintTicker() {
+  const line = ["consolidated finance analysis", "helicopter view · group finance",
+                "roles — admin · accountant · viewer", stamp()];
+  document.getElementById("ticker").innerHTML =
+    [...line, ...line].map(t => `<span>${t}</span>`).join("");
+}
+paintTicker();
+setInterval(paintTicker, 30000);
+
+// ---- parallax, skipped entirely when the viewer asked for less motion -------
+if (!window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const plate = document.getElementById("plate"), chips = document.getElementById("chips");
+  window.addEventListener("pointermove", e => {
+    const nx = (e.clientX / window.innerWidth - 0.5) * 2;
+    const ny = (e.clientY / window.innerHeight - 0.5) * 2;
+    plate.style.transform = `translate3d(${(-nx * 24).toFixed(1)}px, ${(-ny * 18).toFixed(1)}px, 0) scale(1.03)`;
+    chips.style.transform = `translate3d(${(nx * 30).toFixed(1)}px, ${(ny * 22).toFixed(1)}px, 0)`;
+  }, { passive: true });
+}
+
+// Sign-in lives on one page, /login. There used to be a second copy of the whole
+// form in a popup here; two copies of a login form is how they drift apart.
+function openLogin() { location.href = '/login'; }
 document.getElementById('navSignIn').onclick = openLogin;
 document.getElementById('heroCta').onclick = openLogin;
-document.getElementById('loginClose').onclick = closeLogin;
-backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) closeLogin(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLogin(); });
-document.getElementById('forgot').onclick = () => { document.getElementById('forgotNote').hidden = false; };
 
 fetch('/api/me').then(r => r.ok ? r.json() : null).then(me => {
   if (!me) return;
   const cta = document.getElementById('heroCta'), nav = document.getElementById('navSignIn');
-  cta.textContent = 'Choose Database →'; cta.onclick = () => location.href = '/databases';
+  document.getElementById('heroCtaText').textContent = 'Choose Database';
+  cta.onclick = () => location.href = '/databases';
   nav.textContent = 'Choose Database'; nav.onclick = () => location.href = '/databases';
-  document.getElementById('heroMeta').textContent = 'Signed in as ' + (me.full_name || me.username) + ' · ' + me.role;
+  document.getElementById('heroMeta').textContent =
+    'Signed in as ' + (me.full_name || me.username) + ' · ' + me.role;
 }).catch(() => {});
-
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const err = document.getElementById('loginError'); err.hidden = true;
-  const res = await fetch('/api/login', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      username: document.getElementById('username').value,
-      password: document.getElementById('password').value,
-      remember: document.getElementById('remember').checked,
-    }),
-  });
-  if (res.ok) { window.location.href = '/databases'; return; }
-  const data = await res.json().catch(() => ({}));
-  err.textContent = data.error || 'Login failed'; err.hidden = false;
-});
 
 if (new URLSearchParams(location.search).get('login') === '1') openLogin();
 </script>

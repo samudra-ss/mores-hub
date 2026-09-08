@@ -215,6 +215,16 @@ html[data-theme="dark"] .warn.watch { background: rgba(200,122,8,.16); border-co
 .tbl tr:hover td { background: #f7f9fa; }
 .tbl tr.total td { font-weight: 700; border-top: 2px solid var(--text); background: #fafbfc; }
 .tbl tr.section td { font-weight: 700; background: #eef3f4; }
+/* Money Tracker — PROSPECTUS (orange) and HOT */
+.pill.prospectus { background: #fdf1e2; color: #b06f07; }
+html[data-theme="dark"] .pill.prospectus { background: rgba(200,122,8,.20); color: #e8a94e; }
+.pill.hot { background: #ffe8d6; color: #c2410c; font-weight: 700; }
+html[data-theme="dark"] .pill.hot { background: rgba(234,88,12,.22); color: #fb923c; }
+.kpi.orange { border-color: var(--amber); background: rgba(200,122,8,.07); }
+.kpi.orange .kpi-value { color: var(--amber); }
+html[data-theme="dark"] .kpi.orange { background: rgba(200,122,8,.13); }
+.btn.btn-hot { background: #ea580c; border-color: #ea580c; color: #fff; }
+.btn.btn-hot:hover { filter: brightness(1.07); }
 /* Money Tracker — phase stepper */
 .mt-steps { display: flex; align-items: flex-start; gap: 2px; overflow-x: auto; padding: 14px 2px 4px; }
 .mt-step { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 84px; flex: 0 0 auto; }
@@ -456,3 +466,98 @@ html[data-theme="dark"] .userbox-link { color: var(--accent-bright); }
   gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 13px; }
 .ob-foot .form-actions { margin: 0; }
 .ob-foot .pos { color: var(--green); }
+
+
+/* ==========================================================================
+   THE ORACLE — its own palette
+   Teal is the colour of the books: what was posted, reconciled, and is true.
+   The Oracle is none of those things — it is a forecast. Giving it the same
+   accent invites a reader to trust it the same way, so it gets amethyst, in
+   both themes, and the section reads as a different kind of claim on sight.
+   ========================================================================== */
+html[data-page="oracle"] {
+  --accent: #6b46e5;
+  --accent-dark: #5433c6;
+  --accent-bright: #6b46e5;
+  --accent-soft: #efe9ff;
+  --bg: #f4f2fc;
+  --border: #e4dff5;
+  --oracle-glow: rgba(107, 70, 229, .14);
+  --oracle-rule: linear-gradient(90deg, #6b46e5, #a78bff 55%, transparent);
+}
+html[data-page="oracle"][data-theme="dark"] {
+  --accent: #7c5cff;
+  --accent-dark: #6b46e5;
+  --accent-bright: #a78bff;
+  --accent-soft: rgba(167, 139, 255, .16);
+  --bg: #0b0912;
+  --card: #16121f;
+  --border: #2b2340;
+  --oracle-glow: rgba(167, 139, 255, .18);
+  --oracle-rule: linear-gradient(90deg, #a78bff, #6b46e5 55%, transparent);
+}
+html[data-page="oracle"] .content { background: var(--bg); }
+html[data-page="oracle"] input:focus,
+html[data-page="oracle"] select:focus,
+html[data-page="oracle"] textarea:focus { outline-color: #cbbcff; }
+html[data-page="oracle"][data-theme="dark"] input:focus,
+html[data-page="oracle"][data-theme="dark"] select:focus,
+html[data-page="oracle"][data-theme="dark"] textarea:focus { outline-color: #3d3163; }
+/* a hairline under the page title, so the section announces itself once */
+html[data-page="oracle"] .content > .page-head {
+  border-bottom: 2px solid transparent;
+  border-image: var(--oracle-rule) 1;
+  padding-bottom: 12px;
+}
+html[data-page="oracle"] .card { box-shadow: 0 1px 2px var(--oracle-glow); }
+html[data-page="oracle"] .tabs button.active { color: var(--accent-bright); border-bottom-color: var(--accent-bright); }
+
+/* the moon keeps its colour in the menu even when you are somewhere else, so
+   the Oracle is findable without reading the label */
+.sidebar nav a[data-route="oracle"] { color: #6b46e5; }
+html[data-theme="dark"] .sidebar nav a[data-route="oracle"] { color: #a78bff; }
+.sidebar nav a[data-route="oracle"]:hover { background: #efe9ff; color: #5433c6; }
+html[data-theme="dark"] .sidebar nav a[data-route="oracle"]:hover { background: rgba(167,139,255,.14); color: #c4b3ff; }
+.sidebar nav a[data-route="oracle"].active { background: #6b46e5; color: #fff; }
+html[data-theme="dark"] .sidebar nav a[data-route="oracle"].active { background: #a78bff; color: #150f24; }
+
+/* ==========================================================================
+   BUDGET CENTER — one weekly grid, twelve months wide
+   48 editable cells a row is a lot of table, so the account column is pinned
+   and the whole thing scrolls sideways inside its own box. The page itself must
+   never scroll horizontally.
+   ========================================================================== */
+.bc-scroll { overflow-x: auto; max-width: 100%; }
+.bc-bar { align-items: center; gap: 12px; flex-wrap: wrap; }
+.bc-grid { min-width: 100%; }
+.bc-grid th, .bc-grid td { white-space: nowrap; }
+.bc-grid .bc-acc {
+  position: sticky; left: 0; z-index: 2; background: var(--card);
+  min-width: 200px; max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+}
+.bc-grid thead .bc-acc { z-index: 3; }
+.bc-grid .bc-mh {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; text-align: center; color: var(--muted);
+}
+.bc-grid .bc-wh { font-size: 10px; font-weight: 500; color: var(--muted); }
+.bc-grid .bc-msep { border-left: 2px solid var(--border); }
+.bc-grid input.bc-in {
+  width: 76px; text-align: right; padding: 4px 6px; font-size: 12px;
+  font-family: var(--font-mono);
+}
+.bc-grid select.bc-cert-in { font-size: 11.5px; padding: 3px 6px; min-width: 104px; }
+.bc-grid tr.section td { background: var(--bg); }
+html[data-theme="dark"] .bc-grid .bc-acc { background: var(--card); }
+html[data-theme="dark"] .bc-grid tr:hover .bc-acc { background: #191f25; }
+
+
+/* Oracle guide — numbered steps */
+.og-steps { display: grid; gap: 14px; }
+.og-step { display: flex; gap: 14px; align-items: flex-start; }
+.og-n {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent-bright); border: 1px solid var(--border);
+}

@@ -50,7 +50,10 @@ def list_databases():
 
 DB_ROLES = ("admin", "finance", "viewer")
 DEFAULT_DB_PROFILE = {
-    "icon": "", "color": "#00a2b6", "frozen": False,
+    # data_as_of: the date the figures in this database are complete TO. A ledger
+    # that stops in July is not the same claim as a ledger that is current, and
+    # every report drawn off it should say which one it is.
+    "icon": "", "color": "#00a2b6", "frozen": False, "data_as_of": "",
     "enter_roles": ["admin", "finance", "viewer"],
     "edit_roles": ["admin", "finance"],
 }
@@ -74,6 +77,7 @@ def get_db_profile(conn):
     prof["frozen"] = bool(prof.get("frozen"))
     prof["icon"] = str(prof.get("icon") or "")[:8]
     prof["color"] = str(prof.get("color") or "#00a2b6")[:16]
+    prof["data_as_of"] = str(prof.get("data_as_of") or "")[:10]
     prof["enter_roles"] = [r for r in DB_ROLES if r in set(prof.get("enter_roles") or []) | {"admin"}]
     prof["edit_roles"] = [r for r in DB_ROLES if r in set(prof.get("edit_roles") or []) | {"admin"}]
     return prof
@@ -91,6 +95,7 @@ def set_db_profile(conn, updates):
     prof["frozen"] = bool(prof.get("frozen"))
     prof["icon"] = str(prof.get("icon") or "")[:8]
     prof["color"] = str(prof.get("color") or "#00a2b6")[:16]
+    prof["data_as_of"] = str(prof.get("data_as_of") or "")[:10]
     prof["enter_roles"] = [r for r in DB_ROLES if r in set(prof.get("enter_roles") or []) | {"admin"}]
     prof["edit_roles"] = [r for r in DB_ROLES if r in set(prof.get("edit_roles") or []) | {"admin"}]
     conn.execute("INSERT INTO app_settings (key, value) VALUES ('db_profile', ?)"
@@ -200,6 +205,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     type TEXT NOT NULL CHECK (type IN ('asset','liability','equity','revenue','expense')),
     parent_code TEXT,
     is_intercompany INTEGER NOT NULL DEFAULT 0,
+    cash_flow_class TEXT NOT NULL DEFAULT '',
     is_active INTEGER NOT NULL DEFAULT 1,
     UNIQUE (company_id, code)
 );
@@ -247,8 +253,13 @@ CREATE TABLE IF NOT EXISTS budgets (
     project_id INTEGER REFERENCES projects(id),
     year INTEGER NOT NULL,
     month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+    week INTEGER NOT NULL DEFAULT 1 CHECK (week BETWEEN 1 AND 4),
     amount REAL NOT NULL DEFAULT 0,
-    UNIQUE (company_id, account_id, project_id, year, month)
+    certainty TEXT NOT NULL DEFAULT 'planned'
+        CHECK (certainty IN ('committed','planned','expected','speculative')),
+    cf_class TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    UNIQUE (company_id, account_id, project_id, year, month, week)
 );
 
 CREATE TABLE IF NOT EXISTS custom_fields (
@@ -295,6 +306,18 @@ CREATE TABLE IF NOT EXISTS investment_comments (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS investment_commitments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+    week INTEGER NOT NULL CHECK (week BETWEEN 1 AND 5),
+    amount REAL NOT NULL DEFAULT 0,
+    certainty TEXT NOT NULL DEFAULT 'committed',
+    note TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_ic_inv ON investment_commitments(investment_id, year);
+
 CREATE TABLE IF NOT EXISTS investment_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
@@ -318,6 +341,7 @@ CREATE TABLE IF NOT EXISTS receivables (
     due_date TEXT,
     amount REAL NOT NULL DEFAULT 0,
     paid REAL NOT NULL DEFAULT 0,
+    paid_date TEXT,
     notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -354,6 +378,40 @@ CREATE TABLE IF NOT EXISTS bank_format_profiles (
     UNIQUE (name)
 );
 
+CREATE TABLE IF NOT EXISTS plan_versions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id INTEGER REFERENCES companies(id),   -- NULL = group-wide
+    year INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'budget',
+    status TEXT NOT NULL DEFAULT 'draft',
+    base_version_id INTEGER REFERENCES plan_versions(id),
+    oracle_verdict TEXT NOT NULL DEFAULT '',
+    oracle_consulted_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- The cash plan at (year, month, week-in-month) grain. No UNIQUE involving
+-- project_id: SQLite treats NULLs as distinct, so a unique index would not stop
+-- duplicate group-level rows. Write through the NULL-safe upsert instead.
+CREATE TABLE IF NOT EXISTS plan_weeks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    version_id INTEGER NOT NULL REFERENCES plan_versions(id) ON DELETE CASCADE,
+    company_id INTEGER NOT NULL REFERENCES companies(id),
+    project_id INTEGER REFERENCES projects(id),
+    account_id INTEGER NOT NULL REFERENCES accounts(id),
+    year INTEGER NOT NULL,
+    month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+    week INTEGER NOT NULL CHECK (week BETWEEN 1 AND 5),  -- 4 in use; 5 folded into 4
+    flow TEXT NOT NULL CHECK (flow IN ('in','out')),
+    amount REAL NOT NULL DEFAULT 0,
+    certainty TEXT NOT NULL DEFAULT 'planned',
+    cf_class TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_pw_version ON plan_weeks(version_id, company_id, year, month);
+CREATE INDEX IF NOT EXISTS idx_pw_project ON plan_weeks(version_id, project_id);
+
 CREATE TABLE IF NOT EXISTS money_tracker (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     company_id INTEGER NOT NULL REFERENCES companies(id),
@@ -363,11 +421,14 @@ CREATE TABLE IF NOT EXISTS money_tracker (
     client TEXT NOT NULL DEFAULT '',
     amount REAL NOT NULL DEFAULT 0,
     phase_key TEXT NOT NULL DEFAULT 'p1',
-    status TEXT NOT NULL DEFAULT 'active'
-        CHECK (status IN ('active','done','on_hold','cancelled')),
+    -- status is validated in server.MONEY_STATUSES (prospectus/active/done/
+    -- on_hold/cancelled). Deliberately no CHECK: SQLite cannot widen one without
+    -- rebuilding the table, and this list grows.
+    status TEXT NOT NULL DEFAULT 'active',
     started_at TEXT,
     notes TEXT NOT NULL DEFAULT '',
     cancel_reason TEXT NOT NULL DEFAULT '',
+    is_hot INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -397,7 +458,7 @@ CREATE INDEX IF NOT EXISTS idx_receivables_company ON receivables(company_id);
 CREATE INDEX IF NOT EXISTS idx_lines_account ON journal_lines(account_id);
 CREATE INDEX IF NOT EXISTS idx_lines_project ON journal_lines(project_id);
 CREATE INDEX IF NOT EXISTS idx_entries_company_date ON journal_entries(company_id, date);
-CREATE INDEX IF NOT EXISTS idx_budgets_lookup ON budgets(company_id, year);
+CREATE INDEX IF NOT EXISTS idx_budgets_lookup ON budgets(company_id, year, month, week);
 """
 
 
@@ -628,17 +689,25 @@ def seed(conn):
     seed_company_budgets(conn, companies)
     seed_project_budgets(conn, companies, projects)
     seed_investments(conn)
+    seed_mock_extras(conn, companies, projects)
     conn.commit()
 
 
 def seed_company_budgets(conn, companies):
-    """Annual 2026 budgets per entity: primary revenue + key opex lines."""
+    """Annual 2026 company-level budgets: OVERHEADS ONLY.
+
+    Revenue and direct cost are budgeted per project (seed_project_budgets), and
+    budgeting the same account at both levels would have the Oracle count the
+    money twice - a company-level line is spending that belongs to no project,
+    not a summary of the projects.
+
+    Week placement is deliberate rather than decorative, because settlement is
+    pessimistic: an outflow leaves on the FIRST day of its week bucket. Rent is
+    due at the start of the month (W1), payroll at the end (W4).
+    """
+    week_of = {"6100": 4, "6200": 1, "6400": 2, "6600": 3}
     for ccode, cid in companies.items():
-        cfg = ENTITY_CFG[ccode]
-        rev_base = sum(b for (cc, _), b in REVENUE_BASE.items() if cc == ccode) or 100_000_000
         plan = {
-            cfg["rev"]: rev_base * 12 / 12 * 1.1,            # revenue target / month
-            cfg["cogs"][0][0]: rev_base * 0.30,              # COGS budget (entity's primary cost line)
             "6100": PAYROLL_BASE[ccode] * 1.05,
             "6200": RENT_BASE[ccode],
             "6400": (70_000_000 if ccode in ("SBR", "KMA") else 25_000_000),
@@ -649,36 +718,77 @@ def seed_company_budgets(conn, companies):
             if not acc:
                 continue
             for month in range(1, 13):
-                ramp = 1.0 + 0.01 * month if code == cfg["rev"] else 1.0
-                upsert_budget(conn, cid, acc, None, 2026, month, round(monthly * ramp, 2))
+                upsert_budget(conn, cid, acc, None, 2026, month, round(monthly, 2),
+                              week=week_of.get(code, 1), certainty="planned",
+                              cf_class="operating")
 
 
 def seed_project_budgets(conn, companies, projects):
-    """2026 per-project budgets (revenue target + direct cost cap)."""
+    """2026 per-project budgets: revenue target + direct cost cap.
+
+    Certainty is what makes this demo worth looking at. The Oracle's Bound run
+    counts only 'committed' money IN, so a budget that is 100% 'planned' reads
+    KRITIS no matter how healthy it is. Here the first three quarters are under
+    contract and Q4 is not, which is what a real consulting year looks like -
+    and it leaves the verdict somewhere a user can then stress.
+
+    Collections land mid-month (W3); direct cost is paid earlier (W2), so the
+    money goes out before it comes in inside the same month.
+    """
     for (ccode, pcode), base in REVENUE_BASE.items():
         cid = companies[ccode]
         pid = projects[(ccode, pcode)]
         rev_code = ENTITY_CFG[ccode]["rev"]
         cogs_code = ENTITY_CFG[ccode]["cogs"][0][0]  # entity's primary COGS child
-        for code, factor in ((rev_code, 1.15), (cogs_code, 0.30)):
+        # 0.55 direct cost: what a consulting + construction group actually runs at.
+        # It also matters for the demo - at 0.30 the year threw off so much cash
+        # that no amount of stress could move the verdict, and a sensitivity grid
+        # that is green in every cell teaches nobody anything.
+        for code, factor, week, cls in ((rev_code, 1.15, 3, "operating"),
+                                        (cogs_code, 0.55, 2, "operating")):
             acc = account_id(conn, cid, code)
             if not acc:
                 continue
             for month in range(1, 13):
-                upsert_budget(conn, cid, acc, pid, 2026, month, round(base * factor, 2))
+                certainty = "planned"
+                if code == rev_code:
+                    certainty = "committed" if month <= 9 else "expected"
+                upsert_budget(conn, cid, acc, pid, 2026, month,
+                              round(base * factor, 2), week=week,
+                              certainty=certainty, cf_class=cls)
 
 
-def upsert_budget(conn, company_id, account_id, project_id, year, month, amount):
-    """NULL-safe budget upsert."""
+def upsert_budget(conn, company_id, account_id, project_id, year, month, amount,
+                  week=1, certainty=None, cf_class=None, note=None,
+                  default_certainty=None):
+    """NULL-safe budget upsert at week grain.
+
+    NULL-safe because project_id is nullable and SQLite treats NULLs as DISTINCT
+    in a UNIQUE index - a plain INSERT OR REPLACE would duplicate every
+    company-level row instead of updating it. Passing None for certainty /
+    cf_class / note leaves whatever is already stored alone, so a plain amount
+    edit never silently resets a line's certainty. default_certainty is used only
+    when a cell has to be CREATED - typing a figure into an empty week of a line
+    that is otherwise contracted should not quietly produce uncontracted money.
+    """
+    sets = ["amount=?"]
+    params = [round(amount, 2)]
+    if certainty is not None:
+        sets.append("certainty=?"); params.append(certainty)
+    if cf_class is not None:
+        sets.append("cf_class=?"); params.append(cf_class)
+    if note is not None:
+        sets.append("note=?"); params.append(note)
     cur = conn.execute(
-        "UPDATE budgets SET amount=? WHERE company_id=? AND account_id=?"
-        " AND project_id IS ? AND year=? AND month=?",
-        (round(amount, 2), company_id, account_id, project_id, year, month))
+        "UPDATE budgets SET %s WHERE company_id=? AND account_id=?"
+        " AND project_id IS ? AND year=? AND month=? AND week=?" % ", ".join(sets),
+        params + [company_id, account_id, project_id, year, month, week])
     if cur.rowcount == 0:
         conn.execute(
-            "INSERT INTO budgets (company_id, account_id, project_id, year, month, amount)"
-            " VALUES (?,?,?,?,?,?)",
-            (company_id, account_id, project_id, year, month, round(amount, 2)))
+            "INSERT INTO budgets (company_id, account_id, project_id, year, month, week,"
+            " amount, certainty, cf_class, note) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (company_id, account_id, project_id, year, month, week, round(amount, 2),
+             certainty or default_certainty or "planned", cf_class or "", note or ""))
 
 
 def seed_investments(conn):
@@ -757,6 +867,106 @@ def _init_one(name, do_seed):
     conn.close()
 
 
+def seed_mock_extras(conn, companies, projects):
+    """Fill in the modules the original demo seed never knew about, so a fresh
+    demo database can exercise the whole app rather than just the ledger:
+    receivables, payables, investment commitments, the money tracker, and a
+    buffer policy with a real minimum cash per company.
+    """
+    rng = random.Random(7)
+    inv_ids = {r["name"]: r["id"] for r in conn.execute("SELECT id, name FROM investments")}
+
+    # --- receivables: some collected, some not, a couple with no paid date ---
+    clients = ["Dinas Kominfo Prov.", "PT Nusantara Andalan", "Badan Riset Nasional",
+               "PT Cipta Karya Mandiri", "Yayasan Pendidikan Bangsa"]
+    n = 0
+    for ccode, cid in companies.items():
+        for k in range(3):
+            n += 1
+            amount = round(rng.uniform(180, 900) * 1_000_000, 2)
+            month = 2 + k * 3
+            paid = 0.0 if k == 2 else round(amount * rng.uniform(0.4, 1.0), 2)
+            # a paid date on most of them: the Oracle only has to GUESS collection
+            # timing where one is missing, and two missing is enough to show that
+            paid_date = None
+            if paid > 0 and n % 5 != 0:
+                paid_date = "2026-%02d-%02d" % (month, rng.randint(20, 28))
+            conn.execute(
+                "INSERT INTO receivables (company_id, client, invoice_no, invoice_date,"
+                " due_date, amount, paid, paid_date, notes) VALUES (?,?,?,?,?,?,?,?,?)",
+                (cid, clients[n % len(clients)], "INV-2026-%03d" % n,
+                 "2026-%02d-05" % month, "2026-%02d-05" % min(12, month + 1),
+                 amount, paid, paid_date, ""))
+
+    # --- payables: dated bills the Oracle must treat as committed outflows ---
+    vendors = ["CV Sumber Rejeki", "PT Media Cetak Nusantara", "PT Logistik Andalan",
+               "CV Karya Teknik", "PT Solusi Digital"]
+    n = 0
+    for ccode, cid in companies.items():
+        for k in range(2):
+            n += 1
+            amount = round(rng.uniform(90, 420) * 1_000_000, 2)
+            month = 3 + k * 4
+            conn.execute(
+                "INSERT INTO payables (company_id, vendor, bill_no, bill_date, due_date,"
+                " amount, paid, notes) VALUES (?,?,?,?,?,?,?,?)",
+                (cid, vendors[n % len(vendors)], "BILL-2026-%03d" % n,
+                 "2026-%02d-02" % month, "2026-%02d-25" % month, amount,
+                 round(amount * 0.3, 2) if k == 0 else 0.0, ""))
+
+    # --- investment commitments: most scheduled, one left deliberately not ---
+    # The unscheduled remainder is the point: it makes the Oracle say out loud
+    # that it had to assume a date, which is the behaviour worth demonstrating.
+    sched = {"Scholarship Program - Future Leaders": [(3, 2, 0.25), (6, 1, 0.25), (9, 3, 0.20)],
+             "R&D - Mores NX Platform": [(4, 1, 0.5), (10, 2, 0.3)]}
+    # University Partnership Sponsorship is left with NO schedule on purpose, so
+    # the Oracle has to spread it and say so - the assumption is the lesson.
+    for name, parts in sched.items():
+        iid = inv_ids.get(name)
+        if not iid:
+            continue
+        total = conn.execute("SELECT committed_amount FROM investments WHERE id=?",
+                             (iid,)).fetchone()[0] or 0
+        for month, week, share in parts:
+            conn.execute(
+                "INSERT INTO investment_commitments (investment_id, year, month, week,"
+                " amount, certainty, note) VALUES (?,?,?,?,?,?,?)",
+                (iid, 2026, month, week, round(total * share, 2), "committed",
+                 "demo schedule"))
+
+    # --- money tracker: one of every interesting state ----------------------
+    tracks = [
+        ("Videotron Kominfo 2026", "Dinas Kominfo Prov.", 1_250_000_000, "p11", "active", 0),
+        ("Data Advisory Retainer", "PT Nusantara Andalan", 640_000_000, "p3", "active", 0),
+        ("Riset Kebijakan Publik", "Badan Riset Nasional", 880_000_000, "p2", "prospectus", 1),
+        ("Renovasi Gedung B", "PT Cipta Karya Mandiri", 2_100_000_000, "p7", "active", 1),
+        ("Kampanye Literasi", "Yayasan Pendidikan Bangsa", 310_000_000, "p12", "done", 0),
+        ("Sistem Arsip Digital", "PT Solusi Digital", 470_000_000, "p5a", "on_hold", 0),
+    ]
+    ccodes = list(companies.keys())
+    for i, (title, client, amount, phase, status, hot) in enumerate(tracks):
+        ccode = ccodes[i % len(ccodes)]
+        cur = conn.execute(
+            "INSERT INTO money_tracker (company_id, project_id, title, invoice_no, client,"
+            " amount, phase_key, status, started_at, notes, is_hot)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (companies[ccode], None, title, "MT-2026-%03d" % (i + 1), client, amount,
+             phase, status, "2026-%02d-10" % (1 + i), "", hot))
+        conn.execute(
+            "INSERT INTO money_tracker_stages (tracker_id, phase_key, entered_at)"
+            " VALUES (?,?,?)", (cur.lastrowid, phase, "2026-%02d-10" % (1 + i)))
+
+    # --- a buffer policy with a real floor, not the useless default of zero --
+    floors = {ccode: round(PAYROLL_BASE[ccode] * 1.5, 2) for ccode in companies}
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES ('oracle_buffer_policy', ?)"
+        " ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (json.dumps({"months_cover": 1.5, "cash_pooling": False,
+                     "default_collection_lag_days": 14,
+                     "absolute_floor": floors}),))
+    conn.commit()
+
+
 def create_database(name, seed_demo=True):
     """Create a brand-new database. Returns the cleaned name. Raises ValueError."""
     clean = _safe_name(name)
@@ -812,6 +1022,8 @@ def delete_company_cascade(conn, company_id):
     conn.execute("UPDATE companies SET parent_id=NULL WHERE parent_id=?", (cid,))
     conn.execute("DELETE FROM investment_events WHERE investment_id IN "
                  "(SELECT id FROM investments WHERE company_id=?)", (cid,))
+    conn.execute("DELETE FROM investment_commitments WHERE investment_id IN "
+                 "(SELECT id FROM investments WHERE company_id=?)", (cid,))
     conn.execute("DELETE FROM investments WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM receivables WHERE company_id=?", (cid,))
     conn.execute("DELETE FROM payables WHERE company_id=?", (cid,))
@@ -850,6 +1062,226 @@ def _ensure_source_column(conn):
         "UPDATE journal_entries SET source='monit_wallet' WHERE source='manual' AND "
         "(lower(description) LIKE '%monit%' OR lower(description) LIKE '%wallet%' "
         " OR lower(description) LIKE '%petty cash%')")
+    conn.commit()
+
+
+def _widen_budgets_to_weeks(conn):
+    """Move the budget from month grain to week grain.
+
+    A monthly budget tells you WHICH MONTH and never which week, so every
+    existing row lands in WEEK 1 rather than being spread across four - spreading
+    would invent timing information nobody ever entered, and W1 is also the
+    safest reading for cash (money out as early as it could go). This is the
+    "convert the monthly budget into Week 1" step, applied once, automatically.
+
+    SQLite cannot alter a UNIQUE constraint, so the table is rebuilt. Ids are
+    carried over unchanged. The swap only happens when BOTH the row count and
+    the total budgeted amount match the original exactly; on any mismatch the
+    whole thing rolls back and the original table survives untouched.
+    """
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(budgets)")]
+    if not cols or "week" in cols:
+        return                                    # absent, or already week grain
+    before_n = conn.execute("SELECT COUNT(*) FROM budgets").fetchone()[0]
+    before_sum = conn.execute("SELECT COALESCE(SUM(amount),0) FROM budgets").fetchone()[0]
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        conn.execute("DROP TABLE IF EXISTS budgets__new")
+        conn.execute(
+            "CREATE TABLE budgets__new ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "company_id INTEGER NOT NULL REFERENCES companies(id),"
+            "account_id INTEGER NOT NULL REFERENCES accounts(id),"
+            "project_id INTEGER REFERENCES projects(id),"
+            "year INTEGER NOT NULL,"
+            "month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),"
+            "week INTEGER NOT NULL DEFAULT 1 CHECK (week BETWEEN 1 AND 4),"
+            "amount REAL NOT NULL DEFAULT 0,"
+            "certainty TEXT NOT NULL DEFAULT 'planned'"
+            " CHECK (certainty IN ('committed','planned','expected','speculative')),"
+            "cf_class TEXT NOT NULL DEFAULT '',"
+            "note TEXT NOT NULL DEFAULT '',"
+            "UNIQUE (company_id, account_id, project_id, year, month, week))")
+        conn.execute(
+            "INSERT INTO budgets__new"
+            " (id, company_id, account_id, project_id, year, month, week, amount)"
+            " SELECT id, company_id, account_id, project_id, year, month, 1, amount"
+            " FROM budgets")
+        after_n = conn.execute("SELECT COUNT(*) FROM budgets__new").fetchone()[0]
+        after_sum = conn.execute("SELECT COALESCE(SUM(amount),0) FROM budgets__new").fetchone()[0]
+        if after_n != before_n or round(after_sum, 2) != round(before_sum, 2):
+            raise RuntimeError(
+                "budgets rebuild copied %d of %d rows and %.2f of %.2f budgeted"
+                " - refusing to swap" % (after_n, before_n, after_sum, before_sum))
+        conn.execute("DROP TABLE budgets")
+        conn.execute("ALTER TABLE budgets__new RENAME TO budgets")
+        # DROP TABLE took idx_budgets_lookup with it, and the CREATE INDEX IF NOT
+        # EXISTS in SCHEMA never re-runs on an existing database - so it has to be
+        # rebuilt here or every budget read silently falls back to a table scan.
+        # Widened past (company_id, year) because the Oracle now reads this table
+        # on every consult, month and week included.
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_budgets_lookup"
+                     " ON budgets(company_id, year, month, week)")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        conn.execute("DROP TABLE IF EXISTS budgets__new")
+        conn.commit()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")
+
+
+def _widen_money_tracker_status(conn):
+    """Drop the legacy CHECK on money_tracker.status so PROSPECTUS is accepted.
+
+    SQLite has no ALTER ... DROP CONSTRAINT, so the table is rebuilt. Ids are
+    carried over unchanged, so money_tracker_stages / money_tracker_comments keep
+    pointing at the right rows. The swap only happens when the copied row count
+    matches the original exactly; otherwise everything rolls back untouched.
+    """
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='money_tracker'").fetchone()
+    if not row or not row["sql"]:
+        return
+    sql = row["sql"]
+    if "CHECK" not in sql.upper() or "prospectus" in sql:
+        return  # already fine
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(money_tracker)")]
+    collist = ", ".join(cols)
+    before = conn.execute("SELECT COUNT(*) FROM money_tracker").fetchone()[0]
+    conn.execute("PRAGMA foreign_keys=OFF")
+    try:
+        conn.execute("DROP TABLE IF EXISTS money_tracker__new")
+        conn.execute(
+            "CREATE TABLE money_tracker__new ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "company_id INTEGER NOT NULL REFERENCES companies(id),"
+            "project_id INTEGER REFERENCES projects(id),"
+            "title TEXT NOT NULL DEFAULT '', invoice_no TEXT NOT NULL DEFAULT '',"
+            "client TEXT NOT NULL DEFAULT '', amount REAL NOT NULL DEFAULT 0,"
+            "phase_key TEXT NOT NULL DEFAULT 'p1', status TEXT NOT NULL DEFAULT 'active',"
+            "started_at TEXT, notes TEXT NOT NULL DEFAULT '',"
+            "cancel_reason TEXT NOT NULL DEFAULT '', is_hot INTEGER NOT NULL DEFAULT 0,"
+            "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+        conn.execute("INSERT INTO money_tracker__new (%s) SELECT %s FROM money_tracker"
+                     % (collist, collist))
+        after = conn.execute("SELECT COUNT(*) FROM money_tracker__new").fetchone()[0]
+        if after != before:
+            raise RuntimeError("money_tracker rebuild copied %d of %d rows" % (after, before))
+        conn.execute("DROP TABLE money_tracker")
+        conn.execute("ALTER TABLE money_tracker__new RENAME TO money_tracker")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        conn.execute("DROP TABLE IF EXISTS money_tracker__new")
+        conn.commit()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")
+
+
+# ---- Oracle Step 1: cash-flow classification -------------------------------
+# Which section of the cash-flow statement an account belongs to. Getting 6500
+# Depreciation or 1510 Accumulated Depreciation wrong makes the Oracle
+# OPTIMISTIC, which is the one direction it must never fail in - so they are
+# 'noncash' and contribute nothing to CFO.
+#
+# Seeded idempotently: only rows still at '' are set, so an admin override in
+# Settings -> Cash Flow Classes always survives a restart.
+CASH_FLOW_CLASSES = ("operating", "investing", "financing", "noncash")
+CASH_FLOW_CLASS_SEED = {
+    # --- working capital and trading: operating -----------------------------
+    "1200": "operating", "1300": "operating", "1400": "operating",
+    "2100": "operating", "2200": "operating", "2300": "operating",
+    "4000": "operating", "4100": "operating", "4200": "operating", "4900": "operating",
+    "5000": "operating", "5100": "operating",
+    "5100-01": "operating", "5100-02": "operating",
+    "5100-03": "operating", "5100-04": "operating",
+    "6000": "operating", "6100": "operating", "6200": "operating",
+    "6300": "operating", "6400": "operating", "6600": "operating",
+    "6610": "operating", "6700": "operating", "6900": "operating",
+    "7200": "operating",   # interest — policy default, see oracle_buffer_policy
+    "7300": "operating", "7300-01": "operating", "7300-02": "operating",
+    "7300-03": "operating", "7300-04": "operating",
+    # --- capex: investing ---------------------------------------------------
+    "1500": "investing",
+    # --- funding: financing -------------------------------------------------
+    "2500": "financing", "3000": "financing", "3100": "financing", "3200": "financing",
+    # --- never moves cash ---------------------------------------------------
+    "6500": "noncash",     # depreciation expense
+    "1510": "noncash",     # accumulated depreciation
+}
+
+
+def seed_cash_flow_classes(conn):
+    """Set cash_flow_class on accounts that have never been classified.
+    Idempotent, and admin overrides survive because only '' rows are touched."""
+    for code, cls in CASH_FLOW_CLASS_SEED.items():
+        conn.execute(
+            "UPDATE accounts SET cash_flow_class=? WHERE code=? AND cash_flow_class=''",
+            (cls, code))
+
+
+def upsert_plan_week(conn, version_id, company_id, project_id, account_id,
+                    year, month, week, flow, amount, certainty="planned",
+                    cf_class="", note=""):
+    """NULL-safe upsert for a cash-plan cell.
+
+    plan_weeks deliberately has no UNIQUE touching project_id, because SQLite
+    treats NULLs as distinct and a unique index would happily store the same
+    group-level cell twice. `IS ?` matches NULL to NULL, so a group-level row
+    updates in place instead of duplicating (test W4).
+    """
+    cur = conn.execute(
+        "UPDATE plan_weeks SET amount=?, certainty=?, cf_class=?, note=? "
+        "WHERE version_id=? AND company_id=? AND account_id=? AND project_id IS ? "
+        "AND year=? AND month=? AND week=? AND flow=?",
+        (amount, certainty, cf_class, note, version_id, company_id, account_id,
+         project_id, year, month, week, flow))
+    if cur.rowcount == 0:
+        conn.execute(
+            "INSERT INTO plan_weeks (version_id, company_id, project_id, account_id,"
+            " year, month, week, flow, amount, certainty, cf_class, note)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (version_id, company_id, project_id, account_id, year, month, week,
+             flow, amount, certainty, cf_class, note))
+    return cur.rowcount
+
+
+def _fold_week5_into_week4(conn):
+    """The cash plan moved from 5 buckets a month to 4 (W4 now runs to month end).
+
+    Any surviving week-5 row can no longer be given a settlement date, so the
+    Oracle would drop it SILENTLY - money that is in the plan but not in the
+    forecast. Fold it into week 4 instead: add to the matching W4 cell where one
+    exists, otherwise just move it. Idempotent, and no amount is ever lost.
+    """
+    for table, keys in (
+            ("plan_weeks",
+             "version_id, company_id, project_id, account_id, year, month, flow"),
+            ("investment_commitments",
+             "investment_id, year, month, certainty")):
+        try:
+            rows = conn.execute("SELECT * FROM %s WHERE week=5" % table).fetchall()
+        except Exception:
+            continue
+        if not rows:
+            continue
+        key_cols = [k.strip() for k in keys.split(",")]
+        for r in rows:
+            where = " AND ".join("%s IS ?" % k for k in key_cols)
+            params = [r[k] for k in key_cols]
+            match = conn.execute(
+                "SELECT id, amount FROM %s WHERE %s AND week=4 LIMIT 1" % (table, where),
+                params).fetchone()
+            if match:
+                conn.execute("UPDATE %s SET amount=? WHERE id=?" % table,
+                             (round((match["amount"] or 0) + (r["amount"] or 0), 2),
+                              match["id"]))
+                conn.execute("DELETE FROM %s WHERE id=?" % table, (r["id"],))
+            else:
+                conn.execute("UPDATE %s SET week=4 WHERE id=?" % table, (r["id"],))
     conn.commit()
 
 
@@ -921,6 +1353,62 @@ def migrate_database(conn):
         "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
     # why a track was put on hold / cancelled
     _add_column(conn, "money_tracker", "cancel_reason", "TEXT NOT NULL DEFAULT ''")
+    # a prospectus track can be flagged HOT (worth chasing now)
+    _add_column(conn, "money_tracker", "is_hot", "INTEGER NOT NULL DEFAULT 0")
+    _widen_money_tracker_status(conn)
+    _widen_budgets_to_weeks(conn)
+    # ---- Oracle Step 1: how each account moves cash ----------------------
+    _add_column(conn, "accounts", "cash_flow_class", "TEXT NOT NULL DEFAULT ''")
+    seed_cash_flow_classes(conn)
+    # ---- Oracle Step 2: the week-grain cash plan -------------------------
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS plan_versions ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "company_id INTEGER REFERENCES companies(id),"   # NULL = group-wide
+        "year INTEGER NOT NULL, name TEXT NOT NULL,"
+        "kind TEXT NOT NULL DEFAULT 'budget',"
+        "status TEXT NOT NULL DEFAULT 'draft',"
+        "base_version_id INTEGER REFERENCES plan_versions(id),"
+        "oracle_verdict TEXT NOT NULL DEFAULT '', oracle_consulted_at TEXT,"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS plan_weeks ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "version_id INTEGER NOT NULL REFERENCES plan_versions(id) ON DELETE CASCADE,"
+        "company_id INTEGER NOT NULL REFERENCES companies(id),"
+        "project_id INTEGER REFERENCES projects(id),"
+        "account_id INTEGER NOT NULL REFERENCES accounts(id),"
+        "year INTEGER NOT NULL,"
+        "month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),"
+        "week INTEGER NOT NULL CHECK (week BETWEEN 1 AND 5),"
+        "flow TEXT NOT NULL CHECK (flow IN ('in','out')),"
+        "amount REAL NOT NULL DEFAULT 0,"
+        "certainty TEXT NOT NULL DEFAULT 'planned',"
+        "cf_class TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '')")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pw_version "
+                 "ON plan_weeks(version_id, company_id, year, month)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_pw_project "
+                 "ON plan_weeks(version_id, project_id)")
+    # ---- Oracle Step 4: WHEN committed investment money leaves ------------
+    # investments.committed_amount is a lump sum with no schedule, and
+    # investment_events only records what already moved, so without this the
+    # Oracle cannot see committed investment outflows coming.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS investment_commitments ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,"
+        "year INTEGER NOT NULL,"
+        "month INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),"
+        "week INTEGER NOT NULL CHECK (week BETWEEN 1 AND 5),"
+        "amount REAL NOT NULL DEFAULT 0,"
+        "certainty TEXT NOT NULL DEFAULT 'committed',"
+        "note TEXT NOT NULL DEFAULT '')")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ic_inv "
+                 "ON investment_commitments(investment_id, year)")
+    # when a receivable was actually collected -> the real client lag
+    _add_column(conn, "receivables", "paid_date", "TEXT")
+    # 5 buckets a month -> 4: nothing may be stranded in a week that no longer exists
+    _fold_week5_into_week4(conn)
     # per-user menu visibility (which left-nav items a user may see); 'all' = every menu
     _add_column(conn, "users", "menu_access", "TEXT NOT NULL DEFAULT 'all'")
     # Investment Center — contribution-margin manual inputs per investment

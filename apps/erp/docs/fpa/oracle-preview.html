@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MORES HV — The Oracle (preview)</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("oracle.preview.theme")||"light";}catch(e){document.documentElement.dataset.theme="light";}</script>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── tokens lifted verbatim from apps/erp/static/styles.css ─────────────── */
+:root {
+  --font-ui: Arial, "Helvetica Neue", Helvetica, "Segoe UI", system-ui, sans-serif;
+  --font-brand: "Chakra Petch", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --sidebar-bg:#fff; --sidebar-text:#5b6166; --sidebar-border:#e6e8eb; --sidebar-active-fg:#fff;
+  --accent:#00a2b6; --accent-dark:#00879a; --accent-bright:#00a2b6; --accent-soft:#e1f4f7;
+  --teal:#00a2b6;
+  --green:#1f9d57; --red:#bd362f; --amber:#c87a08;
+  --bg:#eff1f3; --card:#fff; --border:#e6e8eb; --text:#0c1013; --muted:#6b7480;
+  --radius:10px; --shadow:0 1px 3px rgba(12,16,19,.08),0 4px 14px rgba(12,16,19,.05);
+  --grid-line:#e9ecef;
+}
+html[data-theme="dark"] {
+  --sidebar-bg:#07090b; --sidebar-text:#93a0ab; --sidebar-border:#1a2027; --sidebar-active-fg:#06181b;
+  --accent-bright:#00bcd2; --accent-soft:rgba(0,188,210,.16);
+  --green:#5fd08c; --red:#e57373; --amber:#e0a85c;
+  --bg:#0c0f12; --card:#15191e; --border:#262d35; --text:#e8ecf0; --muted:#93a0ab;
+  --shadow:0 1px 3px rgba(0,0,0,.5),0 4px 14px rgba(0,0,0,.35);
+  --grid-line:#222930;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:var(--font-ui);background:var(--bg);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}
+.kpi-value,.tbl td.num,.tbl th.num,.num{font-variant-numeric:tabular-nums}
+.kpi-value{font-family:var(--font-mono);letter-spacing:-.01em}
+.kpi-label,.tbl thead th,.topbar-field>span,.seg-group,.kpi-sub{font-family:var(--font-mono)}
+.kpi-label,.tbl thead th{text-transform:uppercase;letter-spacing:.08em;font-size:10px;font-weight:600}
+h1,h2,h3{margin:0 0 .5em}
+a{color:var(--accent);text-decoration:none}
+table{border-collapse:collapse;width:100%}
+.app{display:flex;min-height:100vh}
+.sidebar{width:224px;flex-shrink:0;background:var(--sidebar-bg);color:var(--sidebar-text);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;border-right:1px solid var(--sidebar-border)}
+.brand{display:flex;flex-direction:column;gap:12px;padding:22px 20px 16px}
+.brand-word{font-family:var(--font-brand);font-weight:700;font-size:21px;letter-spacing:.04em;color:var(--text)}
+.brand-word span{color:var(--accent-bright)}
+.brand-row{display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid var(--sidebar-border)}
+.brand-sub{font-family:var(--font-mono);font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.brand-chip{margin-left:auto;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.08em;color:var(--sidebar-active-fg);background:var(--accent-bright);padding:2px 7px;border-radius:4px}
+.sidebar nav{display:flex;flex-direction:column;padding:8px;gap:1px;flex:1;overflow-y:auto}
+.sidebar nav a{color:var(--sidebar-text);padding:10px 12px;border-radius:8px;font-size:13.5px}
+.sidebar nav a:hover{background:var(--bg);color:var(--text)}
+html[data-theme="dark"] .sidebar nav a:hover{background:rgba(255,255,255,.06);color:#fff}
+.sidebar nav a.active{background:var(--accent);color:#fff;font-weight:600}
+html[data-theme="dark"] .sidebar nav a.active{background:var(--accent-bright);color:#06181b}
+.nav-sec{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);opacity:.75;font-weight:600;padding:4px 12px 5px;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:12px}
+.nav-sec:first-child{margin-top:2px;border-top:none;padding-top:4px}
+.nav-new{margin-left:6px;font-family:var(--font-mono);font-size:8.5px;font-weight:700;letter-spacing:.08em;background:var(--accent-soft);color:var(--accent-dark);padding:1px 5px;border-radius:4px;vertical-align:1px}
+html[data-theme="dark"] .nav-new{color:var(--accent-bright)}
+.sidebar-foot{padding:14px 18px;font-size:12.5px;border-top:1px solid var(--sidebar-border);color:var(--muted)}
+.sidebar-foot b{color:var(--text);display:block}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:var(--card);border-bottom:1px solid var(--border);padding:10px 22px;position:sticky;top:0;z-index:20}
+.topbar-left{display:flex;gap:16px;flex-wrap:wrap}
+.topbar-field{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:2px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.seg-group{display:flex;gap:3px;margin-top:2px}
+.seg{padding:4px 9px;font-size:12px;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:6px;cursor:pointer;font-family:var(--font-mono);font-weight:600}
+.seg.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.scope-badge{background:var(--accent-soft);color:var(--accent-dark);padding:4px 12px;border-radius:99px;font-size:12px;font-weight:600}
+html[data-theme="dark"] .scope-badge{color:#56c8d8}
+.db-badge{background:#fdf1e2;color:#c87a08;padding:4px 11px;border-radius:99px;font-family:var(--font-mono);font-size:10.5px;font-weight:600;letter-spacing:.04em;border:1px solid #f0c98a}
+html[data-theme="dark"] .db-badge{background:rgba(200,122,8,.18);color:#e0a85c}
+.content{padding:22px;max-width:1280px;width:100%;margin:0 auto}
+input,select,textarea{font:inherit;color:inherit;background:var(--card);border:1px solid var(--border);border-radius:7px;padding:7px 10px}
+html[data-theme="dark"] input,html[data-theme="dark"] select{background:#0f1316}
+.btn{font:inherit;border:1px solid var(--border);background:var(--card);color:var(--text);padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:500}
+.btn:hover{background:#f4f6f7}
+html[data-theme="dark"] .btn:hover{background:#1b2127}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-dark)}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn-ghost:hover{background:#eceff1}
+html[data-theme="dark"] .btn-ghost:hover{background:#1b2127}
+.btn-sm{padding:4px 10px;font-size:12.5px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(12,16,19,.04);padding:18px}
+.card h3{font-size:13.5px;color:var(--text);font-weight:600;margin-bottom:12px}
+.card-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.card-head h3{margin:0}
+.card-head .hint{font-size:11.5px;color:var(--muted)}
+.page-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.page-head h2{margin:0;font-size:20px}
+.page-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:15px 17px}
+.kpi .kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.11em;font-weight:600}
+.kpi .kpi-value{font-size:22px;font-weight:600;margin-top:8px;white-space:nowrap}
+.kpi .kpi-sub{font-size:12px;color:var(--muted);margin-top:5px}
+.kpi.green .kpi-value{color:var(--green)}
+.kpi.red .kpi-value{color:var(--red)}
+.kpi.amber .kpi-value{color:var(--amber)}
+.warn-banner{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.warn{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-radius:10px;font-size:13.5px;border:1px solid transparent}
+.warn b{font-weight:700}
+.warn .warn-ic{font-size:15px;line-height:1.3;flex-shrink:0}
+.warn.danger{background:#fdecec;border-color:rgba(189,54,47,.3);color:#8f241f}
+.warn.watch{background:#fdf4e2;border-color:rgba(200,122,8,.3);color:#8a560a}
+.warn.info{background:var(--accent-soft);border-color:rgba(0,162,182,.28);color:#00697a}
+html[data-theme="dark"] .warn.danger{background:rgba(189,54,47,.16);border-color:rgba(189,54,47,.4);color:#f3b0ab}
+html[data-theme="dark"] .warn.watch{background:rgba(200,122,8,.16);border-color:rgba(200,122,8,.4);color:#f0c489}
+html[data-theme="dark"] .warn.info{background:rgba(0,188,210,.12);border-color:rgba(0,188,210,.3);color:#7fd8e4}
+.tbl th,.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left}
+.tbl th{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl tr:hover td{background:#f7f9fa}
+html[data-theme="dark"] .tbl tr:hover td{background:#191f25}
+.tbl tr.total td{font-weight:700;border-top:2px solid var(--text);background:#fafbfc}
+html[data-theme="dark"] .tbl tr.total td{background:#171c21;border-top-color:var(--muted)}
+.pill{padding:2px 10px;border-radius:99px;font-size:11.5px;font-weight:600;display:inline-block;white-space:nowrap}
+.pill.posted,.pill.active{background:#e7f2e7;color:var(--green)}
+.pill.draft{background:#fdf1e2;color:#c87a08}
+.pill.completed{background:var(--accent-soft);color:var(--accent-dark)}
+.pill.inactive{background:#f0f0f3;color:var(--muted)}
+.pill.bad{background:#fdecec;color:var(--red)}
+html[data-theme="dark"] .pill.posted,html[data-theme="dark"] .pill.active{background:rgba(81,163,81,.2);color:#8fd08f}
+html[data-theme="dark"] .pill.draft{background:rgba(248,148,6,.18);color:#f5b35c}
+html[data-theme="dark"] .pill.completed{background:rgba(0,162,182,.2);color:#56c8d8}
+html[data-theme="dark"] .pill.inactive{background:rgba(154,166,177,.15);color:var(--muted)}
+html[data-theme="dark"] .pill.bad{background:rgba(229,115,115,.16);color:#ef9a9a}
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:16px;flex-wrap:wrap}
+.tabs button{font:inherit;background:none;border:none;padding:9px 16px;cursor:pointer;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-2px}
+.tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ── Oracle-specific ────────────────────────────────────────────────────── */
+.orc-banner{display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:10px;margin-bottom:16px;
+  background:repeating-linear-gradient(135deg,rgba(0,162,182,.06) 0 12px,transparent 12px 24px);
+  border:1px dashed rgba(0,162,182,.45);font-size:12.5px;color:var(--muted)}
+.orc-banner b{color:var(--accent-dark);font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+html[data-theme="dark"] .orc-banner b{color:var(--accent-bright)}
+
+.verdict{border-radius:14px;padding:20px 22px;margin-bottom:16px;border:1px solid transparent;position:relative;overflow:hidden}
+.verdict::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px}
+.verdict.tolak{background:#fdecec;border-color:rgba(189,54,47,.32)}
+.verdict.tolak::before{background:var(--red)}
+.verdict.waspada{background:#fdf4e2;border-color:rgba(200,122,8,.32)}
+.verdict.waspada::before{background:var(--amber)}
+.verdict.lulus{background:#e9f5ee;border-color:rgba(31,157,87,.32)}
+.verdict.lulus::before{background:var(--green)}
+html[data-theme="dark"] .verdict.tolak{background:rgba(189,54,47,.14)}
+html[data-theme="dark"] .verdict.waspada{background:rgba(200,122,8,.14)}
+html[data-theme="dark"] .verdict.lulus{background:rgba(31,157,87,.14)}
+.verdict-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.verdict-stamp{font-family:var(--font-mono);font-weight:700;font-size:12px;letter-spacing:.16em;padding:5px 12px;border-radius:6px;color:#fff}
+.verdict.tolak .verdict-stamp{background:var(--red)}
+.verdict.waspada .verdict-stamp{background:var(--amber)}
+.verdict.lulus .verdict-stamp{background:var(--green)}
+.verdict-glyph{font-size:19px;opacity:.75}
+.verdict-scope{font-size:12.5px;color:var(--muted)}
+.verdict-head{font-size:23px;font-weight:600;line-height:1.35;letter-spacing:-.01em}
+.verdict-head .d{color:var(--red);font-weight:700}
+.verdict.waspada .verdict-head .d{color:var(--amber)}
+.verdict.lulus .verdict-head .d{color:var(--green)}
+.verdict-head .m{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.verdict-sub{margin-top:9px;font-size:13px;color:var(--muted);display:flex;gap:18px;flex-wrap:wrap}
+.verdict-sub span b{color:var(--text);font-family:var(--font-mono)}
+
+.runstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:14px}
+.runbox{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px}
+.runbox .rl{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.runbox .rv{font-family:var(--font-mono);font-size:17px;font-weight:600;margin-top:6px;font-variant-numeric:tabular-nums}
+.runbox .rs{font-size:11.5px;color:var(--muted);margin-top:3px}
+.runbox.is-verdict{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.dashkey{width:22px;height:0;border-top-width:2px;flex-shrink:0}
+.dashkey.solid{border-top-style:solid}
+.dashkey.dashed{border-top-style:dashed}
+.dashkey.dotted{border-top-style:dotted}
+
+.chart-wrap{width:100%;overflow-x:auto}
+.chart-wrap svg{display:block;width:100%;min-width:640px;height:auto}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:10px;align-items:center}
+.legend i{display:inline-flex;align-items:center;gap:6px;font-style:normal}
+.swatch{width:18px;height:10px;border-radius:2px;display:inline-block}
+
+.flags{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.flag{display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:99px;padding:5px 12px;font-size:12px;background:var(--card)}
+.flag .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.flag.on{border-color:rgba(189,54,47,.4);background:#fdecec;color:#8f241f}
+.flag.on .dot{background:var(--red)}
+/* a flag whose "on" state is good news (Avoidable breach) must not read as an alarm */
+.flag.on.good{border-color:rgba(0,162,182,.45);background:var(--accent-soft);color:#00697a}
+.flag.on.good .dot{background:var(--accent)}
+html[data-theme="dark"] .flag.on.good{background:rgba(0,188,210,.12);color:#7fd8e4}
+.flag.off{color:var(--muted);opacity:.72}
+.flag.off .dot{background:var(--green)}
+html[data-theme="dark"] .flag.on{background:rgba(189,54,47,.16);color:#f3b0ab}
+.flag small{opacity:.8}
+
+.remedy{border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 10px 10px 0;padding:14px 16px;font-size:14px;line-height:1.6}
+html[data-theme="dark"] .remedy{background:rgba(0,188,210,.10)}
+.remedy .mv{font-family:var(--font-mono);font-weight:600;font-variant-numeric:tabular-nums}
+.remedy-steps{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.remedy-steps li{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-size:13px}
+.remedy-steps .n{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent-dark);background:var(--accent-soft);border-radius:5px;padding:2px 7px;flex-shrink:0;margin-top:1px}
+html[data-theme="dark"] .remedy-steps .n{color:var(--accent-bright)}
+.remedy-steps .mv{white-space:nowrap}
+.shift-arrow{color:var(--muted);padding:0 4px}
+
+.assump{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.assump dl{margin:0}
+.assump dt{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:4px}
+.assump dd{margin:0 0 12px;font-size:13px;line-height:1.5}
+.assump dd .mono{font-family:var(--font-mono);font-size:12.5px}
+.unset{color:var(--amber);font-weight:600}
+
+.mix{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin:6px 0 8px}
+.mix div{display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;font-weight:600;color:#fff}
+.mix .c-committed{background:#1f9d57}
+.mix .c-expected{background:#00a2b6}
+.mix .c-speculative{background:#c87a08}
+.mixkey{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)}
+.mixkey i{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+
+.toggle{position:relative;display:inline-flex;align-items:center;cursor:pointer;gap:8px;font-size:12.5px}
+.toggle input{position:absolute;opacity:0;width:0;height:0}
+.tk{width:34px;height:19px;border-radius:99px;background:var(--border);position:relative;transition:.15s;flex-shrink:0}
+.tk::after{content:"";position:absolute;width:15px;height:15px;border-radius:50%;background:#fff;top:2px;left:2px;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.toggle input:checked + .tk{background:var(--accent)}
+.toggle input:checked + .tk::after{transform:translateX(15px)}
+.toggle input:disabled + .tk{opacity:.4;cursor:not-allowed}
+
+details.assump-box{border:1px solid var(--border);border-radius:12px;background:var(--card);padding:0;box-shadow:0 1px 2px rgba(12,16,19,.04)}
+details.assump-box > summary{list-style:none;cursor:pointer;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;font-weight:600}
+details.assump-box > summary::-webkit-details-marker{display:none}
+details.assump-box > summary .chev{color:var(--muted);font-size:11px;transition:.15s}
+details.assump-box[open] > summary .chev{transform:rotate(90deg)}
+details.assump-box > summary .auto{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--red);background:#fdecec;padding:2px 7px;border-radius:4px;margin-left:auto;margin-right:6px}
+html[data-theme="dark"] details.assump-box > summary .auto{background:rgba(189,54,47,.18);color:#f3b0ab}
+.assump-body{padding:0 18px 18px}
+.rowgap{display:flex;flex-direction:column;gap:16px}
+.sect-label{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:6px 0 -6px}
+@media (max-width:860px){.sidebar{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-word">MORES<span>&nbsp;HV</span></div>
+      <div class="brand-row"><span class="brand-sub">Helicopter&nbsp;View</span><span class="brand-chip">HV</span></div>
+    </div>
+    <nav id="nav">
+      <div class="nav-sec" data-sec="hv">HV Sections</div>
+      <a href="#/dashboard" data-t="Dashboard">&#x25A6; Dashboard</a>
+      <a href="#/projecthv" data-t="Project HV">&#x25C9; Project HV</a>
+      <a href="#/projects" data-t="Project Details">&#x25B3; Project Details</a>
+      <a href="#/money" data-t="Money Tracker">&#x25C8; Money Tracker</a>
+      <a href="#/investments" data-t="Investment Center">&#x2726; Investment Center</a>
+      <a href="#/oracle" class="active" data-t="The Oracle">&#x263E; <span id="navOracle">The Oracle</span><span class="nav-new">new</span></a>
+      <div class="nav-sec" data-sec="detail">Devil in Detail</div>
+      <a href="#/journals" data-t="Journal Entries">&#x2630; Journal Entries</a>
+      <a href="#/bank" data-t="Account Parsing">&#x21C4; Account Parsing</a>
+      <a href="#/receivables" data-t="Receivables">&#x25F0; Receivables</a>
+      <a href="#/payables" data-t="Payables">&#x25F1; Payables</a>
+      <a href="#/budgets" data-t="Budgets">&#x25CE; Budgets</a>
+      <a href="#/reports" data-t="Reports">&#x25A4; Reports</a>
+      <a href="#/accountant" data-t="Accountant Section">&#x2696; Accountant Section</a>
+      <div class="nav-sec" data-sec="admin">Admin Panel</div>
+      <a href="#/settings" data-t="Settings">&#x2699; Settings</a>
+    </nav>
+    <div class="sidebar-foot"><b>Samudra</b><span>admin · MORES Group</span></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-field"><span id="lblCompany">Company</span>
+          <div class="seg-group">
+            <button class="seg">ALL</button><button class="seg">MDA</button><button class="seg">SBR</button>
+            <button class="seg on">MLT</button><button class="seg">KMA</button><button class="seg">MRS</button>
+          </div>
+        </div>
+        <label class="topbar-field"><span id="lblYear">Year</span>
+          <select><option>2026</option><option>2027</option></select>
+        </label>
+      </div>
+      <div class="topbar-right">
+        <span class="db-badge">TEST-SERVER</span>
+        <span class="scope-badge" id="scopeBadge">MLT</span>
+        <button class="btn btn-ghost" id="langBtn">ID</button>
+        <button class="btn btn-ghost" id="themeBtn">&#127769;</button>
+        <button class="btn btn-ghost" id="lblLogout">Logout</button>
+      </div>
+    </header>
+
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   PREVIEW ONLY — no server, no database. Everything below is mock data run
+   through a faithful JS port of the engine described in docs/fpa/ORACLE.md
+   §5 (three runs), §6 (remedy) and phase-oracle.md STEP 4. The numbers on
+   screen are computed, not typed, so they tie out to the item list.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── i18n (mirrors the existing t() dictionary shape) ────────────────────── */
+const DICT = {
+  "The Oracle":"Ahli Nujum", "Dashboard":"Dasbor", "Project HV":"Proyek HV",
+  "Project Details":"Detail Proyek", "Money Tracker":"Pelacak Uang",
+  "Investment Center":"Pusat Investasi", "Journal Entries":"Jurnal Umum",
+  "Account Parsing":"Parsing Rekening", "Receivables":"Piutang", "Payables":"Utang",
+  "Budgets":"Anggaran", "Reports":"Laporan", "Accountant Section":"Seksi Akuntan",
+  "Settings":"Pengaturan", "HV Sections":"Seksi HV", "Devil in Detail":"Detail Terperinci",
+  "Admin Panel":"Panel Admin", "Company":"Perusahaan", "Year":"Tahun", "Logout":"Keluar",
+
+  "Going-concern gate on this budget":"Gerbang kelangsungan usaha atas anggaran ini",
+  "Consult":"Konsultasi", "Re-run consult":"Ulangi konsultasi",
+  "Export memo (PDF)":"Ekspor memo (PDF)",
+  "Buffer breached":"Bantalan jebol", "short by":"kurang",
+  "at the worst point":"pada titik terburuk",
+  "Cash buffer":"Bantalan Kas", "Due date":"Tanggal Jatuh Tempo",
+  "Bound":"Terikat", "Base":"Dasar", "Optimistic":"Cerah",
+  "verdict run":"dasar putusan", "context only":"konteks saja",
+  "min headroom":"ruang gerak min.", "on":"pada",
+  "Daily cash line":"Garis kas harian",
+  "Cash plotted daily across the horizon; the buffer floor is the shaded band beneath.":
+    "Kas diplot harian sepanjang horizon; lantai bantalan adalah pita berarsir di bawahnya.",
+  "The three activities":"Tiga aktivitas",
+  "Monthly CFO / CFI / CFF from posted entries, intercompany eliminated at group level.":
+    "CFO / CFI / CFF bulanan dari jurnal terposting, antar-perusahaan dieliminasi di tingkat grup.",
+  "Operating":"Operasi", "Investing":"Investasi", "Financing":"Pendanaan",
+  "Top contributors":"Penyumbang utama",
+  "The five outflows with the largest amount landing in the 14 days before the worst point.":
+    "Lima arus keluar terbesar yang jatuh dalam 14 hari sebelum titik terburuk.",
+  "Item":"Item", "Counterparty":"Pihak lawan", "Amount":"Jumlah",
+  "Certainty":"Kepastian", "Class":"Kelas", "Deferrable":"Dapat ditunda",
+  "The remedy":"Penawarnya", "Apply to draft":"Terapkan ke draf",
+  "Assumptions":"Asumsi", "auto-opened on a reject":"terbuka otomatis saat ditolak",
+  "Buffer policy":"Kebijakan bantalan", "Horizon":"Horizon",
+  "Collection lags":"Jeda penagihan", "Certainty mix":"Bauran kepastian",
+  "Unclassified accounts":"Akun tanpa klasifikasi", "Opening cash":"Kas awal",
+  "committed":"terikat", "planned":"terencana", "expected":"diharapkan", "speculative":"spekulatif",
+  "operating":"operasi", "investing":"investasi", "financing":"pendanaan",
+  "yes":"ya", "no":"tidak", "days":"hari",
+  "Operating burn":"Bakar kas operasi", "Financing dependence":"Ketergantungan pendanaan",
+  "Avoidable breach":"Jebol yang terhindarkan", "Quality of earnings gap":"Selisih kualitas laba",
+  "Buffer erosion":"Erosi bantalan",
+};
+const LS = { get(k,d){ try { return localStorage.getItem(k) || d; } catch(e){ return d; } },
+             set(k,v){ try { localStorage.setItem(k,v); } catch(e){} } };
+let LANG = LS.get("oracle.preview.lang", "en");
+const t = s => (LANG === "id" && DICT[s]) ? DICT[s] : s;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ── money helpers (mirrors app.js fmt/fmtShortRp, plus an IDR "jt/M" form) ─ */
+const fmt = n => (n==null||isNaN(n)) ? "-" : Math.round(n).toLocaleString("id-ID");
+// Money shorthand, per language. ID uses the Indonesian finance idiom
+// (jt = juta, M = miliar, T = triliun); EN uses the app's existing fmtShort
+// convention (M = million, B = billion) so "M" never means two things at once.
+function fmtJt(n){
+  if (n==null||isNaN(n)) return "-";
+  const a=Math.abs(n), sign=n<0?"-":"";
+  const loc = LANG==="id" ? "id-ID" : "en-US";
+  const U = LANG==="id" ? {jt:" jt", b:" M", t:" T"} : {jt:" M", b:" B", t:" T"};
+  if (a>=1e12) return sign+"IDR "+(a/1e12).toLocaleString(loc,{maximumFractionDigits:2})+U.t;
+  if (a>=1e9)  return sign+"IDR "+(a/1e9 ).toLocaleString(loc,{maximumFractionDigits:2})+U.b;
+  if (a>=1e6)  return sign+"IDR "+(a/1e6 ).toLocaleString(loc,{maximumFractionDigits:0})+U.jt;
+  return sign+"IDR "+fmt(a);
+}
+const MONTHS_EN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_ID=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const MONTHS_LONG_EN=["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTHS_LONG_ID=["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const iso = d => d.toISOString().slice(0,10);
+const D   = s => new Date(s+"T00:00:00Z");
+const addDays = (s,n) => { const d=D(s); d.setUTCDate(d.getUTCDate()+n); return iso(d); };
+const dayDiff = (a,b) => Math.round((D(b)-D(a))/86400000);
+function fmtDate(s){ const d=D(s); const M=(LANG==="id"?MONTHS_LONG_ID:MONTHS_LONG_EN); return d.getUTCDate()+" "+M[d.getUTCMonth()]+" "+d.getUTCFullYear(); }
+function fmtDateShort(s){ const d=D(s); const M=(LANG==="id"?MONTHS_ID:MONTHS_EN); return d.getUTCDate()+" "+M[d.getUTCMonth()]; }
+
+/* ═══ MOCK CONSULT INPUT ═══════════════════════════════════════════════════
+   Entity MLT (Mores Lintas Teknika — construction). Plan version under
+   review: "FY2027 Budget v3 — PRJ-PRISMA" (draft). Today = 23 Aug 2026.  */
+const TODAY = "2026-08-23";
+const CTX = {
+  entity:"MLT", entity_name:"Mores Lintas Teknika (Construction)",
+  project:"PRJ-PRISMA", project_name:"Prisma Harapan Project",
+  version:"FY2027 Budget v3", version_status:"draft",
+  opening_cash: 4_890_000_000,
+  cash_accounts:["1110 Kas","1120 Bank BCA","1130 Bank Mandiri"],
+  excluded:["1170 CC BCA VISA CARD"],
+  horizon_days: 180,
+  policy:{ months_cover:2.0, absolute_floor:0, cash_pooling:false,
+           interest_class:"operating", horizon_days:180 },
+  monthly_fixed_cash_opex: 1_350_000_000,   // trailing 3-month avg of cash 6xxx, ex-6500
+  prior_consult_min_headroom: -315_000_000, // v2 of the same version — for buffer erosion
+};
+const BUFFER_FLOOR = Math.max(CTX.policy.absolute_floor,
+                              CTX.policy.months_cover * CTX.monthly_fixed_cash_opex);
+
+/* Dated commitment items. `source` shows where each would come from once the
+   materialisers in phase-oracle.md STEP 2 are built. */
+const ITEMS = [];
+let _id = 0;
+const push = o => ITEMS.push(Object.assign({id:++_id, deferrable:0, defer_limit_days:0, cf_class:"operating"}, o));
+
+// ── recurring committed outflows (payroll / tax / loan) ───────────────────
+const monthsAhead = [["2026",8],["2026",9],["2026",10],["2026",11],["2027",0],["2027",1],["2027",2]];
+monthsAhead.forEach(([y,m]) => {
+  const mm = String(m+1).padStart(2,"0");
+  push({label:"Payroll — "+(MONTHS_LONG_EN[m])+" "+y, counterparty:"MLT Payroll", direction:"out",
+        amount:685_000_000, due_date:`${y}-${mm}-25`, certainty:"committed", cf_class:"operating",
+        source:"payroll", account:"6100"});
+  push({label:"PPh 21 + PPN masa", counterparty:"DJP", direction:"out",
+        amount:212_000_000, due_date:`${y}-${mm}-10`, certainty:"committed", cf_class:"operating",
+        source:"payable", account:"2300"});
+  push({label:"Loan instalment — BCA", counterparty:"Bank BCA", direction:"out",
+        amount:165_000_000, due_date:`${y}-${mm}-05`, certainty:"committed", cf_class:"financing",
+        source:"loan", account:"2500"});
+  push({label:"Office & overhead", counterparty:"various", direction:"out",
+        amount:148_000_000, due_date:`${y}-${mm}-28`, certainty:"planned", cf_class:"operating",
+        source:"budget", account:"6200"});
+  // vendor AP batches, twice a month
+  push({label:"Vendor AP batch", counterparty:"PT Cipta Sarana", direction:"out",
+        amount:196_000_000, due_date:`${y}-${mm}-12`, certainty:"committed", cf_class:"operating",
+        source:"payable", account:"2100"});
+  push({label:"Vendor AP batch", counterparty:"PT Anugerah Teknik", direction:"out",
+        amount:158_000_000, due_date:`${y}-${mm}-27`, certainty:"committed", cf_class:"operating",
+        source:"payable", account:"2100"});
+  // committed collections (receivables, due date + client lag)
+  push({label:"AR — progress billing #"+(m+1)+"a", counterparty:"PT Prisma Harapan", direction:"in",
+        amount:715_000_000, due_date:`${y}-${mm}-04`, certainty:"committed", cf_class:"operating",
+        source:"receivable", lag_source:"history", lag:11, account:"1200"});
+  push({label:"AR — progress billing #"+(m+1)+"b", counterparty:"PT Prisma Harapan", direction:"in",
+        amount:465_000_000, due_date:`${y}-${mm}-18`, certainty:"committed", cf_class:"operating",
+        source:"receivable", lag_source:"history", lag:11, account:"1200"});
+  push({label:"AR — retention release", counterparty:"PT Karya Nusa", direction:"in",
+        amount:395_000_000, due_date:`${y}-${mm}-08`, certainty:"committed", cf_class:"operating",
+        source:"receivable", lag_source:"default", lag:14, account:"1200"});
+  // contracted backlog not yet invoiced
+  push({label:"Contract recognition — CDA-K", counterparty:"PT Cipta Dinamika", direction:"in",
+        amount:520_000_000, due_date:`${y}-${mm}-20`, certainty:"expected", cf_class:"operating",
+        source:"contract", account:"4200"});
+});
+
+// ── the version under review: PRJ-PRISMA planned outflows ─────────────────
+push({label:"PRJ-PRISMA heavy equipment — down payment", counterparty:"PT Bahana Alat Berat",
+      direction:"out", amount:480_000_000, due_date:"2027-01-06", certainty:"planned",
+      cf_class:"investing", deferrable:1, defer_limit_days:90, source:"budget", account:"1500"});
+push({label:"Subcontractor instalment #1", counterparty:"CV Karya Baja Utama", direction:"out",
+      amount:290_000_000, due_date:"2026-10-20", certainty:"planned", cf_class:"operating",
+      deferrable:1, defer_limit_days:45, source:"budget", account:"5100-03"});
+push({label:"Subcontractor instalment #2", counterparty:"CV Karya Baja Utama", direction:"out",
+      amount:310_000_000, due_date:"2027-01-08", certainty:"planned", cf_class:"operating",
+      deferrable:1, defer_limit_days:45, source:"budget", account:"5100-03"});
+push({label:"Material purchase — ready-mix & rebar", counterparty:"PT Sumber Beton", direction:"out",
+      amount:245_000_000, due_date:"2027-01-09", certainty:"planned", cf_class:"operating",
+      deferrable:1, defer_limit_days:30, source:"budget", account:"5100-04"});
+push({label:"Material purchase — formwork", counterparty:"PT Sumber Beton", direction:"out",
+      amount:186_000_000, due_date:"2026-11-16", certainty:"planned", cf_class:"operating",
+      deferrable:1, defer_limit_days:30, source:"budget", account:"5100-04"});
+push({label:"Site mobilisation & temporary works", counterparty:"CV Mitra Sarana", direction:"out",
+      amount:264_000_000, due_date:"2026-12-30", certainty:"planned", cf_class:"operating",
+      deferrable:1, defer_limit_days:30, source:"budget", account:"5100-01"});
+push({label:"Survey & geotech package", counterparty:"PT Geo Presisi", direction:"out",
+      amount:132_000_000, due_date:"2027-01-14", certainty:"planned", cf_class:"operating",
+      deferrable:1, defer_limit_days:30, source:"budget", account:"7300-04"});
+push({label:"Investment outflow — batching plant stake", counterparty:"PT Beton Andalan",
+      direction:"out", amount:350_000_000, due_date:"2026-11-05", certainty:"planned",
+      cf_class:"investing", deferrable:1, defer_limit_days:120, source:"investment", account:"1500"});
+
+// ── weighted pipeline (speculative inflows) ───────────────────────────────
+push({label:"Pipeline — retaining wall variation order (50%)", counterparty:"PT Prisma Harapan", direction:"in",
+      amount:420_000_000, due_date:"2026-09-02", certainty:"speculative", cf_class:"operating",
+      source:"pipeline", weight:0.50});
+push({label:"Pipeline — Bandung civil works (60%)", counterparty:"PT Wira Karsa", direction:"in",
+      amount:640_000_000, due_date:"2026-11-28", certainty:"speculative", cf_class:"operating",
+      source:"pipeline", weight:0.60});
+push({label:"Pipeline — warehouse retrofit (45%)", counterparty:"PT Logistik Prima", direction:"in",
+      amount:880_000_000, due_date:"2026-12-30", certainty:"speculative", cf_class:"operating",
+      source:"pipeline", weight:0.45});
+push({label:"Pipeline — Cikarang phase 2 (35%)", counterparty:"PT Prisma Harapan", direction:"in",
+      amount:1_250_000_000, due_date:"2027-01-26", certainty:"speculative", cf_class:"operating",
+      source:"pipeline", weight:0.35});
+
+/* ═══ ENGINE — port of fpa_cash.py (phase-oracle.md STEP 4 / STEP 5) ═══════ */
+
+// effective date of an item = due_date, plus the client collection lag on inflows
+const effDate = it => it.direction === "in" && it.lag ? addDays(it.due_date, it.lag) : it.due_date;
+
+const RUNS = {
+  //                 inflow certainties counted        outflow certainties counted
+  bound:      { in:["committed"],                          out:["committed","planned"],              weightSpec:false },
+  base:       { in:["committed","expected","speculative"], out:["committed","planned","expected"],   weightSpec:true  },
+  optimistic: { in:["committed","expected","speculative"], out:["committed","planned"],              weightSpec:false },
+};
+
+function dailyLedger(items, openingCash, startDate, horizonDays, run){
+  const cfg = RUNS[run];
+  const delta = new Array(horizonDays+1).fill(0);
+  for (const it of items){
+    const counted = it.direction === "in" ? cfg.in.includes(it.certainty)
+                                          : cfg.out.includes(it.certainty);
+    if (!counted) continue;
+    const i = dayDiff(startDate, effDate(it));
+    if (i < 0 || i > horizonDays) continue;
+    let amt = it.amount;
+    if (it.certainty === "speculative" && cfg.weightSpec) amt *= (it.weight != null ? it.weight : 1);
+    delta[i] += it.direction === "in" ? amt : -amt;
+  }
+  const cash = []; let c = openingCash;
+  for (let i=0;i<=horizonDays;i++){ c += delta[i]; cash.push(c); }
+  return cash;
+}
+const headroomSeries = cash => cash.map(c => c - BUFFER_FLOOR);
+
+function analyse(cash){
+  const hr = headroomSeries(cash);
+  let minI = 0; for (let i=1;i<hr.length;i++) if (hr[i] < hr[minI]) minI = i;
+  const breachI = hr.findIndex(h => h < 0);
+  return { cash, hr, minI, minHeadroom: hr[minI],
+           worstDate: addDays(TODAY, minI),
+           breachDate: breachI >= 0 ? addDays(TODAY, breachI) : null,
+           breached: breachI >= 0 };
+}
+// verdict is ALWAYS taken from bound — hardcoded, per the spec
+function verdict(boundA, baseA){
+  if (boundA.minHeadroom < 0) return "TOLAK";
+  if (boundA.minHeadroom < 0.25 * BUFFER_FLOOR || baseA.minHeadroom < 0) return "WASPADA";
+  return "LULUS";
+}
+function contributors(items, worstDate, n){
+  const from = addDays(worstDate, -14);
+  return items
+    .filter(it => it.direction === "out" && effDate(it) >= from && effDate(it) <= worstDate)
+    .sort((a,b) => b.amount - a.amount).slice(0, n);
+}
+// greedy remedy, ORACLE.md §6 — investing first, then amount desc; committed never touched
+function remedy(items, worstDate){
+  const work = items.map(it => Object.assign({}, it));
+  const cands = work
+    .filter(it => it.direction === "out" && it.deferrable === 1 && it.certainty !== "committed"
+                  && effDate(it) <= worstDate)
+    .sort((a,b) => (a.cf_class === "investing" ? 0 : 1) - (b.cf_class === "investing" ? 0 : 1)
+                   || b.amount - a.amount);
+  const shifts = []; let recomputes = 0;
+  let a = analyse(dailyLedger(work, CTX.opening_cash, TODAY, CTX.horizon_days, "bound"));
+  for (const c of cands){
+    if (a.minHeadroom >= 0) break;
+    if (recomputes++ >= 200) break;
+    // days needed = clear the END of the breach window, not merely the worst day
+    let lastNeg = a.hr.length - 1; while (lastNeg > 0 && a.hr[lastNeg] >= 0) lastNeg--;
+    const need = dayDiff(c.due_date, addDays(TODAY, lastNeg)) + 7;
+    const shift = Math.min(c.defer_limit_days, Math.max(need, 1));
+    const from = c.due_date;
+    c.due_date = addDays(c.due_date, shift);
+    const after = analyse(dailyLedger(work, CTX.opening_cash, TODAY, CTX.horizon_days, "bound"));
+    shifts.push({item:c, from, to:c.due_date, days:shift, minAfter:after.minHeadroom});
+    a = after;
+  }
+  return { shifts, resolved: a.minHeadroom >= 0, minAfter: a.minHeadroom,
+           residual: a.minHeadroom < 0 ? -a.minHeadroom : 0,
+           clearsWatch: a.minHeadroom >= 0.25 * BUFFER_FLOOR, after: a };
+}
+
+// certainty mix of counted inflows in the BASE run
+function certaintyMix(){
+  const tot = {committed:0, expected:0, speculative:0};
+  for (const it of ITEMS){
+    if (it.direction !== "in") continue;
+    const i = dayDiff(TODAY, effDate(it));
+    if (i < 0 || i > CTX.horizon_days) continue;
+    tot[it.certainty] += it.certainty === "speculative" ? it.amount * (it.weight||1) : it.amount;
+  }
+  const sum = tot.committed + tot.expected + tot.speculative;
+  return { tot, sum, pct: {
+    committed: tot.committed/sum*100, expected: tot.expected/sum*100, speculative: tot.speculative/sum*100 } };
+}
+
+/* ── CFO / CFI / CFF — 12 months of posted history for MLT (mock) ────────── */
+const ACTIVITIES = [
+  //  month        CFO       CFI       CFF
+  ["2025-09",  340,  -120,   -95],["2025-10",  285,   -80,   -95],["2025-11",  410,   -60,   -95],
+  ["2025-12", -180,  -240,   620],["2026-01",  120,   -55,   -95],["2026-02",  265,   -40,   -95],
+  ["2026-03",  -95,  -310,   480],["2026-04", -215,   -70,   540],["2026-05", -160,   -45,   395],
+  ["2026-06",   85,  -180,   -95],["2026-07", -140,  -260,   610],["2026-08", -205,   -95,   455],
+].map(([m,o,i,f]) => ({m, cfo:o*1e6, cfi:i*1e6, cff:f*1e6}));
+
+function flags(res){
+  // operating burn — CFO < 0 for 3 consecutive months
+  let burn = false;
+  for (let i=2;i<ACTIVITIES.length;i++)
+    if (ACTIVITIES[i].cfo<0 && ACTIVITIES[i-1].cfo<0 && ACTIVITIES[i-2].cfo<0) burn = true;
+  // financing dependence — rolling 3-month CFO < 0 while CFF > 0 covering it
+  let dep = false;
+  for (let i=2;i<ACTIVITIES.length;i++){
+    const w = ACTIVITIES.slice(i-2,i+1);
+    const o = w.reduce((s,x)=>s+x.cfo,0), f = w.reduce((s,x)=>s+x.cff,0);
+    if (o < 0 && f > 0 && f >= -o) dep = true;
+  }
+  // avoidable breach — does deferring CFI alone clear it?
+  const cfiOnly = ITEMS.map(it => Object.assign({}, it));
+  cfiOnly.forEach(it => { if (it.direction==="out" && it.cf_class==="investing" && it.deferrable===1
+                              && it.certainty!=="committed") it.due_date = addDays(it.due_date, it.defer_limit_days); });
+  const avoidable = analyse(dailyLedger(cfiOnly, CTX.opening_cash, TODAY, CTX.horizon_days, "bound")).minHeadroom >= 0;
+  // quality of earnings — CFO / net profit over 12 months
+  const cfo12 = ACTIVITIES.reduce((s,x)=>s+x.cfo,0);
+  const netProfit12 = 1_640_000_000;             // mock: from the P&L
+  const qoe = cfo12 / netProfit12;
+  // buffer erosion — worse than the prior consult on the same project
+  const erosion = res.bound.minHeadroom < CTX.prior_consult_min_headroom;
+  return [
+    {k:"Operating burn", on:burn,
+     why: burn ? "CFO < 0 for 3 consecutive months (Mar–May 2026, and again Jul–Aug)"
+               : "no 3-month run of negative CFO"},
+    {k:"Financing dependence", on:dep,
+     why: dep ? "rolling 3-month CFO negative while CFF covers it — alive on borrowed money"
+              : "operations are self-funding on a rolling 3-month view"},
+    {k:"Avoidable breach", on:avoidable, tone:"good",
+     why: avoidable ? "deferring CFI alone clears the breach — the capex is the problem, not the business"
+                    : "deferring every CFI item still leaves the breach — operating items are implicated too"},
+    {k:"Quality of earnings gap", on: qoe < 0.7,
+     why: "CFO ÷ net profit = " + qoe.toFixed(2) + " over 12 months (threshold 0.70)"},
+    {k:"Buffer erosion", on:erosion,
+     why: erosion ? "worse than the prior consult on this version (" + fmtJt(CTX.prior_consult_min_headroom) + ")"
+                  : "no worse than the prior consult on this version"},
+  ];
+}
+
+/* ═══ RUN THE CONSULT ══════════════════════════════════════════════════════ */
+const RES = {};
+for (const r of ["bound","base","optimistic"])
+  RES[r] = analyse(dailyLedger(ITEMS, CTX.opening_cash, TODAY, CTX.horizon_days, r));
+const VERDICT  = verdict(RES.bound, RES.base);
+const CONTRIB  = contributors(ITEMS, RES.bound.worstDate, 5);
+const REMEDY   = remedy(ITEMS, RES.bound.worstDate);
+const MIX      = certaintyMix();
+const FLAGS    = flags(RES);
+
+/* ═══ RENDER ═══════════════════════════════════════════════════════════════ */
+const VERDICT_META = {
+  TOLAK:  {cls:"tolak",  glyph:"&#9679;", en:"Reject", id:"Tolak"},
+  WASPADA:{cls:"waspada",glyph:"&#9673;", en:"Watch",  id:"Waspada"},
+  LULUS:  {cls:"lulus",  glyph:"&#9711;", en:"Pass",   id:"Lulus"},
+};
+
+function chartLine(){
+  const W=1000, H=300, PL=64, PR=14, PT=14, PB=28;
+  const days = CTX.horizon_days;
+  const all = [...RES.bound.cash, ...RES.base.cash, ...RES.optimistic.cash, BUFFER_FLOOR, 0];
+  let lo = Math.min(...all), hi = Math.max(...all);
+  const pad = (hi-lo)*0.08; lo -= pad; hi += pad;
+  const x = i => PL + (W-PL-PR) * (i/days);
+  const y = v => PT + (H-PT-PB) * (1 - (v-lo)/(hi-lo));
+  const path = arr => arr.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1)).join(" ");
+
+  // month gridlines + labels
+  let ticks = "";
+  for (let i=0;i<=days;i++){
+    const d = D(addDays(TODAY,i));
+    if (d.getUTCDate() !== 1 && i !== 0) continue;
+    const M = (LANG==="id"?MONTHS_ID:MONTHS_EN)[d.getUTCMonth()];
+    ticks += `<line x1="${x(i).toFixed(1)}" y1="${PT}" x2="${x(i).toFixed(1)}" y2="${H-PB}" stroke="var(--grid-line)" stroke-width="1"/>`
+          +  `<text x="${x(i).toFixed(1)}" y="${H-PB+16}" font-size="10" font-family="var(--font-mono)" fill="var(--muted)" text-anchor="middle">${M}</text>`;
+  }
+  // y axis: floor + a couple of levels
+  let yaxis = "";
+  [hi-pad, BUFFER_FLOOR, lo+pad].forEach(v => {
+    yaxis += `<text x="${PL-8}" y="${(y(v)+3.5).toFixed(1)}" font-size="10" font-family="var(--font-mono)" fill="var(--muted)" text-anchor="end">${fmtJt(v).replace("IDR ","")}</text>`;
+  });
+
+  // buffer band (0 .. floor) and the breach region under the floor on bound
+  const band = `<rect x="${PL}" y="${y(BUFFER_FLOOR).toFixed(1)}" width="${W-PL-PR}" height="${(y(lo+pad*0)-y(BUFFER_FLOOR)).toFixed(1)}" fill="var(--accent)" opacity=".07"/>`;
+  const floorLine = `<line x1="${PL}" y1="${y(BUFFER_FLOOR).toFixed(1)}" x2="${W-PR}" y2="${y(BUFFER_FLOOR).toFixed(1)}" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="6 4" opacity=".85"/>`;
+
+  // shade the breach region: area between the bound line and the floor while below
+  let breachArea = "";
+  const b = RES.bound.cash;
+  let seg = null;
+  for (let i=0;i<=days;i++){
+    if (b[i] < BUFFER_FLOOR){ if (seg===null) seg = i; }
+    else if (seg !== null){ breachArea += breachPath(seg, i-1); seg = null; }
+  }
+  if (seg !== null) breachArea += breachPath(seg, days);
+  function breachPath(a,z){
+    let p = `M ${x(a).toFixed(1)} ${y(BUFFER_FLOOR).toFixed(1)}`;
+    for (let i=a;i<=z;i++) p += ` L ${x(i).toFixed(1)} ${y(b[i]).toFixed(1)}`;
+    p += ` L ${x(z).toFixed(1)} ${y(BUFFER_FLOOR).toFixed(1)} Z`;
+    return `<path d="${p}" fill="var(--red)" opacity=".17"/>`;
+  }
+
+  // breach + worst markers
+  let marks = "";
+  if (RES.bound.breachDate){
+    const bi = dayDiff(TODAY, RES.bound.breachDate);
+    marks += `<line x1="${x(bi).toFixed(1)}" y1="${PT}" x2="${x(bi).toFixed(1)}" y2="${H-PB}" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="3 3"/>`
+          +  `<circle cx="${x(bi).toFixed(1)}" cy="${y(b[bi]).toFixed(1)}" r="4" fill="var(--red)"/>`
+          +  `<text x="${(x(bi)+7).toFixed(1)}" y="${PT+13}" font-size="10.5" font-family="var(--font-mono)" fill="var(--red)" font-weight="600">${fmtDateShort(RES.bound.breachDate)}</text>`;
+  }
+  const wi = RES.bound.minI;
+  marks += `<circle cx="${x(wi).toFixed(1)}" cy="${y(b[wi]).toFixed(1)}" r="5" fill="none" stroke="var(--red)" stroke-width="2"/>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily cash line">
+    ${ticks}${band}${breachArea}${floorLine}${yaxis}
+    <path d="${path(RES.optimistic.cash)}" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="2 4" opacity=".85"/>
+    <path d="${path(RES.base.cash)}"       fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-dasharray="7 4"/>
+    <path d="${path(RES.bound.cash)}"      fill="none" stroke="var(--text)"   stroke-width="2.4"/>
+    ${marks}
+  </svg>`;
+}
+
+function chartActivities(){
+  const W=1000, H=230, PL=64, PR=14, PT=12, PB=34;
+  const cols = ACTIVITIES.length;
+  const bw = (W-PL-PR)/cols;
+  const vals = ACTIVITIES.flatMap(a=>[a.cfo,a.cfi,a.cff,a.cfo+a.cfi+a.cff]);
+  const hi = Math.max(...vals, 0), lo = Math.min(...vals, 0);
+  const y = v => PT + (H-PT-PB) * (1 - (v-lo)/(hi-lo));
+  const colors = {cfo:"var(--accent)", cfi:"var(--amber)", cff:"#7a6ff0"};
+  let bars="", labels="";
+  ACTIVITIES.forEach((a,i)=>{
+    const x0 = PL + i*bw, gw = bw*0.76, sw = gw/3, off = x0 + (bw-gw)/2;
+    ["cfo","cfi","cff"].forEach((k,j)=>{
+      const v=a[k], top=y(Math.max(v,0)), h=Math.abs(y(v)-y(0));
+      bars += `<rect x="${(off+j*sw+1).toFixed(1)}" y="${top.toFixed(1)}" width="${(sw-2).toFixed(1)}" height="${Math.max(h,1).toFixed(1)}" fill="${colors[k]}" rx="1.5"/>`;
+    });
+    const [yy,mm] = a.m.split("-");
+    const M = (LANG==="id"?MONTHS_ID:MONTHS_EN)[parseInt(mm,10)-1];
+    labels += `<text x="${(x0+bw/2).toFixed(1)}" y="${H-PB+15}" font-size="9.5" font-family="var(--font-mono)" fill="var(--muted)" text-anchor="middle">${M}</text>`
+           +  (mm==="01"||i===0 ? `<text x="${(x0+bw/2).toFixed(1)}" y="${H-PB+27}" font-size="9" font-family="var(--font-mono)" fill="var(--muted)" text-anchor="middle" opacity=".7">${yy}</text>` : "");
+  });
+  let ylab="";
+  [hi, 0, lo].forEach(v => { ylab += `<text x="${PL-8}" y="${(y(v)+3.5).toFixed(1)}" font-size="10" font-family="var(--font-mono)" fill="var(--muted)" text-anchor="end">${fmtJt(v).replace("IDR ","")}</text>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="CFO CFI CFF monthly">
+    <line x1="${PL}" y1="${y(0).toFixed(1)}" x2="${W-PR}" y2="${y(0).toFixed(1)}" stroke="var(--border)" stroke-width="1.5"/>
+    ${bars}${labels}${ylab}
+  </svg>`;
+}
+
+function render(){
+  const vm = VERDICT_META[VERDICT];
+  const verdictWord = LANG === "id" ? vm.id : vm.en;
+  const runBox = (key, a, isVerdictRun) => `
+    <div class="runbox ${isVerdictRun?"is-verdict":""}">
+      <div class="rl"><span class="dashkey ${key==="bound"?"solid":key==="base"?"dashed":"dotted"}"
+        style="border-top-color:${key==="bound"?"var(--text)":key==="base"?"var(--accent)":"var(--muted)"}"></span>
+        ${esc(t(key==="bound"?"Bound":key==="base"?"Base":"Optimistic"))}
+        <span style="opacity:.6">· ${esc(key==="bound"?(LANG==="id"?"Terikat":"Terikat"):key==="base"?"Dasar":"Cerah")}</span>
+      </div>
+      <div class="rv" style="color:${a.minHeadroom<0?"var(--red)":"var(--green)"}">${fmtJt(a.minHeadroom)}</div>
+      <div class="rs">${esc(t("min headroom"))} · ${esc(t("on"))} ${fmtDateShort(a.worstDate)}
+        ${isVerdictRun?`<b style="color:var(--accent-dark)"> · ${esc(t("verdict run"))}</b>`:` · ${esc(t("context only"))}`}</div>
+    </div>`;
+
+  const certPill = c => `<span class="pill ${c==="committed"?"posted":c==="planned"?"draft":c==="expected"?"completed":"inactive"}">${esc(t(c))}</span>`;
+  const classPill = c => `<span class="pill inactive" style="font-family:var(--font-mono);font-size:10.5px">${esc(t(c)).toUpperCase()}</span>`;
+
+  document.getElementById("content").innerHTML = `
+  <div class="orc-banner">
+    <b>Preview</b>
+    <span>Mock consult on seeded data — engine ported to JS from <code>docs/fpa/ORACLE.md</code> §5–§6.
+    Every figure below is computed from the item list, not typed. Nothing here is wired to the server yet.</span>
+  </div>
+
+  <div class="page-head">
+    <div>
+      <h2>&#9790; ${esc(t("The Oracle"))} <span style="color:var(--muted);font-weight:400;font-size:15px">
+        ${LANG==="id" ? "(The Oracle)" : "(Ahli Nujum)"}</span></h2>
+      <div style="color:var(--muted);font-size:12.5px;margin-top:2px">${esc(t("Going-concern gate on this budget"))}</div>
+    </div>
+    <div class="page-actions">
+      <select style="min-width:250px">
+        <option>${esc(CTX.version)} — ${esc(CTX.project)} (${esc(CTX.version_status)})</option>
+        <option>FY2027 Budget v2 — ${esc(CTX.project)} (submitted)</option>
+      </select>
+      <button class="btn btn-primary">${esc(t("Re-run consult"))}</button>
+      <button class="btn">${esc(t("Export memo (PDF)"))}</button>
+    </div>
+  </div>
+
+  <div class="warn-banner">
+    <div class="warn danger"><span class="warn-ic">&#9888;</span><div>
+      <b>1170 CC BCA VISA CARD</b> is still classified as an asset under <b>1100 Cash &amp; Bank</b>.
+      It is excluded from this consult's cash set, but <code>reports.cash_flow()</code> and
+      <code>weekly_cash_flow()</code> still count it. Phase O step 0a — your decision, not the build's.
+    </div></div>
+    <div class="warn watch"><span class="warn-ic">&#9888;</span><div>
+      <b>Buffer floor not configured for MLT.</b> <code>absolute_floor</code> is <b>0</b>, so the floor
+      falls back to <span class="num">${fmtJt(BUFFER_FLOOR)}</span> (2.0 &times; monthly fixed cash opex).
+      0 is deliberately wrong — set it in Settings.
+    </div></div>
+    ${MIX.pct.speculative > 40 ? `<div class="warn watch"><span class="warn-ic">&#9888;</span><div>
+      <b>${MIX.pct.speculative.toFixed(0)}% of counted inflows are speculative.</b>
+      In the Base run, the answer rests substantially on money nobody has promised.
+      The verdict is taken from Bound, which counts none of it.
+    </div></div>` : ""}
+  </div>
+
+  <!-- ROW 0 — verdict header. The date is the headline, not the colour. -->
+  <div class="verdict ${vm.cls}">
+    <div class="verdict-top">
+      <span class="verdict-stamp">${VERDICT}</span>
+      <span class="verdict-glyph">${vm.glyph}</span>
+      <span style="font-weight:600">${esc(verdictWord)}</span>
+      <span class="verdict-scope">· ${esc(CTX.entity)} ${esc(CTX.entity_name)} · ${esc(CTX.project)} · ${esc(CTX.version)}
+        <span class="pill draft" style="margin-left:6px">${esc(CTX.version_status)}</span></span>
+    </div>
+    <div class="verdict-head">
+      ${esc(t("Buffer breached"))} <span class="d m">${fmtDate(RES.bound.breachDate)}</span><br>
+      ${esc(t("short by"))} <span class="d m">${fmtJt(-RES.bound.minHeadroom)}</span>
+      ${esc(t("at the worst point"))}, <span class="m" style="font-weight:600">${fmtDate(RES.bound.worstDate)}</span>
+    </div>
+    <div class="verdict-sub">
+      <span>${esc(t("Opening cash"))} <b>${fmtJt(CTX.opening_cash)}</b></span>
+      <span>${esc(t("Cash buffer"))} <b>${fmtJt(BUFFER_FLOOR)}</b></span>
+      <span>${esc(t("Horizon"))} <b>${CTX.horizon_days} ${esc(t("days"))}</b> (${fmtDateShort(TODAY)} &rarr; ${fmtDateShort(addDays(TODAY,CTX.horizon_days))})</span>
+      <span>${ITEMS.length} ${LANG==="id"?"item komitmen bertanggal":"dated commitment items"}</span>
+    </div>
+    <div class="runstrip">
+      ${runBox("bound", RES.bound, true)}
+      ${runBox("base", RES.base, false)}
+      ${runBox("optimistic", RES.optimistic, false)}
+    </div>
+  </div>
+
+  <div class="rowgap">
+
+    <!-- ROW 1 — the daily cash line -->
+    <div class="card">
+      <div class="card-head">
+        <h3>1 · ${esc(t("Daily cash line"))}</h3>
+        <span class="hint">${esc(t("Cash plotted daily across the horizon; the buffer floor is the shaded band beneath."))}</span>
+      </div>
+      <div class="chart-wrap">${chartLine()}</div>
+      <div class="legend">
+        <i><span class="dashkey solid" style="border-top-color:var(--text)"></span>${esc(t("Bound"))} / Terikat</i>
+        <i><span class="dashkey dashed" style="border-top-color:var(--accent)"></span>${esc(t("Base"))} / Dasar</i>
+        <i><span class="dashkey dotted" style="border-top-color:var(--muted)"></span>${esc(t("Optimistic"))} / Cerah</i>
+        <i><span class="swatch" style="background:var(--accent);opacity:.25"></span>${esc(t("Cash buffer"))} — ${fmtJt(BUFFER_FLOOR)}</i>
+        <i><span class="swatch" style="background:var(--red);opacity:.3"></span>${LANG==="id"?"Wilayah jebol":"Breach region"}</i>
+      </div>
+    </div>
+
+    <!-- ROW 2 — the three activities -->
+    <div class="card">
+      <div class="card-head">
+        <h3>2 · ${esc(t("The three activities"))} — CFO / CFI / CFF</h3>
+        <span class="hint">${esc(t("Monthly CFO / CFI / CFF from posted entries, intercompany eliminated at group level."))}</span>
+      </div>
+      <div class="chart-wrap">${chartActivities()}</div>
+      <div class="legend">
+        <i><span class="swatch" style="background:var(--accent)"></span>CFO — ${esc(t("Operating"))}</i>
+        <i><span class="swatch" style="background:var(--amber)"></span>CFI — ${esc(t("Investing"))}</i>
+        <i><span class="swatch" style="background:#7a6ff0"></span>CFF — ${esc(t("Financing"))}</i>
+        <i style="margin-left:auto;opacity:.8">CFO + CFI + CFF &equiv; ${LANG==="id"?"pergerakan bersih akun kas":"net movement of the cash accounts"} (test O4)</i>
+      </div>
+      <div class="flags">
+        ${FLAGS.map(f => `<span class="flag ${f.on?"on":"off"} ${f.tone==="good"?"good":""}" title="${esc(f.why)}">
+          <span class="dot"></span><b>${esc(t(f.k))}</b><small>· ${esc(f.why)}</small></span>`).join("")}
+      </div>
+    </div>
+
+    <!-- ROW 3 — contributors -->
+    <div class="card">
+      <div class="card-head">
+        <h3>3 · ${esc(t("Top contributors"))}</h3>
+        <span class="hint">${esc(t("The five outflows with the largest amount landing in the 14 days before the worst point."))}
+          — ${fmtDateShort(addDays(RES.bound.worstDate,-14))} &rarr; ${fmtDateShort(RES.bound.worstDate)}</span>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th>${esc(t("Item"))}</th><th>${esc(t("Counterparty"))}</th>
+          <th class="num">${esc(t("Amount"))}</th><th>${esc(t("Due date"))}</th>
+          <th>${esc(t("Certainty"))}</th><th>${esc(t("Class"))}</th><th>${esc(t("Deferrable"))}</th>
+        </tr></thead>
+        <tbody>
+        ${CONTRIB.map(it => `<tr>
+          <td>${esc(it.label)}<div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">${esc(it.account||"")} · ${esc(it.source)}</div></td>
+          <td>${esc(it.counterparty)}</td>
+          <td class="num" style="font-family:var(--font-mono)">${fmtJt(it.amount)}</td>
+          <td style="font-family:var(--font-mono);font-size:12.5px">${fmtDateShort(it.due_date)}</td>
+          <td>${certPill(it.certainty)}</td>
+          <td>${classPill(it.cf_class)}</td>
+          <td><label class="toggle"><input type="checkbox" ${it.deferrable?"checked":""} ${it.certainty==="committed"?"disabled":""}>
+            <span class="tk"></span><span style="color:var(--muted)">${it.deferrable?esc(t("yes"))+" · "+it.defer_limit_days+"d":esc(t("no"))}</span></label></td>
+        </tr>`).join("")}
+        <tr class="total"><td colspan="2">${LANG==="id"?"Total jendela 14 hari":"14-day window total"}</td>
+          <td class="num" style="font-family:var(--font-mono)">${fmtJt(CONTRIB.reduce((s,i)=>s+i.amount,0))}</td>
+          <td colspan="4"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ROW 4 — the remedy -->
+    <div class="card">
+      <div class="card-head">
+        <h3>4 · ${esc(t("The remedy"))}</h3>
+        <span class="hint">${LANG==="id"
+          ? "Kandidat: dapat ditunda, bukan terikat, jatuh tempo sebelum titik terburuk. Investasi didahulukan."
+          : "Candidates: deferrable, not committed, due before the worst point. Investing first, then amount descending."}</span>
+      </div>
+      <div class="remedy">
+        ${REMEDY.shifts.length === 0
+          ? (LANG==="id" ? "Tidak ada kandidat penundaan." : "No deferral candidates in the horizon.")
+          : (LANG==="id"
+             ? `Pindahkan ${REMEDY.shifts.length} item. Ruang gerak minimum kemudian menjadi
+                <span class="mv">${fmtJt(REMEDY.minAfter)}</span>.
+                Tidak ada kewajiban <b>terikat</b> yang disentuh.`
+             : `Move ${REMEDY.shifts.length} item${REMEDY.shifts.length>1?"s":""}. Minimum headroom then becomes
+                <span class="mv">${fmtJt(REMEDY.minAfter)}</span>.
+                No <b>committed</b> obligation is touched.`)}
+        <ul class="remedy-steps">
+          ${REMEDY.shifts.map((s,i)=>`<li>
+            <span class="n">${i+1}</span>
+            <span><b>${esc(s.item.label)}</b> — ${esc(s.item.counterparty)}
+              <span class="mv">(${fmtJt(s.item.amount)}, ${esc(s.item.cf_class.toUpperCase())})</span><br>
+              <span style="color:var(--muted);font-size:12.5px">
+                <span class="mv">${fmtDate(s.from)}</span><span class="shift-arrow">&rarr;</span><span class="mv">${fmtDate(s.to)}</span>
+                · +${s.days} ${esc(t("days"))} (${LANG==="id"?"batas":"limit"} ${s.item.defer_limit_days}d)
+                · ${LANG==="id"?"ruang gerak min. jadi":"min headroom then"} <b class="mv">${fmtJt(s.minAfter)}</b>
+              </span></span>
+          </li>`).join("")}
+        </ul>
+        <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm">${esc(t("Apply to draft"))}</button>
+          <span style="font-size:12px;color:var(--muted)">
+            ${LANG==="id"
+              ? "Menulis ulang <code>commitment_items.due_date</code> pada versi draf saja — tidak pernah versi terkunci, tidak pernah jurnal terposting."
+              : "Rewrites <code>commitment_items.due_date</code> in the draft version only — never a locked version, never a posted entry."}</span>
+        </div>
+        ${!REMEDY.clearsWatch && REMEDY.resolved ? `<div class="warn watch" style="margin-top:12px">
+          <span class="warn-ic">&#9888;</span><div>${LANG==="id"
+            ? `Penawar ini menghapus <b>TOLAK</b> tetapi mendarat di <b>WASPADA</b>: ruang gerak minimum
+               <span class="mv">${fmtJt(REMEDY.minAfter)}</span> masih di bawah pita 25% (<span class="mv">${fmtJt(0.25*BUFFER_FLOOR)}</span>).
+               Penundaan ketiga sebesar <span class="mv">${fmtJt(0.25*BUFFER_FLOOR - REMEDY.minAfter)}</span> diperlukan untuk LULUS.`
+            : `This remedy clears <b>TOLAK</b> but lands in <b>WASPADA</b>: minimum headroom
+               <span class="mv">${fmtJt(REMEDY.minAfter)}</span> is still below the 25% band
+               (<span class="mv">${fmtJt(0.25*BUFFER_FLOOR)}</span>). A third deferral of
+               <span class="mv">${fmtJt(0.25*BUFFER_FLOOR - REMEDY.minAfter)}</span> would be needed for LULUS.`}
+        </div>` : ""}
+        ${!REMEDY.resolved ? `<div class="warn danger" style="margin-top:12px">
+          <span class="warn-ic">&#9888;</span><div>${LANG==="id"
+            ? `Tidak ada set penundaan yang berhasil. Ruang gerak terbaik yang dapat dicapai
+               <span class="mv">${fmtJt(REMEDY.minAfter)}</span> — kekurangan sisa <span class="mv">${fmtJt(REMEDY.residual)}</span>.
+               Ini saatnya mencari pendanaan atau menolak proyek.`
+            : `No deferral set works. Best achievable headroom is <span class="mv">${fmtJt(REMEDY.minAfter)}</span>
+               — a residual shortfall of <span class="mv">${fmtJt(REMEDY.residual)}</span>.
+               That is the number that decides financing versus refusal.`}
+        </div>` : ""}
+      </div>
+    </div>
+
+    <!-- ROW 5 — assumptions, auto-open on TOLAK -->
+    <details class="assump-box" ${VERDICT==="TOLAK"?"open":""}>
+      <summary>
+        <span class="chev">&#9656;</span>
+        <span>5 · ${esc(t("Assumptions"))}</span>
+        ${VERDICT==="TOLAK"?`<span class="auto">${esc(t("auto-opened on a reject"))}</span>`:""}
+      </summary>
+      <div class="assump-body">
+        <div class="assump">
+          <dl>
+            <dt>${esc(t("Buffer policy"))}</dt>
+            <dd>
+              <span class="mono">months_cover</span> = <b>2.0</b><br>
+              <span class="mono">absolute_floor[MLT]</span> = <b class="unset">0 — not set</b><br>
+              <span class="mono">cash_pooling</span> = <b>false</b>
+                <span style="color:var(--muted)">(${LANG==="id"?"kas di MLT tidak membayar payroll MDA":"cash in MLT does not pay MDA's payroll"})</span><br>
+              <span class="mono">interest_class</span> = <b>operating</b><br>
+              <span class="mono">monthly_fixed_cash_opex</span> = <b>${fmtJt(CTX.monthly_fixed_cash_opex)}</b>
+                <span style="color:var(--muted)">(${LANG==="id"?"rata-rata 3 bulan 6xxx tunai, tanpa 6500":"trailing 3-month avg of cash 6xxx, ex-6500"})</span><br>
+              &rarr; <span class="mono">buffer_floor</span> = <b>${fmtJt(BUFFER_FLOOR)}</b>
+            </dd>
+
+            <dt>${esc(t("Opening cash"))}</dt>
+            <dd><b>${fmtJt(CTX.opening_cash)}</b> ${LANG==="id"?"per":"as of"} ${fmtDate(TODAY)}<br>
+              <span style="color:var(--muted)">${CTX.cash_accounts.map(esc).join(" · ")}</span><br>
+              <span class="unset">${LANG==="id"?"Dikecualikan":"Excluded"}: ${CTX.excluded.map(esc).join(", ")}</span>
+            </dd>
+
+            <dt>${esc(t("Horizon"))}</dt>
+            <dd>${CTX.horizon_days} ${esc(t("days"))} · ${fmtDate(TODAY)} &rarr; ${fmtDate(addDays(TODAY,CTX.horizon_days))}
+              <span style="color:var(--muted)">(${LANG==="id"?"dapat diatur hingga 540":"configurable to 540"})</span></dd>
+          </dl>
+          <dl>
+            <dt>${esc(t("Certainty mix"))} — ${LANG==="id"?"arus masuk dihitung (Dasar)":"counted inflows (Base run)"}</dt>
+            <dd>
+              <div class="mix">
+                <div class="c-committed"    style="width:${MIX.pct.committed.toFixed(1)}%">${MIX.pct.committed.toFixed(0)}%</div>
+                <div class="c-expected"     style="width:${MIX.pct.expected.toFixed(1)}%">${MIX.pct.expected.toFixed(0)}%</div>
+                <div class="c-speculative"  style="width:${MIX.pct.speculative.toFixed(1)}%">${MIX.pct.speculative.toFixed(0)}%</div>
+              </div>
+              <div class="mixkey">
+                <i><span class="swatch" style="background:#1f9d57"></span>${esc(t("committed"))} ${fmtJt(MIX.tot.committed)}</i>
+                <i><span class="swatch" style="background:#00a2b6"></span>${esc(t("expected"))} ${fmtJt(MIX.tot.expected)}</i>
+                <i><span class="swatch" style="background:#c87a08"></span>${esc(t("speculative"))} ${fmtJt(MIX.tot.speculative)}</i>
+              </div>
+              <div style="margin-top:6px;color:var(--muted)">
+                ${LANG==="id"?"Ambang peringatan 40% spekulatif.":"Warning threshold is 40% speculative."}
+                ${LANG==="id"?"Lari Terikat tidak menghitung satu pun.":"The Bound run counts none of it."}</div>
+            </dd>
+
+            <dt>${esc(t("Collection lags"))}</dt>
+            <dd><span class="mono">lag(client) = median(paid_date &minus; due_date)</span>,
+              ${LANG==="id"?"cadangan 14 hari bila kurang dari 3 faktur lunas":"default 14 days when fewer than 3 settled invoices"}<br>
+              <table class="tbl" style="margin-top:6px">
+                <tbody>
+                  <tr><td>PT Prisma Harapan</td><td class="num mono">11 ${esc(t("days"))}</td><td><span class="pill posted">history · 8 inv</span></td></tr>
+                  <tr><td>PT Karya Nusa</td><td class="num mono">14 ${esc(t("days"))}</td><td><span class="pill draft">default</span></td></tr>
+                </tbody>
+              </table>
+              <div style="margin-top:6px" class="unset">
+                ${LANG==="id"
+                  ? "receivables.paid_date belum ada — jeda historis di sini adalah placeholder sampai kolom ditambahkan (STEP 2)."
+                  : "receivables.paid_date does not exist yet — historical lags here are placeholders until the column is added (STEP 2)."}
+              </div>
+            </dd>
+
+            <dt>${esc(t("Unclassified accounts"))}</dt>
+            <dd><span class="mono">7300-04</span>, <span class="mono">7300-09</span>
+              &mdash; <span class="unset">${LANG==="id"?"dihitung sebagai operasi, tidak pernah diam-diam dibuang":"counted as operating, never silently dropped"}</span></dd>
+          </dl>
+        </div>
+      </div>
+    </details>
+
+    <!-- gate footer -->
+    <div class="card" style="border-style:dashed">
+      <div class="card-head"><h3>${LANG==="id"?"Perilaku gerbang":"Gate behaviour"}</h3></div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px">
+        <span class="pill completed">advisory</span>
+        <span style="color:var(--muted)">${LANG==="id"
+          ? "Persetujuan tetap berjalan; putusan dicap ke <code>plan_versions.oracle_verdict</code> sebagai catatan. Mode <b>blocking</b> dikirim mati — nyalakan setelah peramalan punya rekam jejak (Fase 7)."
+          : "Approval still proceeds; the verdict is stamped onto <code>plan_versions.oracle_verdict</code> for the record. <b>Blocking</b> mode ships off — turn it on once the forecast has a track record (Phase 7)."}</span>
+      </div>
+    </div>
+
+  </div>`;
+
+  // chrome labels
+  document.getElementById("navOracle").textContent = t("The Oracle");
+  document.querySelectorAll("#nav a[data-t]").forEach(a => {
+    if (a.dataset.t === "The Oracle") return;
+    const glyph = a.innerHTML.split(" ")[0];
+    a.innerHTML = glyph + " " + esc(t(a.dataset.t));
+  });
+  document.querySelectorAll("#nav .nav-sec").forEach(h => {
+    h.textContent = t({hv:"HV Sections", detail:"Devil in Detail", admin:"Admin Panel"}[h.dataset.sec]);
+  });
+  document.getElementById("lblCompany").textContent = t("Company");
+  document.getElementById("lblYear").textContent = t("Year");
+  document.getElementById("lblLogout").textContent = t("Logout");
+  document.getElementById("langBtn").textContent = LANG === "id" ? "EN" : "ID";
+  document.documentElement.lang = LANG;
+}
+
+document.getElementById("langBtn").onclick = () => {
+  LANG = LANG === "id" ? "en" : "id";
+  LS.set("oracle.preview.lang", LANG); render();
+};
+document.getElementById("themeBtn").onclick = () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  LS.set("oracle.preview.theme", next); render();
+};
+render();
+</script>
+</body>
+</html>

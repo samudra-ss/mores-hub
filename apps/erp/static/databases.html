@@ -62,6 +62,8 @@ body::before {
 .tile .name { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: .02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.tile .asof { font-size: 10.5px; font-family: var(--mono); color: #ffe6a3; background: #6b5300;
+  display: inline-block; padding: 1px 6px; border-radius: 5px; margin-top: 5px; }
 /* chips on the art */
 .tile .chip { position: absolute; top: 12px; left: 12px; font-family: var(--mono); font-size: 9.5px;
   font-weight: 600; letter-spacing: .12em; text-transform: uppercase; padding: 4px 8px; border-radius: 6px;
@@ -221,6 +223,12 @@ body::before {
       <div class="fld-label">Tile colour</div>
       <div class="pick-row" id="pColors"></div>
 
+      <div class="fld-label">Data complete to (date)</div>
+      <input type="date" id="pAsOf" style="width:100%">
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Leave empty if this database is
+        kept current. Shown next to the database name everywhere, so a July ledger is never read
+        as today's position.</div>
+
       <label class="freeze-row"><input type="checkbox" id="pFrozen">
         <span><b>Freeze this database</b> — lock it so no one (except admins) can open or edit it.</span></label>
 
@@ -342,6 +350,7 @@ function render(d) {
       ${art}
       <div class="label"><div class="name" title="${esc(db.name)}">${esc(db.name)}</div>
         <div class="meta">${meta}</div>
+        ${db.data_as_of ? `<div class="asof">Data complete to ${esc(db.data_as_of)}</div>` : ''}
         <div class="used">${usedText(db)}</div>
         <div class="access">
           <span class="acc-row"><span class="acc-k">Enter</span> ${roleBadges(db.enter_roles)}</span>
@@ -392,6 +401,7 @@ function openProfile(name) {
   pCurrent = { name, icon: db.icon || '', color: db.color || '#00a2b6' };
   document.getElementById('pName').textContent = name;
   document.getElementById('pFrozen').checked = !!db.frozen;
+  document.getElementById('pAsOf').value = db.data_as_of || '';
   document.querySelectorAll('#pEnter input').forEach(i => { if (!i.disabled) i.checked = (db.enter_roles || []).includes(i.dataset.role); });
   document.querySelectorAll('#pEdit input').forEach(i => { if (!i.disabled) i.checked = (db.edit_roles || []).includes(i.dataset.role); });
   document.getElementById('pErr').textContent = '';
@@ -409,7 +419,8 @@ document.getElementById('pSave').onclick = async () => {
   const edit_roles = [...document.querySelectorAll('#pEdit input:checked')].map(i => i.dataset.role);
   try {
     await jpost('/api/databases/' + encodeURIComponent(pCurrent.name) + '/profile',
-      { icon: pCurrent.icon, color: pCurrent.color, frozen: document.getElementById('pFrozen').checked, enter_roles, edit_roles }, 'PUT');
+      { icon: pCurrent.icon, color: pCurrent.color, frozen: document.getElementById('pFrozen').checked,
+        data_as_of: document.getElementById('pAsOf').value || '', enter_roles, edit_roles }, 'PUT');
     closeProfile(); toast('Database settings saved'); load();
   } catch (e) { document.getElementById('pErr').textContent = e.message; }
 };

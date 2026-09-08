@@ -412,7 +412,188 @@ const TR = {
   "Back to project": "Kembali ke proyek", "Date": "Tanggal", "Entry": "Entri",
   "Description": "Keterangan", "Source": "Sumber", "Inputter": "Penginput",
   "Debit": "Debit", "Credit": "Kredit",
-  "Outstanding": "Belum Diterima",
+  "Outstanding": "Belum Diterima", "Prospectus": "Prospektus",
+  "Client / project": "Klien / proyek", "search…": "cari…", "default order": "urutan bawaan",
+  "Big to small": "Besar ke kecil", "Small to big": "Kecil ke besar",
+  "All phases": "Semua fase", "Clear": "Bersihkan", "of": "dari",
+  "Mark as HOT": "Tandai HOT", "HOT — click to cool": "HOT — klik untuk dinginkan",
+  // Oracle — weekly cash plan
+  "Cash Plan (weekly)": "Rencana Kas (mingguan)",
+  "dasar kas / cash basis — money actually moving, not invoiced": "dasar kas — uang yang benar-benar bergerak, bukan yang ditagihkan",
+  "Penerimaan (cash in)": "Penerimaan (kas masuk)", "Pengeluaran (cash out)": "Pengeluaran (kas keluar)",
+  "Net this month": "Bersih Bulan Ini", "Year to date": "Sejak Awal Tahun",
+  "cumulative planned cash": "kas rencana kumulatif", "this month": "bulan ini",
+  "Version": "Versi", "Certainty": "Kepastian", "Flow": "Arah", "Add line": "Tambah Baris",
+  "Add a plan line": "Tambah Baris Rencana", "Seed from monthly budget": "Isi dari anggaran bulanan",
+  "Copy to new draft": "Salin ke draf baru", "Save cash plan": "Simpan Rencana Kas",
+  "company level": "tingkat perusahaan", "New plan version": "Versi Rencana Baru",
+  "Nothing planned in this block yet.": "Belum ada rencana di blok ini.",
+  // Oracle — consult + investment commitments
+  "The Oracle": "Sang Oracle", "Ask the Oracle": "Tanya Oracle",
+  "Consulting the Oracle…": "Menanyakan Oracle…", "dated items": "item bertanggal",
+  "Group rule": "Aturan Grup", "Driven by": "Ditentukan oleh",
+  "First below floor": "Pertama di bawah batas", "Cash goes negative": "Kas menjadi negatif",
+  "Entity": "Entitas", "Verdict": "Putusan", "Opening cash": "Kas Awal",
+  "Buffer floor": "Batas Penyangga", "Worst headroom": "Ruang Terkecil", "Worst day": "Hari Terburuk",
+  "Assumptions & warnings": "Asumsi & Peringatan", "Commitment schedule": "Jadwal Komitmen",
+  "when the committed money actually leaves": "kapan uang komitmen benar-benar keluar",
+  "Committed": "Dikomitmenkan", "Scheduled": "Terjadwal", "Already paid out": "Sudah Dibayarkan",
+  "Unscheduled": "Belum Terjadwal", "has no date.": "belum punya tanggal.",
+  "Nothing scheduled yet.": "Belum ada jadwal.", "Schedule": "Jadwalkan",
+  "Settles": "Jatuh", "Note": "Catatan", "Week": "Minggu", "Year": "Tahun",
+  // Oracle page (Ahli Nujum)
+  "Ahli Nujum": "Ahli Nujum", "does the budget survive the year?": "apakah anggaran ini bertahan setahun?",
+  "Verdict & actions": "Putusan & Tindakan", "Sensitivity & crisis": "Sensitivitas & Krisis",
+  "Cash policy": "Kebijakan Kas", "Save cash policy": "Simpan Kebijakan Kas",
+  "Recommended action": "Tindakan yang Disarankan", "Short by": "Kurang",
+  "at the worst point": "pada titik terburuk", "in": "di",
+  "Safe until": "Aman sampai", "about": "sekitar", "weeks": "minggu", "all year": "sepanjang tahun",
+  "No safe period at all": "Tidak ada periode aman sama sekali", "never": "tidak pernah",
+  "cash is already below zero on the first day of the plan": "kas sudah di bawah nol pada hari pertama rencana",
+  "cash is already under the buffer floor on the first day of the plan": "kas sudah di bawah batas aman pada hari pertama rencana",
+  "This starts as an opening-balance problem, not a plan problem.": "Ini masalah saldo awal, bukan masalah rencana.",
+  "Safe all year": "Aman sepanjang tahun", "Per entity": "Per Entitas",
+  "Weekly cash": "Kas Mingguan", "Bound run": "Skenario Terikat",
+  "Biggest outflows before the worst day": "Pengeluaran terbesar sebelum hari terburuk",
+  "What": "Apa", "No cash plan yet": "Belum ada rencana kas", "Go to Budgets": "Buka Anggaran",
+  "How wrong can we be before we are not safe?": "Seberapa meleset sebelum kita tidak aman?",
+  "Plan as it stands": "Rencana apa adanya", "min headroom": "ruang terkecil",
+  "One-way sensitivity": "Sensitivitas Satu Arah", "widest bar = the thing to manage": "batang terlebar = yang harus dikelola",
+  "What could go wrong": "Apa yang bisa meleset", "Impact": "Dampak", "Levels": "Tingkat",
+  "Break-even — the number to remember": "Titik Impas — angka yang perlu diingat",
+  "Revenue vs expense — the safe region": "Pendapatan vs Biaya — wilayah aman",
+  "Not applicable": "Tidak berlaku", "swing": "rentang", "breach": "tembus",
+  "Convert the monthly budget into Week 1": "Konversi anggaran bulanan ke Minggu 1",
+  "Folds every month of the": "Melipat setiap bulan anggaran",
+  "budget into its first week, for company-level and project-level lines alike. Weeks 2-4 are ADDED into week 1, never dropped — the month total is identical before and after, and the result says so.":
+    "ke minggu pertamanya, baik level perusahaan maupun level proyek. Minggu 2-4 DITAMBAHKAN ke minggu 1, tidak dibuang — total bulan sama persis sebelum dan sesudah, dan hasilnya menyatakan itu.",
+  "A monthly budget tells you the month, not the week. Week 1 is its honest reading and the safest for cash: money out as early as it could go. This is what the Oracle then reads.":
+    "Anggaran bulanan memberi tahu bulannya, bukan minggunya. Minggu 1 adalah pembacaan yang jujur dan paling aman untuk kas: uang keluar secepat mungkin. Inilah yang dibaca Ahli Nujum.",
+  "All companies I can access": "Semua perusahaan yang bisa saya akses",
+  "Fold every month into Week 1": "Lipat semua bulan ke Minggu 1",
+  "Fold every month of": "Lipat semua bulan tahun", "into Week 1?": "ke Minggu 1?",
+  "account-months folded into Week 1.": "akun-bulan dilipat ke Minggu 1.",
+  "Total budget before": "Total anggaran sebelum", "after": "sesudah",
+  "unchanged, as it must be.": "tidak berubah, sebagaimana mestinya.",
+  "THESE DO NOT MATCH. Do not trust this result.": "TIDAK COCOK. Jangan percayai hasil ini.",
+  "How to use": "Cara pakai",
+  "A budget exists for this year": "Anggaran tahun ini sudah ada",
+  "Contracted revenue is marked 'committed'": "Pendapatan terkontrak sudah ditandai 'terkontrak'",
+  "Every company has a minimum cash floor": "Tiap perusahaan punya batas kas minimum",
+  "Investment commitments carry a schedule": "Komitmen investasi punya jadwal",
+  "Open receivables have a payment history": "Piutang terbuka punya riwayat pembayaran",
+  "Accounts say how they move cash": "Akun menyatakan cara menggerakkan kas",
+  "Open Budget Center": "Buka Pusat Anggaran",
+  "Set certainty in Budget Center": "Atur kepastian di Pusat Anggaran",
+  "Open Cash policy": "Buka Kebijakan kas",
+  "Open Investment Center": "Buka Investment Center",
+  "Open Receivables": "Buka Piutang",
+  "Settings → Budget & Oracle": "Pengaturan → Anggaran & Ahli Nujum",
+  "Before the answer means anything": "Sebelum jawabannya berarti apa-apa",
+  "Everything the Oracle needs is set.": "Semua yang dibutuhkan Ahli Nujum sudah diatur.",
+  "blocking": "menghalangi", "assumptions in play": "asumsi sedang dipakai",
+  "A forecast is only as honest as what it was given. These six things decide whether the verdict is a finding or an artefact of missing data — read from your live database, not from a manual.":
+    "Ramalan hanya sejujur data yang diberikan. Enam hal ini menentukan apakah putusannya temuan atau sekadar akibat data yang kurang — dibaca dari database Anda, bukan dari buku manual.",
+  "What the Oracle actually does": "Apa yang sebenarnya dikerjakan Ahli Nujum",
+  "It takes the budget your finance team already set, turns every line into a dated movement of cash, adds the receivables, payables and investment commitments already on the books, and then runs the year day by day to answer one question: does cash ever fall below the line you said it must never fall below?":
+    "Ia mengambil anggaran yang sudah disusun tim keuangan, mengubah tiap baris menjadi pergerakan kas bertanggal, menambahkan piutang, utang dan komitmen investasi yang sudah tercatat, lalu menjalankan setahun hari demi hari untuk menjawab satu pertanyaan: apakah kas pernah jatuh di bawah batas yang Anda tetapkan?",
+  "It is a forecast, not a record. That is why this section is a different colour from the rest of the console — the books are teal, the Oracle is not, and nothing here has been posted to anything.":
+    "Ini ramalan, bukan catatan. Itu sebabnya bagian ini berbeda warna dari sisa konsol — pembukuan berwarna tosca, Ahli Nujum tidak, dan tidak ada apa pun di sini yang diposting ke mana pun.",
+  "The five steps": "Lima langkah",
+  "Budget the year, by week": "Anggarkan setahun, per minggu",
+  "Say how sure each line is": "Nyatakan seberapa pasti tiap baris",
+  "Say how low cash is allowed to go": "Nyatakan sampai serendah apa kas boleh turun",
+  "Date the money that is already promised": "Beri tanggal pada uang yang sudah dijanjikan",
+  "Read the verdict, then act on it": "Baca putusannya, lalu tindak lanjuti",
+  "Set certainty": "Atur kepastian",
+  "Certainty — which money counts, and where": "Kepastian — uang mana yang dihitung, dan di mana",
+  "This table is the whole engine in six rows. A run only counts a line if its certainty appears in that run's column.":
+    "Tabel ini adalah seluruh mesinnya dalam enam baris. Sebuah run hanya menghitung baris bila kepastiannya muncul di kolom run itu.",
+  "Means": "Artinya", "the verdict": "putusannya",
+  "out only": "hanya keluar", "in only": "hanya masuk",
+  "in at half weight, + out": "masuk dengan bobot separuh, + keluar",
+  "Signed, contracted, already owed.": "Ditandatangani, terkontrak, sudah terutang.",
+  "Budgeted, not yet signed.": "Dianggarkan, belum diteken.",
+  "Likely, unsigned.": "Mungkin, belum diteken.", "Pipeline, a hope.": "Pipeline, sebatas harapan.",
+  "Read the Bound column twice. 'Planned' is an outflow but never an inflow — money you intend to spend counts against you, money you merely hope to receive does not count for you. That asymmetry is the point of the whole tool.":
+    "Baca kolom Bound dua kali. 'Direncanakan' dihitung sebagai uang keluar tapi tidak pernah sebagai uang masuk — uang yang berniat Anda belanjakan memberatkan Anda, uang yang baru Anda harapkan tidak menguntungkan Anda. Ketimpangan itulah inti alat ini.",
+  "The four verdicts": "Empat putusan",
+  "Cash goes below zero. A payment will not clear.": "Kas jatuh di bawah nol. Ada pembayaran yang tidak akan cair.",
+  "Cash stays positive but breaks the buffer floor.": "Kas tetap positif tapi menembus batas aman.",
+  "Inside the floor but with little room, or the Base run breaches.": "Masih di atas batas tapi tipis, atau run Base menembusnya.",
+  "Headroom stays above 25% of the floor every day.": "Ruang aman tetap di atas 25% batas setiap hari.",
+  "The verdict is always taken from the Bound run, and always from the worst entity.":
+    "Putusan selalu diambil dari run Bound, dan selalu dari entitas terburuk.",
+  "The words on the screen": "Istilah di layar",
+  "Buffer floor": "Batas aman kas", "Headroom": "Ruang aman", "Safe period": "Periode aman",
+  "Bound / Base / Optimistic": "Bound / Base / Optimistic",
+  "Pessimistic settlement": "Penyelesaian pesimistis", "Cash pooling: off": "Cash pooling: mati",
+  "Reading Sensitivity & crisis": "Membaca Sensitivitas & krisis",
+  "Tornado": "Tornado", "Break-even": "Titik impas", "Crisis": "Krisis", "The 5 × 5 grid": "Kisi 5 × 5",
+  "If the plan already breaches with no stress applied, sensitivity says so instead of printing a break-even. There is no margin to measure when you are already through the floor.":
+    "Bila rencana sudah tembus tanpa tekanan apa pun, sensitivitas menyatakannya alih-alih mencetak titik impas. Tidak ada margin untuk diukur kalau Anda sudah menembus batas.",
+  "When the answer looks wrong": "Kalau jawabannya terlihat salah",
+  "Reading": "Membaca", "Live budget (Budget Center)": "Anggaran hidup (Pusat Anggaran)",
+  "Freeze as scenario": "Bekukan jadi skenario", "Frozen": "Dibekukan",
+  "Name this frozen scenario": "Beri nama skenario beku ini", "Budget snapshot": "Salinan anggaran",
+  "Keep a copy of the budget exactly as it is today, so this verdict can be quoted against it later":
+    "Simpan salinan anggaran persis seperti hari ini, agar putusan ini bisa dirujuk nanti",
+  "Budget Center": "Pusat Anggaran", "Company level": "Level perusahaan",
+  "Per project": "Per proyek", "Weekly (4 weeks a month)": "Mingguan (4 minggu sebulan)",
+  "Month roll-up": "Rekap bulanan", "Monthly → Week 1": "Bulanan → Minggu 1",
+  "Move each month's whole budget into its first week": "Pindahkan seluruh anggaran tiap bulan ke minggu pertama",
+  "Move every month's whole budget into its first week? Existing week 2-4 amounts are folded into week 1, not lost.":
+    "Pindahkan seluruh anggaran tiap bulan ke minggu pertama? Nilai minggu 2-4 dilipat ke minggu 1, tidak hilang.",
+  "PENDAPATAN · Revenue": "PENDAPATAN", "BEBAN · Expense": "BEBAN",
+  "Certainty": "Kepastian", "Year": "Tahun", "Net": "Neto",
+  "committed": "terkontrak", "planned": "direncanakan", "expected": "diperkirakan",
+  "speculative": "spekulatif", "mixed": "campuran",
+  "weekly cells": "sel mingguan", "Budget saved": "Anggaran disimpan",
+  "Projects belong to the selected company. The budget below is for this project only.":
+    "Proyek mengikuti perusahaan yang dipilih. Anggaran di bawah hanya untuk proyek ini.",
+  "Amounts are in IDR. Certainty drives the Oracle: only 'committed' money in counts in the Bound run.":
+    "Nilai dalam IDR. Kepastian menentukan Ahli Nujum: hanya uang masuk 'terkontrak' yang dihitung di run Bound.",
+  "choose account to add": "pilih akun untuk ditambah",
+  "choose account to remove": "pilih akun untuk dihapus",
+  "Add account to budget": "Tambah akun ke anggaran",
+  "Remove account from budget": "Hapus akun dari anggaran",
+  "removed from budget": "dihapus dari anggaran", "from the": "dari", "budget?": "anggaran?",
+  "Create a project in this company to budget for it.": "Buat proyek di perusahaan ini untuk menganggarkannya.",
+  "(no projects in this company yet)": "(belum ada proyek di perusahaan ini)",
+  "Pick or create a project first": "Pilih atau buat proyek dulu", "Pick a project first": "Pilih proyek dulu",
+  "No budget lines yet — add accounts below or import from Excel":
+    "Belum ada baris anggaran — tambah akun di bawah atau impor dari Excel",
+  "No budget defined for": "Belum ada anggaran untuk",
+  "data to": "data s/d", "Data complete to (date)": "Data lengkap sampai (tanggal)",
+  "Leave empty if this database is kept current. Shown next to the database name everywhere.":
+    "Kosongkan jika database ini selalu terkini. Ditampilkan di samping nama database.",
+  "Monthly budget \u2192 weekly cash plan": "Anggaran bulanan \u2192 rencana kas mingguan",
+  "Where a month of budget lands when it is converted into weeks. This is what the Oracle reads.":
+    "Di minggu mana anggaran satu bulan jatuh saat dikonversi. Inilah yang dibaca Ahli Nujum.",
+  "Convert every monthly budget into weeks now": "Konversi semua anggaran bulanan menjadi mingguan sekarang",
+  "Reads the company-level and project-level budgets for": "Membaca anggaran level perusahaan dan level proyek untuk",
+  "and writes them into the plan version below, using the setting above. Existing cells for the same account and week are overwritten; nothing else in the plan is touched.":
+    "lalu menuliskannya ke versi rencana di bawah, memakai pengaturan di atas. Sel yang sama (akun dan minggu) ditimpa; sisanya tidak disentuh.",
+  "Plan version": "Versi rencana", "cells": "sel",
+  "Convert budget \u2192 cash plan": "Konversi anggaran \u2192 rencana kas",
+  "No draft or submitted plan version for": "Tidak ada versi rencana draft/submitted untuk",
+  "Create one in Budgets \u2192 Cash Plan (weekly) first.": "Buat dulu di Anggaran \u2192 Rencana Kas (mingguan).",
+  "Convert every monthly budget line for": "Konversi semua baris anggaran bulanan tahun",
+  "into the selected plan version?": "ke versi rencana yang dipilih?",
+  "plan cells written": "sel rencana ditulis", "Conversion setting saved": "Pengaturan konversi disimpan",
+  "How each account moves cash": "Bagaimana tiap akun menggerakkan kas",
+  "Only 'operating' expenses count towards the buffer floor. Depreciation and other non-cash lines must be marked 'noncash' or the Oracle will demand a cash buffer for money that never leaves the bank.":
+    "Hanya beban 'operating' yang dihitung ke batas aman kas. Penyusutan dan baris non-kas lain harus ditandai 'noncash', kalau tidak Ahli Nujum menuntut cadangan kas untuk uang yang tidak pernah keluar bank.",
+  "Cash-flow class": "Kelas arus kas", "\u2014 unset \u2014": "\u2014 belum diatur \u2014",
+  "accounts updated": "akun diperbarui",
+  "Four week buckets every month — W4 runs to the end of the month, so no plan line can ever land in a week that does not exist.":
+    "Empat kantong minggu setiap bulan — W4 berjalan sampai akhir bulan, jadi tidak ada baris rencana yang bisa jatuh di minggu yang tidak ada.",
+  "Months of cover": "Bulan Cadangan", "Minimum cash": "Kas Minimum",
+  "Company": "Perusahaan", "Floor in force": "Batas Berlaku",
+  "Fixed cash opex / month": "Biaya Tetap Kas / bulan",
+  "Open the Oracle": "Buka Oracle",
+  "none — this axis changes nothing here": "nihil — sumbu ini tidak mengubah apa pun",
+  "No break-even to report: the plan already breaches with no stress applied.": "Tidak ada titik impas: rencana sudah tembus tanpa tekanan apa pun.", "Click an account to see its transactions.": "Klik akun untuk melihat transaksinya.",
   // Money Tracker
   "Money Tracker": "Pelacak Uang", "invoicing process per project": "proses penagihan per proyek",
   "New invoice track": "Tagihan Baru", "Total tracked": "Total Dilacak", "In process": "Dalam Proses",
@@ -492,11 +673,11 @@ const NAV_ITEMS = [
   // HV sections
   ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
   ["projects", "△", "Project Details"], ["money", "◈", "Money Tracker"],
-  ["investments", "✦", "Investment Center"],
+  ["investments", "✦", "Investment Center"], ["oracle", "☾", "The Oracle"],
   // Devil in Detail
   ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Account Parsing"],
   ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
-  ["budgets", "◎", "Budgets"], ["reports", "▤", "Reports"],
+  ["budgets", "◎", "Budget Center"], ["reports", "▤", "Reports"],
   ["accountant", "⚖", "Accountant Section"],
   // Admin panel
   ["settings", "⚙", "Settings"],
@@ -628,7 +809,8 @@ function renderCompanyChoice() {
 const routes = {
   dashboard: pageDashboard, projecthv: pageProjectHV, journals: pageJournals,
   bank: pageBank, receivables: pageReceivables, payables: pagePayables, budgets: pageBudgets,
-  investments: pageInvestments, projects: pageProjects, money: pageMoneyTracker,
+  investments: pageInvestments, oracle: pageOracle,
+  projects: pageProjects, money: pageMoneyTracker,
   reports: pageReports, accountant: pageAccountant, settings: pageSettings,
 };
 const INV_CATEGORIES = {
@@ -638,6 +820,8 @@ const INV_CATEGORIES = {
 
 async function render() {
   const route = (location.hash || "#/dashboard").replace("#/", "").split("?")[0] || "dashboard";
+  // the current page is stamped on <html> so a section can carry its own palette
+  document.documentElement.dataset.page = route;
   $$("#nav a").forEach(a => a.classList.toggle("active", a.dataset.route === route));
   const fn = routes[route] || pageDashboard;
   const el = $("#content");
@@ -758,7 +942,7 @@ async function pageDashboard(el) {
         <tbody>${caktRows.map(r => {
           const used = r.budget ? Math.round(100 * r.actual / r.budget) : null;
           const varc = round2(r.budget - r.actual);
-          return `<tr><td>${esc(r.code)} ${esc(r.name)}</td>
+          return `<tr><td><a href="#" class="cakun-code" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.code)} ${esc(r.name)}</a></td>
             <td class="num muted">${fmt(r.budget)}</td>
             <td class="num">${fmt(r.actual)}</td>
             <td class="num ${varc < 0 ? "neg" : "pos"}">${fmt(varc)}</td>
@@ -767,7 +951,8 @@ async function pageDashboard(el) {
         <tr class="total"><td>${t("TOTAL")} C-AKUN</td><td class="num">${fmt(caktBudget)}</td><td class="num">${fmt(caktActual)}</td>
           <td class="num ${caktBudget - caktActual < 0 ? "neg" : "pos"}">${fmt(round2(caktBudget - caktActual))}</td>
           <td class="num ${caktUsed != null && caktUsed > 100 ? "neg" : ""}">${caktUsed == null ? "—" : caktUsed + "%"}</td></tr>
-        </tbody></table></div>` : ""}
+        </tbody></table>
+        <p class="muted mt" style="font-size:12px">${t("Click an account to see its transactions.")}</p></div>` : ""}
     </div>
     <div class="grid two-col mt">
       <div class="card"><h3>${t("Financial Health Indicators")}</h3>
@@ -852,6 +1037,10 @@ async function pageDashboard(el) {
     dashProjectDetail(tr.dataset.proj, tr.dataset.company, tr.dataset.name));
   $$("#content .opex-code").forEach(a => a.onclick = e => {
     e.preventDefault(); accountMonthlyModal(a.dataset.code, a.dataset.name);
+  });
+  // C-AKUN (7300): click an account for its actual transactions
+  $$("#content .cakun-code").forEach(a => a.onclick = e => {
+    e.preventDefault(); openAccountLedger(a.dataset.code, a.dataset.name);
   });
 }
 
@@ -2278,6 +2467,7 @@ async function investmentDetail(iid, reload) {
       <p class="mt"><span class="pill ${HEALTH_PILL[cmStatus] || "inactive"}">${cmVerdict[1]}</span> ${cmVerdict[2]}</p>
     </div>
 
+    <div id="ivCommit"></div>
     <h3 style="margin-top:16px">${t("Entries")}</h3>
     <table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Description</th>
       <th class="num">Amount</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
@@ -2297,6 +2487,7 @@ async function investmentDetail(iid, reload) {
       <input id="cmNewComment" placeholder="${t("Add a comment for the team…")}" style="flex:1;min-width:200px">
       <button class="btn btn-primary" id="cmPostComment">${t("Post")}</button>
     </div>`, { title: inv.name });
+  renderInvestmentCommitments(iid, () => investmentDetail(iid, reload));
   const numv = id => parseInt(($("#" + id).value || "0").replace(/[^\d-]/g, ""), 10) || 0;
   if ($("#cmSave")) $("#cmSave").onclick = async () => {
     try {
@@ -2352,198 +2543,307 @@ function bindInvCommentDeletes(iid, reload) {
   });
 }
 
-/* ------------------------------------------------------------------ budgets */
+/* ------------------------------------------------------------------ budget center */
+// ONE place to set the budget: company level and project level, revenue and
+// expense, at WEEK grain. A month is always four weeks and W4 runs to the end of
+// the month, so nothing can be budgeted into a week that does not exist.
+//
+// There is deliberately no separate "cash plan" any more. Two screens holding
+// two versions of the same intention is how they drift apart, and the Oracle
+// reads THIS table directly - what finance types here is what the forecast sees.
+
+// W1 1-7, W2 8-14, W3 15-21, W4 22-end. The last bucket absorbs the odd days so
+// a 28-day February and a 31-day March have the same four columns.
+function weekRanges(year, month) {
+  const last = new Date(year, month, 0).getDate();
+  return [1, 2, 3, 4].map(w => ({
+    week: w,
+    start: (w - 1) * 7 + 1,
+    end: w === 4 ? last : Math.min(w * 7, last),
+  }));
+}
+
 async function pageBudgets(el) {
   const cid = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
+  if (!state.bcView) state.bcView = "weeks";
+  if (!state.bcScope) state.bcScope = "company";
+
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Budgets")} — ${state.year}</h2>
+    <div class="page-head"><h2>${t("Budget Center")} — ${state.year}</h2>
       <div class="page-actions">
-        <label class="muted">Company <select id="bCompany">${companyOptions(cid)}</select></label>
-        <a class="btn" href="/api/templates/budget?year=${state.year}">&#x2913; Template</a>
-        ${canWrite() ? `<button class="btn" id="bImport">&#x2912; Import Excel</button>` : ""}
-        <button class="btn" id="bExport">&#x2913; Export Excel</button>
-        ${canWrite() ? `<button class="btn btn-primary" id="bSave">Save Budget</button>` : ""}
+        <label class="muted">${t("Company")} <select id="bCompany">${companyOptions(cid)}</select></label>
+        <a class="btn" href="/api/templates/budget?year=${state.year}">&#x2913; ${t("Template")}</a>
+        ${canWrite() ? `<button class="btn" id="bImport">&#x2912; ${t("Import Excel")}</button>` : ""}
+        <button class="btn" id="bExport">&#x2913; ${t("Export Excel")}</button>
+        ${canWrite() ? `<button class="btn btn-primary" id="bSave">${t("Save Budget")}</button>` : ""}
       </div></div>
+
     <div class="tabs" id="bModes">
-      <button data-m="company" class="active">Company-level budget</button>
-      <button data-m="project">Per-project budget</button>
+      <button data-m="company" class="${state.bcScope === "company" ? "active" : ""}">${t("Company level")}</button>
+      <button data-m="project" class="${state.bcScope === "project" ? "active" : ""}">${t("Per project")}</button>
     </div>
+
     <div class="filters" id="bProjectBar" hidden>
-      <label>Project <select id="bProject" style="min-width:260px"></select></label>
-      ${canWrite() ? `<button class="btn btn-sm" id="bNewProject">+ New project</button>` : ""}
-      <span class="muted">Projects belong to the selected company. Budget below is per account, for this project only.</span>
+      <label>${t("Project")} <select id="bProject" style="min-width:260px"></select></label>
+      ${canWrite() ? `<button class="btn btn-sm" id="bNewProject">+ ${t("New project")}</button>` : ""}
+      <span class="muted">${t("Projects belong to the selected company. The budget below is for this project only.")}</span>
     </div>
+
+    <div class="filters bc-bar">
+      <div class="seg-group" id="bView">
+        <button class="seg ${state.bcView === "weeks" ? "active" : ""}" data-v="weeks">${t("Weekly (4 weeks a month)")}</button>
+        <button class="seg ${state.bcView === "months" ? "active" : ""}" data-v="months">${t("Month roll-up")}</button>
+      </div>
+      ${canWrite() ? `<button class="btn btn-sm" id="bToW1" title="${t("Move each month's whole budget into its first week")}">${t("Monthly → Week 1")}</button>` : ""}
+      <button class="btn btn-sm" id="bOracle">&#x263E; ${t("Ask the Oracle")}</button>
+      <span class="muted" id="bcTotals"></span>
+    </div>
+
     <div class="card budget-wrap"><div id="bGrid"></div>
       ${canWrite() ? `<div class="mt filters">
-        <label>Add account to budget <select id="bAddAcc" style="min-width:280px"></select></label>
-        <label>Remove account from budget <select id="bRemAcc" style="min-width:280px"></select></label>
-        <span class="muted">Amounts are in IDR, shown with thousand separators.</span></div>` : ""}
+        <label>${t("Add account to budget")} <select id="bAddAcc" style="min-width:280px"></select></label>
+        <label>${t("Remove account from budget")} <select id="bRemAcc" style="min-width:280px"></select></label>
+        <span class="muted">${t("Amounts are in IDR. Certainty drives the Oracle: only 'committed' money in counts in the Bound run.")}</span></div>` : ""}
     </div>
-    <div class="card mt"><h3 id="bvaTitle">Budget vs Realization — ${state.year}</h3><div id="bvaBox"></div>
-      <div class="mt"><a class="btn btn-sm" id="bvaExport">&#x2913; Export Budget vs Realization</a></div>
+
+    <div class="card mt"><h3 id="bvaTitle">${t("Budget vs Realization")} — ${state.year}</h3><div id="bvaBox"></div>
+      <div class="mt"><a class="btn btn-sm" id="bvaExport">&#x2913; ${t("Export Budget vs Realization")}</a></div>
     </div>`;
 
-  let rows = [], mode = "company", projectId = null, projectList = [];
+  let rows = [], projectId = null, projectList = [], certainties = ["committed", "planned", "expected", "speculative"];
+  const mode = () => state.bcScope;
   const company = () => $("#bCompany").value;
-  const pid = () => (mode === "project" ? projectId : null);
+  const pid = () => (mode() === "project" ? projectId : null);
+  const rowTotal = r => r.weeks.reduce((a, m) => a + m.reduce((x, y) => x + y, 0), 0);
+  const monthTotal = (r, mi) => r.weeks[mi].reduce((x, y) => x + y, 0);
 
   async function refreshProjects() {
     projectList = await api("/api/projects?company_id=" + company());
     const sel = $("#bProject");
     sel.innerHTML = projectList.length
       ? projectList.map(p => `<option value="${p.id}">${esc(p.code)} — ${esc(p.name)}</option>`).join("")
-      : `<option value="">(no projects in this company yet)</option>`;
+      : `<option value="">${t("(no projects in this company yet)")}</option>`;
     if (!projectList.find(p => String(p.id) === String(projectId)))
       projectId = projectList.length ? projectList[0].id : null;
     sel.value = projectId || "";
   }
 
   async function load() {
-    if (mode === "project") {
+    $("#bProjectBar").hidden = mode() !== "project";
+    if (mode() === "project") {
       await refreshProjects();
       if (!projectId) {
         rows = [];
         renderGrid();
         if ($("#bAddAcc")) $("#bAddAcc").innerHTML = "";
         if ($("#bRemAcc")) $("#bRemAcc").innerHTML = "";
-        $("#bvaBox").innerHTML = `<div class="empty">Create a project in this company to budget for it.</div>`;
+        $("#bvaBox").innerHTML = `<div class="empty">${t("Create a project in this company to budget for it.")}</div>`;
         return;
       }
     }
     const targetPid = pid();
     const data = await api(`/api/budgets?company_id=${company()}&year=${state.year}`);
-    rows = data.rows.filter(r => (mode === "project"
-      ? String(r.project_id) === String(targetPid) : !r.project_id));
+    certainties = data.certainties || certainties;
+    rows = data.rows
+      .filter(r => (mode() === "project" ? String(r.project_id) === String(targetPid) : !r.project_id))
+      .map(r => ({ ...r, weeks: r.weeks || r.amounts.map(a => [a, 0, 0, 0]) }));
     renderGrid();
+
     const accounts = await api("/api/accounts?company_id=" + company());
-    // add + remove dropdowns are rebuilt together so their row indices never drift
     function rebuildDropdowns() {
       const inGrid = new Set(rows.map(r => r.account_id));
       const addSel = $("#bAddAcc");
       if (addSel) {
-        addSel.innerHTML = `<option value="">— choose account to add —</option>` +
+        addSel.innerHTML = `<option value="">— ${t("choose account to add")} —</option>` +
           accounts.filter(a => a.is_active && !inGrid.has(a.id) && (a.type === "revenue" || a.type === "expense"))
             .map(a => `<option value="${a.id}" data-code="${esc(a.code)}" data-name="${esc(a.name)}" data-type="${a.type}">${esc(a.code)} ${esc(a.name)}</option>`).join("");
         addSel.onchange = () => {
           const o = addSel.selectedOptions[0];
           if (!o || !o.value) return;
-          rows.push({ account_id: parseInt(o.value, 10), code: o.dataset.code, name: o.dataset.name,
-                      type: o.dataset.type, project_id: targetPid, amounts: Array(12).fill(0) });
+          rows.push({
+            account_id: parseInt(o.value, 10), code: o.dataset.code, name: o.dataset.name,
+            type: o.dataset.type, project_id: targetPid, certainty: "planned", cf_class: "",
+            weeks: Array.from({ length: 12 }, () => [0, 0, 0, 0]), amounts: Array(12).fill(0),
+          });
           rows.sort((a, b) => a.code.localeCompare(b.code));
-          renderGrid();
-          rebuildDropdowns();
-          addSel.value = "";
+          renderGrid(); rebuildDropdowns(); addSel.value = "";
         };
       }
       const remSel = $("#bRemAcc");
       if (remSel) {
-        remSel.innerHTML = `<option value="">— choose account to remove —</option>` +
+        remSel.innerHTML = `<option value="">— ${t("choose account to remove")} —</option>` +
           rows.map((r, ri) => `<option value="${ri}">${esc(r.code)} ${esc(r.name)}</option>`).join("");
         remSel.onchange = async () => {
           const r = rows[remSel.value];
-          if (!r) return;
           remSel.value = "";
-          if (!confirm(`Remove ${r.code} ${r.name} from the ${state.year} budget?`)) return;
-          try {
-            await api(`/api/budgets?company_id=${company()}&year=${state.year}&account_id=${r.account_id}&project_id=${r.project_id || ""}`,
-              { method: "DELETE" });
-            toast(`${r.code} removed from budget`);
-            load();
-          } catch (e) { toast(e.message, true); }
+          if (r) await removeRow(r);
         };
       }
     }
     rebuildDropdowns();
-    const bvaUrl = mode === "project"
+
+    const bvaUrl = mode() === "project"
       ? `/api/reports/project-budget-vs-actual?company_id=${company()}&project_id=${targetPid}&year=${state.year}`
       : `/api/reports/budget-vs-actual?company_id=${company()}&year=${state.year}`;
     renderBva(await api(bvaUrl));
     const exp = $("#bvaExport");
-    if (mode === "project") { exp.style.display = "none"; }
+    if (mode() === "project") { exp.style.display = "none"; }
     else { exp.style.display = ""; exp.href = `/api/export/budget-vs-actual?company_id=${company()}&year=${state.year}`; }
-    $("#bvaTitle").textContent = mode === "project"
-      ? `Budget vs Realization — ${($("#bProject").selectedOptions[0] || {}).text || "project"} (${state.year})`
-      : `Budget vs Realization — ${state.year}`;
+    $("#bvaTitle").textContent = mode() === "project"
+      ? `${t("Budget vs Realization")} — ${($("#bProject").selectedOptions[0] || {}).text || "project"} (${state.year})`
+      : `${t("Budget vs Realization")} — ${state.year}`;
+  }
+
+  async function removeRow(r) {
+    if (!confirm(`${t("Remove")} ${r.code} ${r.name} ${t("from the")} ${state.year} ${t("budget?")}`)) return;
+    try {
+      await api(`/api/budgets?company_id=${company()}&year=${state.year}&account_id=${r.account_id}&project_id=${r.project_id || ""}`,
+        { method: "DELETE" });
+      toast(`${r.code} ${t("removed from budget")}`);
+      load();
+    } catch (e) { toast(e.message, true); }
   }
 
   const fmtIn = n => n ? Math.round(n).toLocaleString("id-ID") : "";
+
+  function certSelect(r, ri) {
+    const opts = certainties.map(c =>
+      `<option value="${c}" ${r.certainty === c ? "selected" : ""}>${esc(t(c))}</option>`).join("");
+    const mixed = r.certainty === "mixed"
+      ? `<option value="mixed" selected>${t("mixed")}</option>` : "";
+    return canWrite()
+      ? `<select class="bc-cert-in" data-ri="${ri}" title="${esc(t(CERTAINTY_HINT[r.certainty] || ""))}">${mixed}${opts}</select>`
+      : `<span class="pill ${CERTAINTY_PILL[r.certainty] || "inactive"}">${esc(r.certainty)}</span>`;
+  }
+
   function renderGrid() {
+    const weekly = state.bcView === "weeks";
     const ro = canWrite() ? "" : "readonly";
-    $("#bGrid").innerHTML = `<table class="tbl budget-grid"><thead><tr><th>Account</th>
-      ${MONTH_NAMES.map(m => `<th class="num">${m}</th>`).join("")}<th class="num">Total</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
-      <tbody>${rows.map((r, ri) => `<tr data-ri="${ri}">
-        <td><b>${esc(r.code)}</b> ${esc(r.name)}</td>
-        ${r.amounts.map((a, mi) => `<td><input ${ro} data-mi="${mi}" type="text" inputmode="numeric" value="${fmtIn(a)}"></td>`).join("")}
-        <td class="num row-total">${fmtShort(r.amounts.reduce((x, y) => x + y, 0))}</td>
-        ${canWrite() ? `<td><button class="btn btn-sm btn-ghost b-del" title="Remove account from budget">&times;</button></td>` : ""}</tr>`).join("") ||
-        `<tr><td colspan="15" class="empty">No budget lines yet — add accounts below or import from Excel</td></tr>`}</tbody></table>`;
-    $$("#bGrid input").forEach(inp => {
+    const ranges = MONTH_NAMES.map((_, mi) => weekRanges(state.year, mi + 1));
+
+    const head = weekly
+      ? `<tr><th class="bc-acc" rowspan="2">${t("Account")}</th><th rowspan="2">${t("Certainty")}</th>
+           ${MONTH_NAMES.map(m => `<th class="num bc-mh" colspan="4">${m}</th>`).join("")}
+           <th class="num" rowspan="2">${t("Year")}</th>${canWrite() ? `<th rowspan="2"></th>` : ""}</tr>
+         <tr>${ranges.map(rg => rg.map(w =>
+             `<th class="num bc-wh ${w.week === 1 ? "bc-msep" : ""}" title="${w.start}–${w.end}">W${w.week}</th>`).join("")).join("")}</tr>`
+      : `<tr><th class="bc-acc">${t("Account")}</th><th>${t("Certainty")}</th>
+           ${MONTH_NAMES.map(m => `<th class="num">${m}</th>`).join("")}
+           <th class="num">${t("Year")}</th>${canWrite() ? "<th></th>" : ""}</tr>`;
+
+    const section = (label, kind) => {
+      const rs = rows.map((r, ri) => [r, ri]).filter(([r]) => r.type === kind);
+      if (!rs.length) return "";
+      const span = weekly ? 51 : 15;
+      const tot = rs.reduce((a, [r]) => a + rowTotal(r), 0);
+      return `<tr class="section"><td colspan="${span}"><b>${label}</b>
+          <span class="muted"> · ${fmtShort(tot)}</span></td></tr>` +
+        rs.map(([r, ri]) => `<tr data-ri="${ri}">
+          <td class="bc-acc"><b>${esc(r.code)}</b> ${esc(r.name)}</td>
+          <td>${certSelect(r, ri)}</td>
+          ${weekly
+            ? r.weeks.map((m, mi) => m.map((a, wi) =>
+                `<td class="${wi === 0 ? "bc-msep" : ""}"><input ${ro} class="bc-in" data-mi="${mi}" data-wi="${wi}" type="text" inputmode="numeric" value="${fmtIn(a)}"></td>`).join("")).join("")
+            : r.weeks.map((m, mi) => `<td class="num muted">${fmtShort(monthTotal(r, mi))}</td>`).join("")}
+          <td class="num row-total">${fmtShort(rowTotal(r))}</td>
+          ${canWrite() ? `<td><button class="btn btn-sm btn-ghost b-del" title="${t("Remove account from budget")}">&times;</button></td>` : ""}
+        </tr>`).join("");
+    };
+
+    const body = section(t("PENDAPATAN · Revenue"), "revenue") + section(t("BEBAN · Expense"), "expense");
+    $("#bGrid").innerHTML = `<div class="bc-scroll"><table class="tbl budget-grid bc-grid">
+      <thead>${head}</thead>
+      <tbody>${body || `<tr><td colspan="${weekly ? 51 : 15}" class="empty">${t("No budget lines yet — add accounts below or import from Excel")}</td></tr>`}</tbody>
+    </table></div>`;
+
+    const rin = rows.filter(r => r.type === "revenue").reduce((a, r) => a + rowTotal(r), 0);
+    const rout = rows.filter(r => r.type === "expense").reduce((a, r) => a + rowTotal(r), 0);
+    $("#bcTotals").innerHTML = `${t("Revenue")} <b class="pos">${fmtShortRp(rin)}</b> ·
+      ${t("Expense")} <b class="neg">${fmtShortRp(rout)}</b> ·
+      ${t("Net")} <b class="${rin - rout >= 0 ? "pos" : "neg"}">${fmtShortRp(rin - rout)}</b>`;
+
+    $$("#bGrid .bc-in").forEach(inp => {
       const tr = () => inp.closest("tr");
       const row = () => rows[tr().dataset.ri];
+      const cell = () => row().weeks[inp.dataset.mi][inp.dataset.wi];
       inp.addEventListener("focus", () => {
-        const v = row().amounts[inp.dataset.mi];
+        const v = cell();
         inp.value = v ? String(Math.round(v)) : "";
         inp.select();
       });
       inp.addEventListener("input", () => {
-        row().amounts[inp.dataset.mi] = Number(inp.value.replace(/[^\d]/g, "")) || 0;
-        $(".row-total", tr()).textContent = fmtShort(row().amounts.reduce((x, y) => x + y, 0));
+        row().weeks[inp.dataset.mi][inp.dataset.wi] = Number(inp.value.replace(/[^\d]/g, "")) || 0;
+        $(".row-total", tr()).textContent = fmtShort(rowTotal(row()));
       });
-      inp.addEventListener("blur", () => { inp.value = fmtIn(row().amounts[inp.dataset.mi]); });
+      inp.addEventListener("blur", () => { inp.value = fmtIn(cell()); });
     });
-    $$("#bGrid .b-del").forEach(btn => btn.onclick = async () => {
-      const tr = btn.closest("tr"), r = rows[tr.dataset.ri];
-      if (!confirm(`Remove ${r.code} ${r.name} from the ${state.year} budget?`)) return;
-      try {
-        await api(`/api/budgets?company_id=${company()}&year=${state.year}&account_id=${r.account_id}&project_id=${r.project_id || ""}`,
-          { method: "DELETE" });
-        toast(`${r.code} removed from budget`);
-        load();
-      } catch (e) { toast(e.message, true); }
+    $$("#bGrid .bc-cert-in").forEach(sel => sel.onchange = () => {
+      rows[sel.dataset.ri].certainty = sel.value;
     });
+    $$("#bGrid .b-del").forEach(btn => btn.onclick = () => removeRow(rows[btn.closest("tr").dataset.ri]));
   }
 
   function renderBva(bva) {
-    $("#bvaBox").innerHTML = `<table class="tbl"><thead><tr><th>Account</th><th>Type</th>
-      <th class="num">Budget</th><th class="num">Realization</th><th class="num">Variance</th><th class="num">Used</th></tr></thead>
+    $("#bvaBox").innerHTML = `<table class="tbl"><thead><tr><th>${t("Account")}</th><th>${t("Type")}</th>
+      <th class="num">${t("Budget")}</th><th class="num">${t("Realization")}</th>
+      <th class="num">${t("Variance")}</th><th class="num">${t("Used")}</th></tr></thead>
       <tbody>${bva.rows.map(r => {
         const bad = r.type === "expense" ? r.variance > 0 : r.variance < 0;
         return `<tr><td>${esc(r.code)} ${esc(r.name)}</td><td>${r.type}</td>
           <td class="num">${fmt(r.budget)}</td><td class="num">${fmt(r.actual)}</td>
           <td class="num ${bad ? "neg" : "pos"}">${fmt(r.variance)}</td>
           <td class="num">${r.used_pct == null ? "-" : r.used_pct + "%"}</td></tr>`;
-      }).join("") || `<tr><td colspan="6" class="empty">No budget defined for ${state.year}</td></tr>`}</tbody></table>`;
+      }).join("") || `<tr><td colspan="6" class="empty">${t("No budget defined for")} ${state.year}</td></tr>`}</tbody></table>`;
+  }
+
+  async function save() {
+    if (mode() === "project" && !projectId) { toast(t("Pick or create a project first"), true); return; }
+    try {
+      const res = await api("/api/budgets", { method: "PUT", json: {
+        company_id: parseInt(company(), 10), year: state.year,
+        rows: rows.map(r => ({
+          account_id: r.account_id, project_id: r.project_id,
+          certainty: r.certainty, weeks: r.weeks,
+        })),
+      }});
+      toast(`${t("Budget saved")} (${res.cells} ${t("weekly cells")})`);
+      load();
+    } catch (e) { toast(e.message, true); }
   }
 
   $("#bCompany").onchange = () => { projectId = null; load(); };
   $$("#bModes button").forEach(b => b.onclick = () => {
-    mode = b.dataset.m;
+    state.bcScope = b.dataset.m;
     $$("#bModes button").forEach(x => x.classList.toggle("active", x === b));
-    $("#bProjectBar").hidden = mode !== "project";
     load();
+  });
+  $$("#bView .seg").forEach(b => b.onclick = () => {
+    state.bcView = b.dataset.v;
+    $$("#bView .seg").forEach(x => x.classList.toggle("active", x === b));
+    renderGrid();
   });
   $("#bProject").onchange = () => { projectId = parseInt($("#bProject").value, 10) || null; load(); };
   if ($("#bNewProject")) $("#bNewProject").onclick = () =>
     projectEditor(null, async () => { await refreshProjects(); await load(); }, parseInt(company(), 10));
+  $("#bOracle").onclick = () => { location.hash = "#/oracle"; };
+  if ($("#bToW1")) $("#bToW1").onclick = async () => {
+    if (!confirm(t("Move every month's whole budget into its first week? Existing week 2-4 amounts are folded into week 1, not lost."))) return;
+    rows.forEach(r => r.weeks.forEach((m, mi) => {
+      const total = m.reduce((x, y) => x + y, 0);
+      r.weeks[mi] = [total, 0, 0, 0];
+    }));
+    renderGrid();
+    await save();
+  };
   $("#bExport").onclick = () => {
-    if (mode === "project" && !projectId) { toast("Pick a project first", true); return; }
-    const pq = mode === "project" ? `&project_id=${projectId}` : "";
+    if (mode() === "project" && !projectId) { toast(t("Pick a project first"), true); return; }
+    const pq = mode() === "project" ? `&project_id=${projectId}` : "";
     window.location = `/api/export/budget?company_id=${company()}&year=${state.year}${pq}`;
   };
-  if ($("#bSave")) $("#bSave").onclick = async () => {
-    if (mode === "project" && !projectId) { toast("Pick or create a project first", true); return; }
-    try {
-      await api("/api/budgets", { method: "PUT", json: {
-        company_id: parseInt(company(), 10), year: state.year,
-        rows: rows.map(r => ({ account_id: r.account_id, project_id: r.project_id, amounts: r.amounts })),
-      }});
-      toast(mode === "project" ? "Project budget saved" : "Budget saved");
-      load();
-    } catch (e) { toast(e.message, true); }
-  };
+  if ($("#bSave")) $("#bSave").onclick = save;
   if ($("#bImport")) $("#bImport").onclick = () => importModal({
-    title: "Import Budget", url: "/api/import/budget", templateUrl: `/api/templates/budget?year=${state.year}`,
-    extraFields: `<label>Year <input name="year" type="number" value="${state.year}"></label>`,
+    title: t("Import Budget"), url: "/api/import/budget", templateUrl: `/api/templates/budget?year=${state.year}`,
+    extraFields: `<label>${t("Year")} <input name="year" type="number" value="${state.year}"></label>`,
     company: company(), onDone: load,
   });
   await load();
@@ -3048,10 +3348,537 @@ async function pageReports(el) {
 }
 
 /* ------------------------------------------------------------------ settings */
+
+/* --------------------------------------------------------- shared: plan vocabulary */
+// Certainty is the one field that decides whether money is allowed to count. It
+// lives on every budget line and every saved-scenario line, and the Oracle's
+// three runs are built entirely out of it.
+const CERTAINTY_PILL = { committed: "posted", planned: "active", expected: "draft", speculative: "inactive" };
+const CERTAINTY_HINT = {
+  committed: "signed / contractual — counted in every run",
+  planned: "budgeted, not yet signed — counted as an outflow, not as an inflow",
+  expected: "likely but unsigned — Base run only",
+  speculative: "pipeline — Optimistic run only",
+};
+
+// ---- Oracle Step 4: when committed investment money actually leaves --------
+async function renderInvestmentCommitments(iid, reload) {
+  const box = $("#ivCommit");
+  if (!box) return;
+  let d;
+  try { d = await api(`/api/investments/${iid}/commitments`); }
+  catch (e) { box.innerHTML = ""; return; }
+  const rows = d.commitments.map(cm => `<tr>
+      <td>${cm.year} · ${MONTH_NAMES[cm.month - 1]} <b>W${cm.week}</b>
+        <br><span class="muted">${esc(cm.start || "")} → ${esc(cm.end || "")}</span></td>
+      <td><span class="pill ${CERTAINTY_PILL[cm.certainty] || "inactive"}">${esc(cm.certainty)}</span></td>
+      <td class="muted">${esc(cm.settles || "")}</td>
+      <td class="num"><b>${fmt(cm.amount)}</b></td>
+      <td>${esc(cm.note || "")}</td>
+      ${canWrite() ? `<td><button class="btn btn-sm btn-ghost" data-delcm="${cm.id}">&times;</button></td>` : ""}
+    </tr>`).join("") || `<tr><td colspan="${canWrite() ? 6 : 5}" class="empty">${t("Nothing scheduled yet.")}</td></tr>`;
+  box.innerHTML = `
+    <h3 style="margin-top:16px">${t("Commitment schedule")}
+      <span class="muted" style="font-weight:500;font-size:12.5px">· ${t("when the committed money actually leaves")}</span></h3>
+    <div class="grid kpis">
+      <div class="kpi"><div class="kpi-label">${t("Committed")}</div><div class="kpi-value" style="font-size:16px">${fmtRp(d.committed_amount)}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Scheduled")}</div><div class="kpi-value" style="font-size:16px">${fmtRp(d.scheduled)}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Already paid out")}</div><div class="kpi-value" style="font-size:16px">${fmtRp(d.already_out)}</div></div>
+      <div class="kpi ${d.unscheduled ? "amber" : "green"}"><div class="kpi-label">${t("Unscheduled")}</div>
+        <div class="kpi-value" style="font-size:16px">${fmtRp(d.unscheduled)}</div></div>
+    </div>
+    ${d.unscheduled ? `<div class="warn watch mt"><span class="warn-ic">›</span>
+      <span><b>${fmtRp(d.unscheduled)} ${t("has no date.")}</b> ${esc(d.note)}</span></div>` : ""}
+    <table class="tbl mt"><thead><tr><th>${t("Week")}</th><th>${t("Certainty")}</th>
+      <th>${t("Settles")}</th><th class="num">${t("Amount")}</th><th>${t("Note")}</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
+      <tbody>${rows}</tbody></table>
+    ${canWrite() ? `<div class="filters mt">
+      <label>${t("Year")} <input id="icY" type="number" value="${state.year}" style="width:90px"></label>
+      <label>${t("Month")} <select id="icM">${MONTH_NAMES.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("")}</select></label>
+      <label>${t("Week")} <select id="icW">${[1,2,3,4].map(w => `<option value="${w}">W${w}</option>`).join("")}</select></label>
+      <label>${t("Amount")} <input id="icA" inputmode="numeric" style="width:150px"></label>
+      <label>${t("Certainty")} <select id="icC">${(d.certainties || []).map(x => `<option value="${x}">${x}</option>`).join("")}</select></label>
+      <button class="btn btn-sm btn-primary" id="icAdd">+ ${t("Schedule")}</button>
+    </div>` : ""}`;
+  $$("#ivCommit [data-delcm]").forEach(b => b.onclick = async () => {
+    try { await api("/api/investments/commitments/" + b.dataset.delcm, { method: "DELETE" });
+      toast("Removed"); reload();
+    } catch (e) { toast(e.message, true); }
+  });
+  if ($("#icAdd")) $("#icAdd").onclick = async () => {
+    const amt = parseInt(($("#icA").value || "0").replace(/[^\d-]/g, ""), 10) || 0;
+    if (!amt) { toast("Enter an amount", true); return; }
+    try {
+      await api(`/api/investments/${iid}/commitments`, { json: {
+        year: parseInt($("#icY").value, 10), month: parseInt($("#icM").value, 10),
+        week: parseInt($("#icW").value, 10), amount: amt, certainty: $("#icC").value } });
+      toast("Scheduled"); reload();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+// ---- Oracle Step 5: the consult, surfaced on the Cash Plan screen ---------
+const VERDICT_CLS = { KRITIS: "bad", TOLAK: "bad", WASPADA: "draft", LULUS: "posted" };
+
+async function oracleConsult(versionId, box) {
+  box.innerHTML = `<div class="card mt"><div class="empty">${t("Consulting the Oracle…")}</div></div>`;
+  let d;
+  try { d = await api("/api/oracle/consult", { json: { version_id: versionId || null, year: state.year } }); }
+  catch (e) { box.innerHTML = `<div class="card mt"><p class="neg">${esc(e.message)}</p></div>`; return; }
+  const chip = e => `<span class="pill ${VERDICT_CLS[e.verdict] || "inactive"}"
+      title="${t("floor")} ${fmtRp(e.floor)} · ${t("worst")} ${esc(e.detail.worst_date || "-")}">${esc(e.company_code)}: ${esc(e.verdict)}</span>`;
+  const worst = d.entities.find(e => e.company_code === d.driven_by) || d.entities[0] || {};
+  const wk = worst.weekly || [];
+  box.innerHTML = `
+    <div class="card mt">
+      <div class="page-head"><h3 style="margin:0">${t("The Oracle")} —
+        <span class="pill ${VERDICT_CLS[d.verdict] || "inactive"}" style="font-size:13px">${esc(d.verdict)}</span></h3>
+        <div class="page-actions"><span class="muted">${esc(d.version_name)} · ${d.year} · ${d.items} ${t("dated items")}</span></div></div>
+      <p class="muted" style="margin-top:-4px">${esc(d.verdict_text)}</p>
+      <p><b>${t("Group rule")}:</b> <span class="muted">${esc(d.rule)}</span>
+        ${d.driven_by ? `<br><b>${t("Driven by")}:</b> ${esc(d.driven_by)}` : ""}
+        ${worst.detail && worst.detail.first_below_floor ? `<br><b>${t("First below floor")}:</b> ${esc(worst.detail.first_below_floor)}` : ""}
+        ${worst.detail && worst.detail.first_negative_cash ? `<br><b class="neg">${t("Cash goes negative")}:</b> ${esc(worst.detail.first_negative_cash)}` : ""}</p>
+      <div class="mt">${d.entities.map(chip).join(" ")}</div>
+      ${wk.length ? `<div class="mt">${chartBars(wk.map(w => (w.week === 1 ? w.label.slice(0, 2) : "")), [
+          { name: t("Cash (Bound)"), color: C_REV, values: wk.map(w => w.ending), type: "line" },
+          { name: t("Buffer floor"), color: "#c87a08", values: wk.map(() => worst.floor), type: "line" },
+          { name: t("Zero"), color: "#bd362f", values: wk.map(() => 0), type: "line" },
+        ], { height: 250 })}
+        <div class="muted" style="font-size:12px">${t("Weekly cash for")} ${esc(worst.company_code)} —
+          ${t("Bound run: only committed money in, committed + planned money out.")}</div></div>` : ""}
+      <table class="tbl mt"><thead><tr><th>${t("Entity")}</th><th>${t("Verdict")}</th>
+        <th class="num">${t("Opening cash")}</th><th class="num">${t("Buffer floor")}</th>
+        <th class="num">${t("Worst headroom")}</th><th>${t("Worst day")}</th></tr></thead>
+        <tbody>${d.entities.map(e => `<tr>
+          <td><b>${esc(e.company_code)}</b></td>
+          <td><span class="pill ${VERDICT_CLS[e.verdict] || "inactive"}">${esc(e.verdict)}</span></td>
+          <td class="num">${fmt(e.opening_cash)}</td>
+          <td class="num muted">${fmt(e.floor)}</td>
+          <td class="num ${(e.detail.min_headroom || 0) < 0 ? "neg" : "pos"}">${fmt(e.detail.min_headroom || 0)}</td>
+          <td>${esc(e.detail.worst_date || "—")}</td></tr>`).join("")}</tbody></table>
+      ${(d.warnings || []).length ? `<h3 style="margin-top:14px">${t("Assumptions & warnings")}</h3>
+        <ul class="muted" style="margin:0 0 0 18px;line-height:1.7;font-size:12.5px">
+          ${d.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+      <p class="muted mt" style="font-size:12px">${t("The verdict is always taken from the Bound run. Base and Optimistic are context, never the answer.")}</p>
+    </div>`;
+}
+
+
+/* ---- The Oracle: guided documentation ------------------------------------
+   Prose alone leaves the reader to work out which step THEY are missing, so the
+   guide opens with a checklist read from the live database and only then explains
+   the vocabulary. The truth tables below mirror fpa_cash.RUN_FILTERS and
+   VERDICT_TEXT exactly — if the engine's rules change, change them here too. */
+
+const GUIDE_STATE_PILL = { pass: "posted", warn: "draft", fail: "bad" };
+const GUIDE_STATE_MARK = { pass: "✓", warn: "!", fail: "✕" };
+
+async function oracleGuideView(body) {
+  let r = null;
+  try { r = await api("/api/oracle/readiness?year=" + state.year); } catch (e) { /* guide still works */ }
+
+  const checklist = !r ? "" : `
+    <div class="card">
+      <div class="page-head"><h3 style="margin:0">${t("Before the answer means anything")}</h3>
+        <span class="muted">${r.ready
+          ? `<b class="pos">${t("Everything the Oracle needs is set.")}</b>`
+          : `${r.blocking ? `<b class="neg">${r.blocking} ${t("blocking")}</b> · ` : ""}${
+              r.checks.filter(c => c.state === "warn").length} ${t("assumptions in play")}`}</span></div>
+      <p class="muted" style="margin-top:-6px">${t("A forecast is only as honest as what it was given. These six things decide whether the verdict is a finding or an artefact of missing data — read from your live database, not from a manual.")}</p>
+      <table class="tbl"><tbody>
+        ${r.checks.map(c => `<tr>
+          <td style="width:34px"><span class="pill ${GUIDE_STATE_PILL[c.state] || "inactive"}"
+              title="${esc(c.state)}">${GUIDE_STATE_MARK[c.state] || "?"}</span></td>
+          <td><b>${esc(t(c.title))}</b><div class="muted" style="font-size:12.5px">${esc(c.detail)}</div></td>
+          <td class="num" style="width:190px">${c.state === "pass" ? ""
+            : `<button class="btn btn-sm og-go" data-route="${esc(c.route)}">${esc(t(c.cta))} &rarr;</button>`}</td>
+        </tr>`).join("")}
+      </tbody></table>
+    </div>`;
+
+  const steps = [
+    ["1", t("Budget the year, by week"),
+     t("Budget Center — company level for overheads, per project for revenue and direct cost. A month is always four weeks and W4 runs to month end. Put money in the week it actually moves: rent in W1, payroll in W4, collections mid-month."),
+     "budgets", t("Open Budget Center")],
+    ["2", t("Say how sure each line is"),
+     t("Certainty is the single field that decides the verdict. 'Committed' means signed. Everything starts as 'planned', which is why a freshly typed budget always reads KRITIS — the Bound run counts no planned money coming in."),
+     "budgets", t("Set certainty")],
+    ["3", t("Say how low cash is allowed to go"),
+     t("Cash policy — a minimum cash amount per company, and how many months of fixed cash operating cost to keep. The floor in force is the larger of the two. Leave it at zero and the only question the Oracle can answer is 'did a payment bounce', which is far too late."),
+     null, t("Cash policy")],
+    ["4", t("Date the money that is already promised"),
+     t("Receivables, payables and investment commitments are pulled in automatically. Where a date is missing the Oracle assumes one and says so in its warnings — every assumption it had to make is listed under the verdict."),
+     "investments", t("Open Investment Center")],
+    ["5", t("Read the verdict, then act on it"),
+     t("The verdict tab gives the safe period, the exact day it breaks, and a list of specific moves — which outflow to delay, which receivable to pull forward, and how much short you are. Then use Sensitivity to ask how wrong you can afford to be."),
+     null, null],
+  ];
+
+  // Mirrors fpa_cash.RUN_FILTERS exactly. Bound: in=committed, out=committed+planned.
+  // Base: in=committed+expected+speculative (speculative at half weight),
+  // out=all four. Optimistic: in=all four, out=committed+planned.
+  const runRows = [
+    ["committed", t("Signed, contracted, already owed."), "in + out", "in + out", "in + out"],
+    ["planned", t("Budgeted, not yet signed."), t("out only"), t("out only"), "in + out"],
+    ["expected", t("Likely, unsigned."), "—", "in + out", t("in only")],
+    ["speculative", t("Pipeline, a hope."), "—", t("in at half weight, + out"), t("in only")],
+  ];
+
+  const verdicts = [
+    ["KRITIS", "bad", t("Cash goes below zero. A payment will not clear.")],
+    ["TOLAK", "bad", t("Cash stays positive but breaks the buffer floor.")],
+    ["WASPADA", "draft", t("Inside the floor but with little room, or the Base run breaches.")],
+    ["LULUS", "posted", t("Headroom stays above 25% of the floor every day.")],
+  ];
+
+  const terms = [
+    [t("Buffer floor"), t("The lowest cash a company is allowed to hold. The larger of the minimum you set and N months of fixed cash operating cost — depreciation excluded, because it never leaves the bank.")],
+    [t("Headroom"), t("Cash minus the floor, on the worst day of the year. Negative headroom is the size of the hole.")],
+    [t("Safe period"), t("How long the plan holds before it first touches the floor or zero, and the exact date it breaks.")],
+    [t("Bound / Base / Optimistic"), t("Three readings of the same plan. Bound is the one that decides the verdict: it counts only committed money in, and both committed and planned money out. It is deliberately the pessimistic reading.")],
+    [t("Pessimistic settlement"), t("Inside a week bucket, money OUT leaves on the first day and money IN arrives on the last. The Oracle never gives itself the benefit of the doubt about timing.")],
+    [t("Cash pooling: off"), t("Your setting. The group is safe only if EVERY company is safe — cash trapped in one entity does not pay another's payroll, so the group verdict is the worst entity's verdict, never an average.")],
+  ];
+
+  const sens = [
+    [t("Tornado"), t("One axis moved at a time, widest bar first. That ordering IS the recommendation of what to manage — the widest bar is where your year is most exposed.")],
+    [t("Break-even"), t("The number to remember. 'Revenue can fall to 85% before the buffer breaks' is a sentence you can take into a board meeting.")],
+    [t("Crisis"), t("A one-off unbudgeted expense landing at the worst possible moment, priced as a share of the year's planned cash out. This is the 'what if something happens' axis.")],
+    [t("The 5 × 5 grid"), t("Revenue shortfall against expense overrun, together. Real years move on both axes at once, and only this grid shows that — a one-way bar cannot.")],
+  ];
+
+  const gotchas = [
+    [t("It says KRITIS and I think we are fine."),
+     t("Almost always certainty. A budget line starts life as 'planned', and the Bound run counts no planned money in — so the forecast is reading a year with income switched off. Mark contracted revenue 'committed'. The Oracle says this in its own warnings whenever it applies.")],
+    [t("The verdict changed and I did not touch the budget."),
+     t("The Oracle reads the LIVE budget, so it moves the moment anyone edits Budget Center. If you need a number that cannot move — to quote in minutes, or to compare against later — press 'Freeze as scenario' and read that instead.")],
+    [t("A number looks doubled."),
+     t("Check whether the same account is budgeted at both company level and project level. Both are counted, because a company-level line is normally spending that belongs to no project. If yours is a summary of the projects, it is being counted twice — the Oracle warns when it sees this pattern.")],
+    [t("Depreciation is missing from the forecast."),
+     t("On purpose. Anything classed 'noncash' never moves cash, so it is excluded here and excluded from the buffer floor. The two halves of the engine agree.")],
+  ];
+
+  body.innerHTML = `
+    ${checklist}
+
+    <div class="card mt">
+      <h3>${t("What the Oracle actually does")}</h3>
+      <p style="margin-top:-4px;max-width:64em;line-height:1.65">${t("It takes the budget your finance team already set, turns every line into a dated movement of cash, adds the receivables, payables and investment commitments already on the books, and then runs the year day by day to answer one question: does cash ever fall below the line you said it must never fall below?")}</p>
+      <p class="muted" style="max-width:64em;line-height:1.6">${t("It is a forecast, not a record. That is why this section is a different colour from the rest of the console — the books are teal, the Oracle is not, and nothing here has been posted to anything.")}</p>
+    </div>
+
+    <div class="card mt"><h3>${t("The five steps")}</h3>
+      <div class="og-steps">${steps.map(([n, title, textv, route, cta]) => `
+        <div class="og-step">
+          <div class="og-n">${n}</div>
+          <div><b>${esc(title)}</b>
+            <div class="muted" style="font-size:12.5px;line-height:1.6;margin-top:4px">${esc(textv)}</div>
+            ${cta ? `<div style="margin-top:8px">${route
+              ? `<button class="btn btn-sm og-go" data-route="${esc(route)}">${esc(cta)} &rarr;</button>`
+              : `<button class="btn btn-sm" id="og-policy">&#9881; ${esc(cta)}</button>`}</div>` : ""}
+          </div>
+        </div>`).join("")}</div>
+    </div>
+
+    <div class="card mt"><h3>${t("Certainty — which money counts, and where")}</h3>
+      <p class="muted" style="margin-top:-4px">${t("This table is the whole engine in six rows. A run only counts a line if its certainty appears in that run's column.")}</p>
+      <div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>${t("Certainty")}</th><th>${t("Means")}</th>
+          <th>${t("Bound")} <span class="muted">(${t("the verdict")})</span></th><th>${t("Base")}</th><th>${t("Optimistic")}</th></tr></thead>
+        <tbody>${runRows.map(([k, mean, b, ba, o]) => `<tr>
+          <td><span class="pill ${CERTAINTY_PILL[k] || "inactive"}">${esc(t(k))}</span></td>
+          <td class="muted">${esc(mean)}</td>
+          <td><b>${esc(b)}</b></td><td>${esc(ba)}</td><td>${esc(o)}</td></tr>`).join("")}</tbody></table></div>
+      <p class="muted mt" style="font-size:12px">${t("Read the Bound column twice. 'Planned' is an outflow but never an inflow — money you intend to spend counts against you, money you merely hope to receive does not count for you. That asymmetry is the point of the whole tool.")}</p>
+    </div>
+
+    <div class="card mt"><h3>${t("The four verdicts")}</h3>
+      <table class="tbl"><tbody>${verdicts.map(([v, cls, txt]) => `<tr>
+        <td style="width:110px"><span class="pill ${cls}">${v}</span></td>
+        <td>${esc(txt)}</td></tr>`).join("")}</tbody></table>
+      <p class="muted mt" style="font-size:12px">${t("The verdict is always taken from the Bound run, and always from the worst entity.")}</p>
+    </div>
+
+    <div class="card mt"><h3>${t("The words on the screen")}</h3>
+      <table class="tbl"><tbody>${terms.map(([k, v]) => `<tr>
+        <td style="width:210px"><b>${esc(k)}</b></td><td class="muted">${esc(v)}</td></tr>`).join("")}</tbody></table>
+    </div>
+
+    <div class="card mt"><h3>${t("Reading Sensitivity & crisis")}</h3>
+      <table class="tbl"><tbody>${sens.map(([k, v]) => `<tr>
+        <td style="width:170px"><b>${esc(k)}</b></td><td class="muted">${esc(v)}</td></tr>`).join("")}</tbody></table>
+      <p class="muted mt" style="font-size:12px">${t("If the plan already breaches with no stress applied, sensitivity says so instead of printing a break-even. There is no margin to measure when you are already through the floor.")}</p>
+    </div>
+
+    <div class="card mt"><h3>${t("When the answer looks wrong")}</h3>
+      <table class="tbl"><tbody>${gotchas.map(([q, a]) => `<tr>
+        <td style="width:280px"><b>${esc(q)}</b></td><td class="muted">${esc(a)}</td></tr>`).join("")}</tbody></table>
+    </div>`;
+
+  $$("#orBody .og-go").forEach(b => b.onclick = () => { location.hash = "#/" + b.dataset.route; });
+  if ($("#og-policy")) $("#og-policy").onclick = () => oraclePolicyModal(() => oracleGuideView(body));
+}
+
+/* ------------------------------------------------------------------ THE ORACLE (Ahli Nujum) */
+// Its own screen under HV Sections, in its own colour, because it is not the
+// books — it is a forecast, and it should never be mistaken for a fact at a
+// glance. It reads the live Budget Center (company level AND per project) and
+// answers three questions: are we safe, when do we stop being safe, and what
+// should we do about it.
+//
+// A saved plan version is a FROZEN COPY of the budget, kept so a verdict can be
+// quoted later against the numbers it was actually given. The live budget is the
+// default because that is the one people are editing.
+async function pageOracle(el) {
+  if (!state.oracleTab) state.oracleTab = "verdict";
+  const vs = await api(`/api/plan/versions`).catch(() => ({ versions: [] }));
+  // "" is the live budget; only fall back to it if a stored id has gone away
+  if (state.planVersion && !vs.versions.some(v => v.id == state.planVersion))
+    state.planVersion = null;
+
+  el.innerHTML = `
+    <div class="page-head"><h2>${t("The Oracle")}
+      <span class="muted" style="font-size:13px;font-weight:500">· ${t("Ahli Nujum")} · ${t("does the budget survive the year?")}</span></h2>
+      <div class="page-actions">
+        <label class="muted">${t("Reading")} <select id="orVersion" style="min-width:250px">
+          <option value="" ${!state.planVersion ? "selected" : ""}>${t("Live budget (Budget Center)")}</option>
+          ${vs.versions.map(v =>
+            `<option value="${v.id}" ${v.id == state.planVersion ? "selected" : ""}>${esc(v.name)} · ${v.year} · ${esc(v.status)}</option>`).join("")}
+        </select></label>
+        ${canWrite() ? `<button class="btn btn-sm" id="orFreeze" title="${t("Keep a copy of the budget exactly as it is today, so this verdict can be quoted against it later")}">&#10052; ${t("Freeze as scenario")}</button>` : ""}
+        <button class="btn btn-sm" id="orPolicy">&#9881; ${t("Cash policy")}</button>
+      </div></div>
+    <div class="tabs" id="orTabs">
+      <button data-t="verdict" class="${state.oracleTab === "verdict" ? "active" : ""}">${t("Verdict & actions")}</button>
+      <button data-t="sens" class="${state.oracleTab === "sens" ? "active" : ""}">${t("Sensitivity & crisis")}</button>
+      <button data-t="guide" class="${state.oracleTab === "guide" ? "active" : ""}">${t("How to use")}</button>
+    </div>
+    <div id="orBody"><div class="empty">Loading…</div></div>`;
+
+  const show = async () => {
+    const body = $("#orBody");
+    body.innerHTML = `<div class="card"><div class="empty">${t("Consulting the Oracle…")}</div></div>`;
+    if (state.oracleTab === "guide") await oracleGuideView(body);
+    else if (state.oracleTab === "verdict") await oracleVerdictView(body, state.planVersion);
+    else await oracleSensitivityView(body, state.planVersion);
+  };
+  $$("#orTabs button").forEach(b => b.onclick = () => {
+    state.oracleTab = b.dataset.t;
+    $$("#orTabs button").forEach(x => x.classList.toggle("active", x === b));
+    show();
+  });
+  $("#orVersion").onchange = e => {
+    state.planVersion = e.target.value ? parseInt(e.target.value, 10) : null;
+    show();
+  };
+  if ($("#orFreeze")) $("#orFreeze").onclick = async () => {
+    const name = prompt(t("Name this frozen scenario"),
+                        `${t("Budget snapshot")} ${new Date().toISOString().slice(0, 10)}`);
+    if (!name) return;
+    try {
+      const v = await api("/api/plan/versions", { json: { name, year: state.year } });
+      const r = await api(`/api/plan/weeks/seed-from-budget/${v.id}`, { json: { year: state.year } });
+      toast(`${t("Frozen")}: ${r.cells} ${t("weekly cells")}`);
+      pageOracle(el);
+    } catch (e) { toast(e.message, true); }
+  };
+  $("#orPolicy").onclick = () => oraclePolicyModal(show);
+  await show();
+}
+
+async function oracleVerdictView(body, versionId) {
+  let d;
+  try { d = await api("/api/oracle/consult", { json: { version_id: versionId || null, year: state.year } }); }
+  catch (e) { body.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; return; }
+  const worst = d.entities.find(e => e.company_code === d.driven_by) || d.entities[0] || {};
+  const wk = worst.weekly || [];
+  const safe = worst.safe || {};
+  const rec = worst.recommend || { actions: [] };
+
+  const breachLine = safe.kind === "zero"
+    ? `${t("After that cash goes BELOW ZERO on")} <b>${esc(safe.breach)}</b> — ${t("a payment will not clear.")}`
+    : `${t("After that cash drops through the buffer floor on")} <b>${esc(safe.breach)}</b>.`;
+  const safeLine = !safe.breach
+    ? `<b class="pos">${t("Safe all year")}</b> — ${t("cash stays above the buffer floor every day on the Bound run.")}`
+    : safe.never_safe
+      ? `<b class="neg">${t("No safe period at all")}</b> — ${
+           safe.kind === "zero"
+             ? t("cash is already below zero on the first day of the plan")
+             : t("cash is already under the buffer floor on the first day of the plan")
+         } (<b>${esc(safe.breach)}</b>). ${t("This starts as an opening-balance problem, not a plan problem.")}`
+      : `<b class="neg">${t("Safe until")} ${esc(safe.safe_until)}</b> — ${t("about")} <b>${safe.weeks_safe} ${t("weeks")}</b>. ${breachLine}`;
+
+  body.innerHTML = `
+    <div class="card">
+      <div class="page-head"><h3 style="margin:0">
+        <span class="pill ${VERDICT_CLS[d.verdict] || "inactive"}" style="font-size:14px">${esc(d.verdict)}</span>
+        <span class="muted" style="font-weight:500;font-size:13px"> ${esc(d.verdict_text)}</span></h3>
+        <div class="page-actions"><span class="muted">${esc(d.version_name)} · ${d.year} · ${d.items} ${t("dated items")}</span></div></div>
+      <p style="margin-top:6px">${safeLine}</p>
+      <div class="mt">${d.entities.map(e => `<span class="pill ${VERDICT_CLS[e.verdict] || "inactive"}"
+        title="${t("floor")} ${fmtRp(e.floor)}">${esc(e.company_code)}: ${esc(e.verdict)}</span>`).join(" ")}</div>
+      <p class="muted mt" style="font-size:12px"><b>${t("Group rule")}:</b> ${esc(d.rule)}</p>
+    </div>
+
+    <div class="card mt"><h3>${t("Recommended action")}</h3>
+      ${rec.needed ? `<p class="muted" style="margin-top:-4px">${t("Short by")} <b class="neg">${fmtRp(rec.needed)}</b>
+        ${t("at the worst point")} (${esc(rec.worst_date || "")}) ${t("in")} <b>${esc(worst.company_code || "")}</b>.</p>` : ""}
+      <ol style="margin:8px 0 0 20px;line-height:1.8">${(rec.actions || []).map(a =>
+        `<li>${esc(a.text)}</li>`).join("")}</ol>
+    </div>
+
+    ${wk.length ? `<div class="card mt"><h3>${t("Weekly cash")} — ${esc(worst.company_code)} (${t("Bound run")})</h3>
+      ${chartBars(wk.map(w => (w.week === 1 ? w.label.slice(0, 2) : "")), [
+        { name: t("Cash"), color: C_REV, values: wk.map(w => w.ending), type: "line" },
+        { name: t("Buffer floor"), color: "#c87a08", values: wk.map(() => worst.floor), type: "line" },
+        { name: t("Zero"), color: "#bd362f", values: wk.map(() => 0), type: "line" },
+      ], { height: 270 })}
+      <p class="muted" style="font-size:12px">${t("4 weeks a month, 48 weeks a year. Bound counts only committed money in, and committed + planned money out.")}</p>
+    </div>` : ""}
+
+    <div class="card mt"><h3>${t("Per entity")}</h3>
+      <div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>${t("Entity")}</th><th>${t("Verdict")}</th><th>${t("Safe until")}</th>
+          <th class="num">${t("Opening cash")}</th><th class="num">${t("Buffer floor")}</th>
+          <th class="num">${t("Worst headroom")}</th><th>${t("Worst day")}</th></tr></thead>
+        <tbody>${d.entities.map(e => `<tr>
+          <td><b>${esc(e.company_code)}</b></td>
+          <td><span class="pill ${VERDICT_CLS[e.verdict] || "inactive"}">${esc(e.verdict)}</span></td>
+          <td>${!(e.safe && e.safe.breach) ? `<span class="pos">${t("all year")}</span>`
+            : e.safe.never_safe ? `<span class="neg">${t("never")}</span>`
+            : esc(e.safe.safe_until) + ` <span class="muted">(${e.safe.weeks_safe}w)</span>`}</td>
+          <td class="num">${fmt(e.opening_cash)}</td>
+          <td class="num muted">${fmt(e.floor)}</td>
+          <td class="num ${(e.detail.min_headroom || 0) < 0 ? "neg" : "pos"}">${fmt(e.detail.min_headroom || 0)}</td>
+          <td>${esc(e.detail.worst_date || "—")}</td></tr>`).join("")}</tbody></table></div>
+    </div>
+
+    ${(worst.contributors || []).length ? `<div class="card mt"><h3>${t("Biggest outflows before the worst day")}</h3>
+      <table class="tbl"><thead><tr><th>${t("Date")}</th><th>${t("What")}</th><th>${t("Certainty")}</th><th class="num">${t("Amount")}</th></tr></thead>
+        <tbody>${worst.contributors.map(cc => `<tr><td>${esc(cc.date)}</td><td>${esc(cc.label)}</td>
+          <td><span class="pill ${CERTAINTY_PILL[cc.certainty] || "inactive"}">${esc(cc.certainty)}</span></td>
+          <td class="num">${fmt(cc.amount)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+
+    ${(d.warnings || []).length ? `<div class="card mt"><h3>${t("Assumptions & warnings")}</h3>
+      <ul class="muted" style="margin:0 0 0 18px;line-height:1.7;font-size:12.5px">
+        ${d.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}`;
+}
+
+async function oracleSensitivityView(body, versionId) {
+  let d;
+  const vq = versionId ? `&version_id=${versionId}` : "";   // no version = the live budget
+  try { d = await api(`/api/oracle/sensitivity?year=${state.year}${vq}`); }
+  catch (e) { body.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; return; }
+  const fmtLevel = (ax, lv) => {
+    if (ax === "revenue_realisation") return Math.round(lv * 100) + "%";
+    if (ax === "expense_overrun" || ax === "crisis_shock") return "+" + Math.round(lv * 100) + "%";
+    if (ax === "collection_lag") return "+" + lv + "d";
+    return lv ? t("yes") : t("no");
+  };
+  const maxSwing = Math.max(1, ...d.tornado.map(x => x.swing || 0));
+  const tor = d.tornado.map(x => {
+    if (x.not_applicable)
+      return `<tr><td><b>${esc(x.label)}</b><br><span class="muted">${esc(x.help)}</span></td>
+        <td colspan="2" class="muted">${t("Not applicable")} — ${esc(x.not_applicable)}</td></tr>`;
+    const w = Math.round(100 * (x.swing || 0) / maxSwing);
+    return `<tr><td><b>${esc(x.label)}</b><br><span class="muted">${esc(x.help)}</span></td>
+      <td style="min-width:170px"><div class="bar"><span style="width:${w}%;background:${w > 66 ? "#bd362f" : w > 33 ? "#c87a08" : "#1f9d57"}"></span></div>
+        <span class="muted" style="font-size:11px">${t("swing")} ${x.swing ? fmtShortRp(x.swing) : t("none — this axis changes nothing here")}</span></td>
+      <td>${x.levels.map(lv => `<span class="pill ${VERDICT_CLS[lv.verdict] || "inactive"}" style="margin:1px"
+        title="${t("min headroom")} ${fmtShortRp(lv.min_headroom || 0)}${lv.first_breach ? " · " + t("breach") + " " + lv.first_breach : ""}">${fmtLevel(x.axis, lv.level)}</span>`).join(" ")}</td></tr>`;
+  }).join("");
+
+  const beBlocked = d.breakevens.filter(b => b.already_breached).length;
+  const be = d.breakevens.filter(b => b.value != null).map(b => {
+    const v = b.axis === "revenue_realisation" ? Math.round(b.value * 100) + "%"
+            : "+" + Math.round(b.value * 100) + "%";
+    return `<li><b>${esc(b.label)}</b>: ${b.target === "zero"
+      ? t("cash goes below zero at") : t("the buffer floor breaks at")} <b class="neg">${v}</b></li>`;
+  }).join("");
+
+  const gridRows = d.grid.rows.map(r => `<tr>
+    <td><b>${Math.round(r.revenue * 100)}%</b></td>
+    ${r.cells.map(v => `<td class="num"><span class="pill ${VERDICT_CLS[v] || "inactive"}">${esc(v)}</span></td>`).join("")}</tr>`).join("");
+
+  body.innerHTML = `
+    <div class="card">
+      <h3>${t("How wrong can we be before we are not safe?")}</h3>
+      <p class="muted" style="margin-top:-4px">${t("Plan as it stands")}:
+        <span class="pill ${VERDICT_CLS[d.base_verdict] || "inactive"}">${esc(d.base_verdict)}</span>
+        · ${t("min headroom")} <b>${fmtRp(d.base_min_headroom || 0)}</b></p>
+      ${d.base_already_breached ? `<div class="warn danger mt"><span class="warn-ic">&#9888;</span>
+        <span>${esc(d.base_note)}</span></div>` : ""}
+    </div>
+
+    <div class="card mt"><h3>${t("One-way sensitivity")} <span class="muted" style="font-weight:500;font-size:12.5px">· ${t("widest bar = the thing to manage")}</span></h3>
+      <table class="tbl"><thead><tr><th style="width:38%">${t("What could go wrong")}</th>
+        <th>${t("Impact")}</th><th>${t("Levels")}</th></tr></thead><tbody>${tor}</tbody></table>
+    </div>
+
+    ${be ? `<div class="card mt"><h3>${t("Break-even — the number to remember")}</h3>
+      <ul style="margin:6px 0 0 20px;line-height:1.9">${be}</ul></div>`
+      : beBlocked ? `<div class="card mt"><h3>${t("Break-even — the number to remember")}</h3>
+        <p class="muted">${t("No break-even to report: the plan already breaches with no stress applied.")}</p></div>` : ""}
+
+    <div class="card mt"><h3>${t("Revenue vs expense — the safe region")}</h3>
+      <p class="muted" style="margin-top:-4px">${t("Rows: how much planned cash in actually arrives. Columns: how much planned cash out overruns.")}</p>
+      <div style="overflow-x:auto"><table class="tbl">
+        <thead><tr><th>${t("Revenue \\\\ Expense")}</th>${d.grid.expense_levels.map(e =>
+          `<th class="num">+${Math.round(e * 100)}%</th>`).join("")}</tr></thead>
+        <tbody>${gridRows}</tbody></table></div>
+      <p class="muted mt" style="font-size:12px">${esc(d.honesty)}</p>
+    </div>
+
+    ${(d.warnings || []).length ? `<div class="card mt"><h3>${t("Assumptions & warnings")}</h3>
+      <ul class="muted" style="margin:0 0 0 18px;line-height:1.7;font-size:12.5px">
+        ${d.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}`;
+}
+
+async function oraclePolicyModal(reload) {
+  const d = await api("/api/oracle/buffer-policy?year=" + state.year);
+  const p = d.policy;
+  openModal(`
+    <p class="muted" style="margin-top:-4px">${t("How much cash each company must never go below. The floor is the bigger of the absolute amount you set and a number of months of fixed cash operating cost.")}</p>
+    <div class="form-grid">
+      <label>${t("Months of cover")} <input id="opMonths" type="number" step="0.5" value="${p.months_cover}"></label>
+      <label>${t("Collection lag (days) when unknown")} <input id="opLag" type="number" value="${p.default_collection_lag_days}"></label>
+      <label class="full" style="flex-direction:row;align-items:center;gap:8px">
+        <input type="checkbox" id="opPool" ${p.cash_pooling ? "checked" : ""} style="width:auto">
+        ${t("Cash pooling — the group sweeps cash between companies")}</label>
+    </div>
+    <p class="muted" style="font-size:12px">${t("With pooling OFF (your setting) the group is safe only if EVERY company is safe. Cash trapped in one entity does not pay another's payroll.")}</p>
+    <h3 style="margin-top:14px">${t("Minimum cash per company")}</h3>
+    <p class="muted" style="margin-top:-6px;font-size:12px">${t("Cash must never fall below this. Leave 0 and the only test is 'not below zero'.")}</p>
+    <table class="tbl"><thead><tr><th>${t("Company")}</th><th class="num">${t("Fixed cash opex / month")}</th>
+      <th class="num">${t("Minimum cash")}</th><th class="num">${t("Floor in force")}</th></tr></thead>
+      <tbody>${d.floors.map(f => `<tr><td><b>${esc(f.company_code)}</b></td>
+        <td class="num muted">${fmt(f.monthly_fixed_cash_opex)}</td>
+        <td class="num"><input class="op-floor" data-code="${esc(f.company_code)}" inputmode="numeric"
+          value="${f.absolute_floor ? fmt(f.absolute_floor) : ""}" style="width:150px;text-align:right"></td>
+        <td class="num"><b>${fmt(f.floor)}</b></td></tr>`).join("")}</tbody></table>
+    <div class="form-actions"><button class="btn btn-primary" id="opSave">${t("Save cash policy")}</button></div>`,
+    { title: t("Cash policy") });
+  $("#opSave").onclick = async () => {
+    const floors = {};
+    $$("#modalRoot .op-floor").forEach(i => {
+      floors[i.dataset.code] = parseInt((i.value || "0").replace(/[^\d-]/g, ""), 10) || 0;
+    });
+    try {
+      await api("/api/oracle/buffer-policy", { json: { policy: {
+        months_cover: parseFloat($("#opMonths").value) || 2.0,
+        default_collection_lag_days: parseInt($("#opLag").value, 10) || 14,
+        cash_pooling: $("#opPool").checked,
+        absolute_floor: floors } } });
+      toast(t("Cash policy saved")); closeModal(); reload && reload();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
 /* ------------------------------------------------------------------ money tracker */
 // pipeline state -> pill class for the stage history table
 const MT_STATE_PILL = { completed: "posted", current: "active", pending: "inactive", skipped: "draft" };
-const MT_STATUS_PILL = { active: "active", done: "posted", on_hold: "draft", cancelled: "inactive" };
+const MT_STATUS_PILL = { prospectus: "prospectus", active: "active", done: "posted", on_hold: "draft", cancelled: "inactive" };
 
 async function pageMoneyTracker(el) {
   el.innerHTML = `
@@ -3063,10 +3890,20 @@ async function pageMoneyTracker(el) {
   const load = async () => {
     const d = await api(`/api/money-tracker?${scopeQS()}`);
     $("#scopeBadge").textContent = d.scope;
-    const rows = d.items.map(m => {
+    // ---- filters (client name / amount order / current phase) ----
+    const fClient = (state.mtClient || "").toLowerCase();
+    const fPhase = state.mtPhase || "";
+    const fSort = state.mtSort || "";
+    let items = d.items.filter(m =>
+      (!fClient || (`${m.client || ""} ${m.project_code || ""} ${m.project_name || ""} ${m.title || ""}`).toLowerCase().includes(fClient))
+      && (!fPhase || m.phase_key === fPhase));
+    if (fSort === "amount_desc") items = items.slice().sort((a, b) => (b.amount || 0) - (a.amount || 0));
+    else if (fSort === "amount_asc") items = items.slice().sort((a, b) => (a.amount || 0) - (b.amount || 0));
+    const rows = items.map(m => {
       const name = m.project_code ? `${esc(m.project_code)} — ${esc(m.project_name || "")}` : esc(m.title || "—");
+      const hot = m.is_hot ? ` <span class="pill hot" title="HOT prospect">&#128293; HOT</span>` : "";
       return `<tr data-id="${m.id}" style="cursor:pointer">
-        <td><b>${name}</b>${m.title && m.project_code ? `<br><span class="muted">${esc(m.title)}</span>` : ""}</td>
+        <td><b>${name}</b>${hot}${m.title && m.project_code ? `<br><span class="muted">${esc(m.title)}</span>` : ""}</td>
         <td>${esc(m.company_code)}</td>
         <td>${esc(m.client || "")}<br><span class="muted">${esc(m.invoice_no || "")}</span></td>
         <td class="num"><b>${fmtRp(m.amount)}</b></td>
@@ -3078,7 +3915,7 @@ async function pageMoneyTracker(el) {
         </td>
         <td><span class="pill ${MT_STATUS_PILL[m.status] || "inactive"}">${esc(m.status.replace("_", " "))}</span></td>
       </tr>`;
-    }).join("") || `<tr><td colspan="6" class="empty">No invoice tracks yet — add one to follow a project's money from contract to payment.</td></tr>`;
+    }).join("") || `<tr><td colspan="6" class="empty">${d.items.length ? "No track matches these filters." : "No invoice tracks yet — add one to follow a project's money from contract to payment."}</td></tr>`;
     $("#mtBody").innerHTML = `
       <div class="grid kpis">
         <div class="kpi"><div class="kpi-label">${t("Total tracked")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.total_amount)}</div>
@@ -3087,16 +3924,38 @@ async function pageMoneyTracker(el) {
           <div class="kpi-sub">${d.count_active} still moving</div></div>
         <div class="kpi ${d.on_hold ? "amber" : ""}"><div class="kpi-label">${t("On hold")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.on_hold || 0)}</div>
           <div class="kpi-sub">${d.count_on_hold || 0} parked &middot; not in outstanding</div></div>
+        <div class="kpi ${d.prospectus ? "orange" : ""}"><div class="kpi-label">${t("Prospectus")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.prospectus || 0)}</div>
+          <div class="kpi-sub">${d.count_prospectus || 0} prospect(s)${d.count_hot ? ` &middot; ${d.count_hot} HOT` : ""}</div></div>
         <div class="kpi green"><div class="kpi-label">${t("Received")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.received)}</div>
           <div class="kpi-sub">clear &amp; clear</div></div>
       </div>
-      <div class="card mt"><div style="overflow-x:auto"><table class="tbl">
+      <div class="card mt">
+        <div class="filters" style="margin-bottom:10px">
+          <label>${t("Client / project")} <input id="mtfClient" value="${esc(state.mtClient || "")}" placeholder="${t("search…")}" style="min-width:180px"></label>
+          <label>${t("Amount")} <select id="mtfSort">
+            <option value="">${t("default order")}</option>
+            <option value="amount_desc" ${state.mtSort === "amount_desc" ? "selected" : ""}>${t("Big to small")}</option>
+            <option value="amount_asc" ${state.mtSort === "amount_asc" ? "selected" : ""}>${t("Small to big")}</option>
+          </select></label>
+          <label>${t("Current phase")} <select id="mtfPhase">
+            <option value="">${t("All phases")}</option>
+            ${(d.phases || []).map(p => `<option value="${esc(p.key)}" ${state.mtPhase === p.key ? "selected" : ""}>${esc(p.label)} — ${esc(p.name)}</option>`).join("")}
+          </select></label>
+          <button class="btn btn-sm" id="mtfClear">${t("Clear")}</button>
+          <span class="muted">${items.length} ${t("of")} ${d.items.length}</span>
+        </div>
+        <div style="overflow-x:auto"><table class="tbl">
         <thead><tr><th>${t("Project")}</th><th>Co.</th><th>${t("Client")} / ${t("Invoice")}</th>
           <th class="num">${t("Amount")}</th><th>${t("Current phase")}</th><th>${t("Status")}</th></tr></thead>
         <tbody>${rows}</tbody></table></div>
         <p class="muted mt">Click a row to open the phase pipeline — Pre-administration → Contract → Ongoing → Reports → SPM → SPP → Approval → KASDA → SP2D → Done.</p>
       </div>`;
     $$("#mtBody tr[data-id]").forEach(tr => tr.onclick = () => moneyTrackerDetail(tr.dataset.id, load));
+    const deb = (fn, ms) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
+    $("#mtfClient").oninput = deb(e => { state.mtClient = e.target.value; load(); }, 250);
+    $("#mtfSort").onchange = e => { state.mtSort = e.target.value; load(); };
+    $("#mtfPhase").onchange = e => { state.mtPhase = e.target.value; load(); };
+    $("#mtfClear").onclick = () => { state.mtClient = ""; state.mtSort = ""; state.mtPhase = ""; load(); };
   };
   if ($("#mtNew")) $("#mtNew").onclick = () => moneyTrackerEditor(null, load);
   await load();
@@ -3152,13 +4011,16 @@ async function moneyTrackerDetail(tid, reload) {
     ${canWrite() ? `<div class="filters" style="margin-top:10px">
       <label class="muted">${t("Project status")}</label>
       <div class="seg-group" id="mtStatusSeg">
+        <button class="seg ${m.status === "prospectus" ? "active" : ""}" data-st="prospectus">${t("Prospectus")}</button>
         <button class="seg ${m.status === "active" ? "active" : ""}" data-st="active">${t("Active")}</button>
         <button class="seg ${m.status === "on_hold" ? "active" : ""}" data-st="on_hold">${t("On hold")}</button>
         <button class="seg ${m.status === "cancelled" ? "active" : ""}" data-st="cancelled">${t("Cancelled")}</button>
         <button class="seg ${m.status === "done" ? "active" : ""}" data-st="done">${t("Done")}</button>
-      </div></div>` : ""}
+      </div>
+      ${m.status === "prospectus" ? `<button class="btn btn-sm ${m.is_hot ? "btn-hot" : ""}" id="mtHot">${m.is_hot ? "&#128293; " + t("HOT — click to cool") : t("Mark as HOT")}</button>` : ""}
+      </div>` : ""}
     ${mtStepper(m.history)}
-    ${canWrite() && !m.is_final && m.status !== "on_hold" && m.status !== "cancelled" ? `<div class="filters" style="margin-top:12px">
+    ${canWrite() && !m.is_final && !["on_hold", "cancelled", "prospectus"].includes(m.status) ? `<div class="filters" style="margin-top:12px">
       <button class="btn btn-primary" id="mtAdvance">${t("Mark done / advance phase")}</button>
       <label class="muted">${t("or jump to")} <select id="mtJump">
         ${m.history.map(h => `<option value="${esc(h.key)}" ${h.key === m.phase_key ? "selected" : ""}>${esc(h.label)} — ${esc(h.name)}</option>`).join("")}
@@ -3219,6 +4081,11 @@ async function moneyTrackerDetail(tid, reload) {
       toast("Project status updated"); moneyTrackerDetail(tid, reload); reload && reload();
     } catch (e) { toast(e.message, true); }
   });
+  if ($("#mtHot")) $("#mtHot").onclick = async () => {
+    try { await api(`/api/money-tracker/${tid}/hot`, { json: { is_hot: !m.is_hot } });
+      toast(m.is_hot ? "Cooled down" : "Marked HOT"); moneyTrackerDetail(tid, reload); reload && reload();
+    } catch (e) { toast(e.message, true); }
+  };
   // per-phase notes: toggle the sub-row, add a note
   $$("#modalRoot [data-phase].mt-badge").forEach(b => b.onclick = () => {
     const row = $(`#modalRoot tr[data-pc="${cssEsc(b.dataset.phase)}"]`);
@@ -3280,9 +4147,11 @@ async function moneyTrackerEditor(m, reload) {
     <label>Started <input type="date" id="mtStart" value="${esc(m ? (m.started_at || "") : new Date().toISOString().slice(0, 10))}"></label>
     <label>Phase <select id="mtPhase">${phases.map(p =>
       `<option value="${esc(p.key)}" ${m && m.phase_key === p.key ? "selected" : ""}>${esc(p.label)} — ${esc(p.name)}</option>`).join("")}</select></label>
-    <label>Status <select id="mtStatus">${["active", "done", "on_hold", "cancelled"].map(s =>
+    <label>Status <select id="mtStatus">${["prospectus", "active", "done", "on_hold", "cancelled"].map(s =>
       `<option value="${s}" ${m && m.status === s ? "selected" : ""}>${s.replace("_", " ")}</option>`).join("")}</select></label>
     <label class="full">Notes <input id="mtNotes" value="${esc(m ? m.notes : "")}"></label>
+    <label class="full" style="flex-direction:row;align-items:center;gap:8px">
+      <input type="checkbox" id="mtHotChk" ${m && m.is_hot ? "checked" : ""} style="width:auto"> &#128293; HOT prospect</label>
     </div><div class="form-actions"><button class="btn btn-primary" id="mtSave">Save</button></div>`,
     { title: m ? "Edit invoice track" : "New invoice track" });
   $("#mtSave").onclick = async () => {
@@ -3293,7 +4162,7 @@ async function moneyTrackerEditor(m, reload) {
       amount: parseInt(($("#mtAmount").value || "0").replace(/[^\d-]/g, ""), 10) || 0,
       started_at: $("#mtStart").value || null,
       phase_key: $("#mtPhase").value, status: $("#mtStatus").value,
-      notes: $("#mtNotes").value,
+      notes: $("#mtNotes").value, is_hot: $("#mtHotChk").checked,
     };
     try {
       if (m) await api("/api/money-tracker/" + m.id, { method: "PUT", json: body });
@@ -3410,7 +4279,8 @@ function renderAcctLedger(body, d) {
 
 async function pageSettings(el) {
   const tabs = [["coa", "Chart of Accounts"], ["fields", "Custom Fields"], ["companies", "Companies"]];
-  if (isAdmin()) tabs.push(["users", "Users"], ["thresholds", "Thresholds"], ["cash", "Cash & Bank"], ["dashboard", "Dashboard"]);
+  if (isAdmin()) tabs.push(["users", "Users"], ["thresholds", "Thresholds"], ["cash", "Cash & Bank"],
+                           ["dashboard", "Dashboard"], ["cashplan", "Budget & Oracle"]);
   el.innerHTML = `
     <div class="page-head"><h2>${t("Settings")}</h2></div>
     <div class="tabs" id="sTabs">${tabs.map(([k, l], i) =>
@@ -3432,6 +4302,7 @@ async function pageSettings(el) {
     else if (tab === "thresholds") await settingsThresholds(body);
     else if (tab === "cash") await settingsCash(body);
     else if (tab === "dashboard") await settingsDashboard(body);
+    else if (tab === "cashplan") await settingsCashPlan(body);
   }
   await show();
 }
@@ -3443,7 +4314,10 @@ function updateDbBadge() {
   if (!badge) return;
   const active = state.me.active_db;
   const isSandbox = active && active !== "MORES-GROUP";
-  badge.textContent = active ? "LIVE · " + active : "";
+  const asOf = state.me.data_as_of || "";
+  // the cut-off belongs next to the database name: a figure from a ledger that
+  // stops in July must never be read as a figure that is current
+  badge.textContent = active ? "LIVE · " + active + (asOf ? " · " + t("data to") + " " + asOf : "") : "";
   badge.hidden = !active;
   badge.className = "db-badge" + (isSandbox ? " sandbox" : "");
   badge.style.cursor = "pointer";
@@ -3788,6 +4662,72 @@ async function settingsDashboard(body) {
       try { await api("/api/settings/dashboard-kpis", { json: { keys } }); toast("Dashboard resume saved"); load(); }
       catch (e) { toast(e.message, true); }
     };
+  };
+  await load();
+}
+
+async function settingsCashPlan(body) {
+  // The budget is week-grain everywhere now, so the only conversion left is the
+  // bulk one: fold each month back into its first week. It is here rather than
+  // on the grid because it rewrites a whole year across every company at once.
+  const load = async () => {
+    body.innerHTML = `<div class="card">
+      <h3>${t("Convert the monthly budget into Week 1")}</h3>
+      <p class="muted" style="margin-top:-6px">${t("Folds every month of the")} <b>${state.year}</b>
+        ${t("budget into its first week, for company-level and project-level lines alike. Weeks 2-4 are ADDED into week 1, never dropped — the month total is identical before and after, and the result says so.")}</p>
+      <p class="muted" style="font-size:12px">${t("A monthly budget tells you the month, not the week. Week 1 is its honest reading and the safest for cash: money out as early as it could go. This is what the Oracle then reads.")}</p>
+      <div class="form-grid">
+        <label>${t("Company")} <select id="scCompany">
+          <option value="">${t("All companies I can access")}</option>
+          ${companyOptions(null)}</select></label>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" id="scRun">${t("Fold every month into Week 1")}</button></div>
+      <div id="scResult"></div>
+    </div>
+
+    <div class="card mt">
+      <div class="page-head"><h3 style="margin:0">${t("How each account moves cash")}</h3>
+        <button class="btn btn-sm btn-primary" id="cfSave">${t("Save")}</button></div>
+      <p class="muted" style="margin-top:-6px">${t("Only 'operating' expenses count towards the buffer floor. Depreciation and other non-cash lines must be marked 'noncash' or the Oracle will demand a cash buffer for money that never leaves the bank.")}</p>
+      <div id="cfBox" class="empty">${t("Loading")}\u2026</div>
+    </div>`;
+
+    $("#scRun").onclick = async () => {
+      const cid = $("#scCompany").value;
+      if (!confirm(t("Fold every month of") + " " + state.year + " " + t("into Week 1?"))) return;
+      try {
+        const r = await api("/api/budgets/collapse-to-week1", {
+          json: { year: state.year, company_id: cid ? parseInt(cid, 10) : null } });
+        $("#scResult").innerHTML = `<p class="${r.unchanged ? "pos" : "neg"}" style="margin-top:10px">
+          ${r.months_folded} ${t("account-months folded into Week 1.")}
+          ${t("Total budget before")} <b>${fmtRp(r.total_before)}</b>,
+          ${t("after")} <b>${fmtRp(r.total_after)}</b> —
+          ${r.unchanged ? t("unchanged, as it must be.") : t("THESE DO NOT MATCH. Do not trust this result.")}</p>`;
+        toast(`${r.months_folded} ${t("account-months folded into Week 1.")}`);
+      } catch (e) { toast(e.message, true); }
+    };
+
+    // cash-flow class table loads on its own so a big COA never blocks the page
+    try {
+      const cf = await api("/api/settings/cash-flow-classes");
+      $("#cfBox").className = "";
+      $("#cfBox").innerHTML = `<div style="max-height:420px;overflow:auto"><table class="tbl">
+        <thead><tr><th>${t("Code")}</th><th>${t("Account")}</th><th>${t("Type")}</th><th>${t("Cash-flow class")}</th></tr></thead>
+        <tbody>${cf.accounts.map(a => `<tr><td><code>${esc(a.code)}</code></td><td>${esc(a.name)}</td>
+          <td class="muted">${esc(a.type)}</td>
+          <td><select class="cf-in" data-code="${esc(a.code)}">
+            <option value="">${t("\u2014 unset \u2014")}</option>
+            ${cf.classes.map(c => `<option value="${esc(c)}" ${a.cash_flow_class === c ? "selected" : ""}>${esc(c)}</option>`).join("")}
+          </select></td></tr>`).join("")}</tbody></table></div>`;
+      $("#cfSave").onclick = async () => {
+        const classes = {};
+        $$("#sBody .cf-in").forEach(i => { classes[i.dataset.code] = i.value; });
+        try {
+          const r = await api("/api/settings/cash-flow-classes", { json: { classes } });
+          toast(r.updated + " " + t("accounts updated"));
+        } catch (e) { toast(e.message, true); }
+      };
+    } catch (e) { $("#cfBox").innerHTML = `<p class="neg">${esc(e.message)}</p>`; }
   };
   await load();
 }

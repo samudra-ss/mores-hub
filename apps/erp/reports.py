@@ -50,6 +50,49 @@ SIGN = {  # natural balance sign: balance = sign * (debit - credit)
 }
 
 
+# ---- What counts as CASH --------------------------------------------------
+# ONE definition, shared by the dashboard and both cash-flow reports. The reports
+# used to hardcode "asset AND code LIKE '11%'" while the dashboard honoured the
+# configurable set, so the same database could report two different cash numbers.
+#
+# 1170 CC BCA VISA CARD lives under 1100 Cash & Bank because Account Parsing books
+# card purchases to it, but a credit card is money OWED, not cash held. Sweeping it
+# into a cash balance overstates cash and flatters every cash-flow number. It is
+# excluded by default; Settings -> Cash & Bank overrides the whole set explicitly.
+# Matched by PREFIX, so a derivative/duplicate such as "1170-" is caught too.
+CARD_CODE_PREFIXES = ("1170",)
+
+
+def is_card_code(code):
+    return any(str(code).startswith(p) for p in CARD_CODE_PREFIXES)
+
+
+def cash_condition(cash_codes=None, alias="a", exclude_intercompany=False):
+    """(sql, params) selecting the cash/bank accounts.
+
+    cash_codes: explicit list from Settings -> Cash & Bank.
+    None: every 11xx asset EXCEPT credit-card accounts (matched by prefix).
+    exclude_intercompany mirrors account_balances() in a consolidated view; without
+    it an intercompany-flagged cash account would count here but not on the
+    dashboard, and the two cash numbers would disagree.
+    The returned sql is substituted after %-formatting, so a single % is correct.
+    """
+    parts, params = [], []
+    if cash_codes:
+        codes = [str(c) for c in cash_codes]
+        parts.append("{a}.type = 'asset' AND {a}.code IN ({q})".format(
+            a=alias, q=",".join("?" * len(codes))))
+        params += codes
+    else:
+        parts.append("{a}.type = 'asset' AND {a}.code LIKE '11%'".format(a=alias))
+        for pfx in CARD_CODE_PREFIXES:
+            parts.append("{a}.code NOT LIKE ?".format(a=alias))
+            params.append(pfx + "%")
+    if exclude_intercompany:
+        parts.append("{a}.is_intercompany = 0".format(a=alias))
+    return " AND ".join(parts), params
+
+
 def _company_filter(company_ids):
     ids = list(company_ids)
     ph = ",".join("?" * len(ids))
@@ -728,18 +771,21 @@ def project_monthly(conn, project_id, year):
     return [series[m] for m in range(1, 13)]
 
 
-def cash_flow(conn, company_ids, year):
+def cash_flow(conn, company_ids, year, cash_codes=None):
     """Cash flow analysis: opening balance, monthly in/out/net/ending balance,
-    plus sources & uses of cash by counter account (entries touching cash)."""
+    plus sources & uses of cash by counter account (entries touching cash).
+    Cash is whatever cash_condition() selects - the same set the dashboard uses."""
     ph, ids = _company_filter(company_ids)
-    cash_cond = "a.type = 'asset' AND a.code LIKE '11%%'"
+    ic = _consolidated(company_ids)
+    cash_cond, cashp = cash_condition(cash_codes, exclude_intercompany=ic)
+    cash_cond2, cashp2 = cash_condition(cash_codes, alias="a2", exclude_intercompany=ic)
     opening = conn.execute(
         """SELECT COALESCE(SUM(jl.debit - jl.credit), 0)
            FROM journal_lines jl
            JOIN journal_entries je ON je.id = jl.entry_id
            JOIN accounts a ON a.id = jl.account_id
            WHERE je.status='posted' AND je.company_id IN (%s) AND %s AND je.date < ?"""
-        % (ph, cash_cond), ids + ["%d-01-01" % year]).fetchone()[0]
+        % (ph, cash_cond), ids + cashp + ["%d-01-01" % year]).fetchone()[0]
     rows = conn.execute(
         """SELECT CAST(strftime('%%m', je.date) AS INTEGER) AS month,
                   SUM(jl.debit) AS cash_in, SUM(jl.credit) AS cash_out
@@ -748,7 +794,7 @@ def cash_flow(conn, company_ids, year):
            JOIN accounts a ON a.id = jl.account_id
            WHERE je.status='posted' AND je.company_id IN (%s) AND %s
              AND strftime('%%Y', je.date) = ?
-           GROUP BY month""" % (ph, cash_cond), ids + [str(year)]).fetchall()
+           GROUP BY month""" % (ph, cash_cond), ids + cashp + [str(year)]).fetchall()
     by_month = {r["month"]: r for r in rows}
     monthly, running = [], round(opening, 2)
     for m in range(1, 13):
@@ -773,8 +819,9 @@ def cash_flow(conn, company_ids, year):
              AND je.id IN (
                SELECT jl2.entry_id FROM journal_lines jl2
                JOIN accounts a2 ON a2.id = jl2.account_id
-               WHERE a2.type = 'asset' AND a2.code LIKE '11%%')
-           GROUP BY a.code, a.type""" % (ph, cash_cond), ids + [str(year)]).fetchall()
+               WHERE %s)
+           GROUP BY a.code, a.type""" % (ph, cash_cond, cash_cond2),
+        ids + [str(year)] + cashp + cashp2).fetchall()
     sources = sorted([{"code": c["code"], "name": c["name"], "type": c["type"],
                        "amount": round(-(c["net_debit"] or 0), 2)}
                       for c in counters if (c["net_debit"] or 0) < 0],
@@ -952,23 +999,25 @@ def _cash_week_dates(year, week):
     return start.isoformat(), end.isoformat()
 
 
-def weekly_cash_flow(conn, company_ids, year):
+def weekly_cash_flow(conn, company_ids, year, cash_codes=None):
     """Actual vs budgeted cash by week: opening balance carried forward, weekly
-    cash in/out/net/ending for both actual (11xx movements) and the per-week cash
-    budget, plus the running variance (actual ending − budget ending)."""
+    cash in/out/net/ending for both actual cash movements and the per-week cash
+    budget, plus the running variance (actual ending − budget ending).
+    Cash is whatever cash_condition() selects - the same set the dashboard uses."""
     ph, ids = _company_filter(company_ids)
-    cash_cond = "a.type = 'asset' AND a.code LIKE '11%%'"
+    cash_cond, cashp = cash_condition(
+        cash_codes, exclude_intercompany=_consolidated(company_ids))
     opening = conn.execute(
         "SELECT COALESCE(SUM(jl.debit - jl.credit), 0) FROM journal_lines jl "
         "JOIN journal_entries je ON je.id = jl.entry_id JOIN accounts a ON a.id = jl.account_id "
         "WHERE je.status='posted' AND je.company_id IN (%s) AND %s AND je.date < ?"
-        % (ph, cash_cond), ids + ["%d-01-01" % year]).fetchone()[0]
+        % (ph, cash_cond), ids + cashp + ["%d-01-01" % year]).fetchone()[0]
     rows = conn.execute(
         "SELECT je.date AS d, SUM(jl.debit) AS cin, SUM(jl.credit) AS cout "
         "FROM journal_lines jl JOIN journal_entries je ON je.id = jl.entry_id "
         "JOIN accounts a ON a.id = jl.account_id "
         "WHERE je.status='posted' AND je.company_id IN (%s) AND %s AND strftime('%%Y', je.date) = ? "
-        "GROUP BY je.date" % (ph, cash_cond), ids + [str(year)]).fetchall()
+        "GROUP BY je.date" % (ph, cash_cond), ids + cashp + [str(year)]).fetchall()
     actual = {w: [0.0, 0.0] for w in range(1, CASH_WEEKS + 1)}
     for r in rows:
         w = _cash_week_of(r["d"], year)
@@ -1019,7 +1068,8 @@ def dashboard(conn, company_ids, year, thresholds=None, project_attribution=True
     # cash_codes is a list of exact codes; None = every 11xx cash/bank account.
     cset = set(cash_codes) if cash_codes else None
     cash = round(sum(b["balance"] for b in balances if b["type"] == "asset"
-                     and (b["code"] in cset if cset is not None else b["code"].startswith("11"))), 2)
+                     and (b["code"] in cset if cset is not None
+                          else (b["code"].startswith("11") and not is_card_code(b["code"])))), 2)
     ar = round(sum(b["balance"] for b in balances if b["code"] == "1200"), 2)
     ap = round(sum(b["balance"] for b in balances if b["code"] == "2100"), 2)
 

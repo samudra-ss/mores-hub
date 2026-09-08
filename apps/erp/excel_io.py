@@ -332,19 +332,29 @@ def export_budget_vs_actual(bva, scope_label):
     return _to_bytes(wb)
 
 
-def export_budget_grid(rows, scope_label, year):
-    """rows: [{code, name, amounts:[12]}]"""
+def export_budget_grid(rows, scope_label, year, project_codes=None):
+    """rows: [{code, name, project_id, amounts:[12]}]
+
+    Column 2 is the PROJECT CODE, not the account name, so the file this writes
+    can be fed straight back into the budget import. It used to write the name
+    there, which meant every re-imported row was rejected with "Project code
+    'Salaries & Benefits' not found". The name moved to the end, where it is
+    still readable and no longer sits in a column the importer reads positionally.
+    """
+    project_codes = project_codes or {}
     wb = Workbook()
     ws = _sheet(wb, "Budget %s" % year, "Budget — %s" % scope_label, "Year %s" % year)
-    _header_row(ws, 4, ["Account Code", "Account Name"] + MONTHS + ["Total"],
-                [14, 32] + [13] * 13)
+    _header_row(ws, 4,
+                ["Account Code", "Project Code (optional)"] + MONTHS + ["Total", "Account Name"],
+                [14, 20] + [13] * 13 + [32])
     r = 5
     for row in rows:
         ws.cell(row=r, column=1, value=row["code"])
-        ws.cell(row=r, column=2, value=row["name"])
+        ws.cell(row=r, column=2, value=project_codes.get(row.get("project_id"), ""))
         for m in range(12):
             _num(ws, r, 3 + m, row["amounts"][m])
         _num(ws, r, 15, sum(row["amounts"]), bold=True)
+        ws.cell(row=r, column=16, value=row["name"])
         r += 1
     return _to_bytes(wb)
 
@@ -500,18 +510,53 @@ def template_budget(year):
 # Imports
 # --------------------------------------------------------------------------
 
-def upsert_budget(conn, company_id, account_id, project_id, year, month, amount):
-    """NULL-safe budget upsert (UNIQUE constraint treats NULL project_id rows as distinct)."""
+def upsert_budget_month(conn, company_id, account_id, project_id, year, month, amount):
+    """Write a MONTH total into a week-grain budget without destroying the shape.
+
+    Excel is month grain and the budget is week grain, so an import has to decide
+    where in the month the money goes. Dumping it all in week 1 would silently
+    undo whatever week placement the user set in Budget Center - export, re-import,
+    and a deliberately W4-heavy month is a W1 spike again. So: if the month
+    already has a shape, keep the shape and rescale it to the new total; only a
+    month with nothing in it falls back to week 1.
+    """
+    existing = conn.execute(
+        "SELECT week, amount FROM budgets WHERE company_id=? AND account_id=?"
+        " AND project_id IS ? AND year=? AND month=?",
+        (company_id, account_id, project_id, year, month)).fetchall()
+    shape = [(r[0], r[1]) for r in existing if r[1]]
+    total_now = sum(a for _, a in shape)
+    amount = round(amount or 0, 2)
+    if not shape or not total_now:
+        for wk, _ in existing:
+            if wk != 1:
+                conn.execute(
+                    "DELETE FROM budgets WHERE company_id=? AND account_id=?"
+                    " AND project_id IS ? AND year=? AND month=? AND week=?",
+                    (company_id, account_id, project_id, year, month, wk))
+        upsert_budget(conn, company_id, account_id, project_id, year, month, amount, week=1)
+        return
+    # rescale, and give the last bucket the rounding remainder so the month is exact
+    allocated = 0.0
+    for i, (wk, a) in enumerate(shape):
+        part = (round(amount - allocated, 2) if i == len(shape) - 1
+                else round(amount * a / total_now, 2))
+        allocated = round(allocated + part, 2)
+        upsert_budget(conn, company_id, account_id, project_id, year, month, part, week=wk)
+
+
+def upsert_budget(conn, company_id, account_id, project_id, year, month, amount, week=1):
+    """NULL-safe budget upsert into ONE week bucket."""
     cur = conn.execute(
         "UPDATE budgets SET amount=? WHERE company_id=? AND account_id=?"
-        " AND project_id IS ? AND year=? AND month=?",
-        (round(amount, 2), company_id, account_id, project_id, year, month),
+        " AND project_id IS ? AND year=? AND month=? AND week=?",
+        (round(amount, 2), company_id, account_id, project_id, year, month, week),
     )
     if cur.rowcount == 0:
         conn.execute(
-            "INSERT INTO budgets (company_id, account_id, project_id, year, month, amount)"
-            " VALUES (?,?,?,?,?,?)",
-            (company_id, account_id, project_id, year, month, round(amount, 2)),
+            "INSERT INTO budgets (company_id, account_id, project_id, year, month, week, amount)"
+            " VALUES (?,?,?,?,?,?,?)",
+            (company_id, account_id, project_id, year, month, week, round(amount, 2)),
         )
 
 
@@ -682,7 +727,7 @@ def import_budget(conn, company_id, year, stream):
         pid = projects.get(pcode)
         for m in range(12):
             amount = _cell_num(row[2 + m]) if len(row) > 2 + m else 0.0
-            upsert_budget(conn, company_id, accounts[code], pid, year, m + 1, amount)
+            upsert_budget_month(conn, company_id, accounts[code], pid, year, m + 1, amount)
         saved += 1
     conn.commit()
     return saved, errors
