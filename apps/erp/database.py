@@ -867,6 +867,88 @@ def _init_one(name, do_seed):
     conn.close()
 
 
+PRODUCT_DDL = (
+    "CREATE TABLE IF NOT EXISTS products ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "company_id INTEGER NOT NULL REFERENCES companies(id),"
+    "code TEXT NOT NULL DEFAULT '', name TEXT NOT NULL,"
+    "stage TEXT NOT NULL DEFAULT 'build',"
+    "launch_month TEXT, actual_through TEXT, horizon_end TEXT, target_year INTEGER,"
+    "burn_budget REAL NOT NULL DEFAULT 0, notes TEXT NOT NULL DEFAULT '',"
+    "assumptions TEXT NOT NULL DEFAULT '{}', sort INTEGER NOT NULL DEFAULT 0,"
+    "created_at TEXT NOT NULL DEFAULT (datetime('now')))",
+    "CREATE TABLE IF NOT EXISTS product_projects ("
+    "product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,"
+    "project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,"
+    "PRIMARY KEY (product_id, project_id))",
+    "CREATE TABLE IF NOT EXISTS product_cost_lines ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,"
+    "label TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT 'other',"
+    "monthly_amount REAL NOT NULL DEFAULT 0, basis TEXT NOT NULL DEFAULT 'fixed',"
+    "start_month TEXT, end_month TEXT, escalation_annual REAL NOT NULL DEFAULT 0,"
+    "sort INTEGER NOT NULL DEFAULT 0)",
+    "CREATE TABLE IF NOT EXISTS product_oneoffs ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,"
+    "month TEXT NOT NULL, flow TEXT NOT NULL DEFAULT 'out' CHECK (flow IN ('in','out')),"
+    "label TEXT NOT NULL DEFAULT '', amount REAL NOT NULL DEFAULT 0)",
+    "CREATE TABLE IF NOT EXISTS product_capex ("
+    "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,"
+    "month TEXT NOT NULL, label TEXT NOT NULL DEFAULT '',"
+    "amount REAL NOT NULL DEFAULT 0, life_months INTEGER NOT NULL DEFAULT 48)",
+    "CREATE INDEX IF NOT EXISTS idx_pcl_product ON product_cost_lines(product_id)",
+    "CREATE INDEX IF NOT EXISTS idx_pp_project ON product_projects(project_id)",
+)
+
+
+def ensure_product_tables(conn):
+    """Product Finance Analysis tables. Additive and idempotent: nothing that
+    already exists is touched."""
+    for ddl in PRODUCT_DDL:
+        conn.execute(ddl)
+
+
+def apply_product_template(conn, product_id, template, company_ids=None, link_code=None):
+    """Replace a product's drivers with a template, optionally linking a project
+    by code. Returns the linked project id, or None."""
+    import product_fa
+    tpl = {"nx01": product_fa.NX01_TEMPLATE}.get(template)
+    if not tpl:
+        raise ValueError("Unknown product template '%s'" % template)
+    conn.execute(
+        "UPDATE products SET assumptions=?, launch_month=COALESCE(launch_month, ?),"
+        " target_year=COALESCE(target_year, ?) WHERE id=?",
+        (json.dumps(tpl["assumptions"]), tpl["launch_month"], tpl["target_year"], product_id))
+    for t in ("product_cost_lines", "product_oneoffs", "product_capex"):
+        conn.execute("DELETE FROM %s WHERE product_id=?" % t, (product_id,))
+    for i, (label, cat, amt, basis, start, end) in enumerate(tpl["lines"]):
+        conn.execute(
+            "INSERT INTO product_cost_lines (product_id, label, category, monthly_amount, basis,"
+            " start_month, end_month, sort) VALUES (?,?,?,?,?,?,?,?)",
+            (product_id, label, cat, amt, basis, start, end, i))
+    for month, flow, label, amt in tpl["oneoffs"]:
+        conn.execute("INSERT INTO product_oneoffs (product_id, month, flow, label, amount)"
+                     " VALUES (?,?,?,?,?)", (product_id, month, flow, label, amt))
+    for month, label, amt, life in tpl["capex"]:
+        conn.execute("INSERT INTO product_capex (product_id, month, label, amount, life_months)"
+                     " VALUES (?,?,?,?,?)", (product_id, month, label, amt, life))
+    linked = None
+    if link_code:
+        q = "SELECT id FROM projects WHERE code=?"
+        params = [link_code]
+        if company_ids:
+            q += " AND company_id IN (%s)" % ",".join("?" * len(company_ids))
+            params += list(company_ids)
+        row = conn.execute(q, params).fetchone()
+        if row:
+            linked = row[0]
+            conn.execute("INSERT OR IGNORE INTO product_projects (product_id, project_id)"
+                         " VALUES (?,?)", (product_id, linked))
+    return linked
+
+
 def seed_mock_extras(conn, companies, projects):
     """Fill in the modules the original demo seed never knew about, so a fresh
     demo database can exercise the whole app rather than just the ledger:
@@ -964,6 +1046,18 @@ def seed_mock_extras(conn, companies, projects):
         (json.dumps({"months_cover": 1.5, "cash_pooling": False,
                      "default_collection_lag_days": 14,
                      "absolute_floor": floors}),))
+
+    # --- a product to judge: the NX-01 model from the planning workbook ------
+    # Not linked to a ledger project on purpose - the demo ledger has no NX-01,
+    # so every month is plan and the analysis reads as a pure forecast.
+    ensure_product_tables(conn)
+    owner = companies.get("SBR") or next(iter(companies.values()))
+    cur = conn.execute(
+        "INSERT INTO products (company_id, code, name, stage, launch_month, target_year,"
+        " burn_budget, notes) VALUES (?,?,?,?,?,?,?,?)",
+        (owner, "SBU-01", "Sentimind — Media Monitoring (demo)", "launch", "2026-01", 2027,
+         3000000000, "Drivers taken from NX Plan Analysis 2026-2027, tab 05 Budget Forecast."))
+    apply_product_template(conn, cur.lastrowid, "nx01")
     conn.commit()
 
 
@@ -1421,6 +1515,8 @@ def migrate_database(conn):
         "investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,"
         "author TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',"
         "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    # Product Finance Analysis (v1.08)
+    ensure_product_tables(conn)
     # drop the legacy holding first so the COA top-up only touches survivors
     remove_holding(conn)
     for r in conn.execute("SELECT id FROM companies").fetchall():

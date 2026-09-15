@@ -2,6 +2,7 @@
 import functools
 import json
 import os
+import re
 import secrets
 from datetime import datetime, timedelta
 
@@ -13,6 +14,7 @@ import bank_import
 import database
 import excel_io
 import fpa_cash
+import product_fa
 import pdf_export
 import reports
 
@@ -198,6 +200,14 @@ def scope_from_request():
 def check_company_access(company_id):
     if int(company_id) not in accessible_company_ids():
         raise ValueError("Company not accessible")
+
+
+def _dmy(value):
+    """ISO date -> DD/MM/YYYY for anything a person reads (PDF and Excel titles).
+    Anything that is not an ISO date is returned untouched."""
+    text = str(value or "")
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", text)
+    return "%s/%s/%s" % (m.group(3), m.group(2), m.group(1)) if m else text
 
 
 def project_in_company(project_id, company_id):
@@ -981,6 +991,42 @@ def get_journal(jid):
     return jsonify(wrap[0])
 
 
+def _validate_journal_lines(company_id, lines):
+    """Accounts must belong to the entry's own company; projects may belong to
+    any company the user can see.
+
+    Accounts are per company, so a line pointing at another entity's 6100 would
+    post into the wrong set of books. Projects are different: NX-01 is an SBR-NX
+    project whose costs are paid out of MDA, and reports already attribute a
+    project line to the PROJECT's company - so tagging a project across
+    companies is exactly how that situation is recorded correctly.
+    """
+    acc_ids = sorted({int(l["account_id"]) for l in lines if l.get("account_id")})
+    if acc_ids:
+        found = {r["id"]: r for r in db().execute(
+            "SELECT id, company_id, code FROM accounts WHERE id IN (%s)"
+            % ",".join("?" * len(acc_ids)), acc_ids)}
+        for aid in acc_ids:
+            r = found.get(aid)
+            if not r:
+                raise ValueError("Account %s not found" % aid)
+            if r["company_id"] != int(company_id):
+                raise ValueError("Account %s belongs to another company's chart of accounts "
+                                 "- choose this company's %s instead" % (r["code"], r["code"]))
+    prj_ids = sorted({int(l["project_id"]) for l in lines if l.get("project_id")})
+    if prj_ids:
+        allowed = set(accessible_company_ids())
+        found = {r["id"]: r for r in db().execute(
+            "SELECT id, code, company_id FROM projects WHERE id IN (%s)"
+            % ",".join("?" * len(prj_ids)), prj_ids)}
+        for pid in prj_ids:
+            r = found.get(pid)
+            if not r:
+                raise ValueError("Project %s not found" % pid)
+            if r["company_id"] not in allowed:
+                raise ValueError("Project %s is not accessible" % r["code"])
+
+
 @app.post("/api/journals")
 @role_required("admin", "finance")
 def create_journal():
@@ -995,6 +1041,7 @@ def create_journal():
         raise ValueError("Entry is not balanced: debit %s vs credit %s" % (total_d, total_c))
     if total_d == 0:
         raise ValueError("Entry amount cannot be zero")
+    _validate_journal_lines(d["company_id"], lines)
     n = db().execute("SELECT COUNT(*)+1 FROM journal_entries WHERE company_id=?",
                      (d["company_id"],)).fetchone()[0]
     entry_no = d.get("entry_no") or "JV-%s-%05d" % (d["date"][:7].replace("-", ""), n)
@@ -1034,9 +1081,32 @@ def update_journal(jid):
         raise ValueError("Entry is not balanced: debit %s vs credit %s" % (total_d, total_c))
     if total_d == 0:
         raise ValueError("Entry amount cannot be zero")
+    # The entry can be moved to another company - the fix for a cost booked in
+    # the wrong entity's books. Its lines must then use THAT company's accounts.
+    new_cid = int(d.get("company_id") or je["company_id"])
+    moved = new_cid != je["company_id"]
+    if moved:
+        check_company_access(new_cid)
+    _validate_journal_lines(new_cid, lines)
+    entry_no = je["entry_no"]
+    if moved and db().execute(
+            "SELECT 1 FROM journal_entries WHERE company_id=? AND entry_no=? AND id<>?",
+            (new_cid, entry_no, jid)).fetchone():
+        # entry numbers are unique per company; keep the old one if it is free
+        date = d.get("date", je["date"])
+        n = db().execute("SELECT COUNT(*)+1 FROM journal_entries WHERE company_id=?",
+                         (new_cid,)).fetchone()[0]
+        while True:
+            entry_no = "JV-%s-%05d" % (date[:7].replace("-", ""), n)
+            if not db().execute("SELECT 1 FROM journal_entries WHERE company_id=? AND entry_no=?",
+                                (new_cid, entry_no)).fetchone():
+                break
+            n += 1
     db().execute(
-        "UPDATE journal_entries SET date=?, description=?, reference=? WHERE id=?",
-        (d.get("date", je["date"]), d.get("description", ""), d.get("reference", ""), jid))
+        "UPDATE journal_entries SET company_id=?, entry_no=?, date=?, description=?, reference=?"
+        " WHERE id=?",
+        (new_cid, entry_no, d.get("date", je["date"]), d.get("description", ""),
+         d.get("reference", ""), jid))
     db().execute("DELETE FROM journal_lines WHERE entry_id=?", (jid,))
     for l in lines:
         db().execute(
@@ -1047,7 +1117,8 @@ def update_journal(jid):
              round(float(l.get("credit") or 0), 2)))
     _save_custom_values(d.get("custom", {}), "journal", jid)
     db().commit()
-    return jsonify({"ok": True, "entry_no": je["entry_no"]})
+    return jsonify({"ok": True, "entry_no": entry_no, "moved": moved,
+                    "renumbered": entry_no != je["entry_no"]})
 
 
 @app.post("/api/journals/<int:jid>/post")
@@ -1334,7 +1405,8 @@ DASHBOARD_KPIS = [
     ("gross_margin", "Gross Margin"), ("operating_profit", "Operating Profit"),
     ("cash_buffer", "Cash Buffer"), ("dso", "DSO"), ("current_ratio", "Current Ratio"),
     ("working_capital", "Working Capital · Today"), ("cash_bank", "Cash & Bank"),
-    ("receivables", "Receivables"), ("payables", "Payables"), ("budget_used", "Budget Used"),
+    ("receivables", "Receivables"), ("payables", "Payables"),
+    ("active_loan", "Active Loan · Payables"), ("budget_used", "Budget Used"),
 ]
 _DASHBOARD_KPI_KEYS = {k for k, _ in DASHBOARD_KPIS}
 
@@ -1426,6 +1498,22 @@ def report_dashboard():
                              cash_codes=get_cash_codes())
     data["scope"] = label
     data["kpi_visible"] = get_dashboard_kpis()
+    # Active Loan = what is still owed on bills recorded in the Payables module -
+    # the obligations people actually enter and chase - rather than the 2100
+    # ledger balance, which the Payables tile already shows.
+    try:
+        ph = ",".join("?" * len(ids))
+        row = db().execute(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(amount - COALESCE(paid,0)),0) AS outstanding,"
+            " COALESCE(SUM(CASE WHEN due_date IS NOT NULL AND due_date <> '' AND due_date < date('now')"
+            " THEN amount - COALESCE(paid,0) ELSE 0 END),0) AS overdue"
+            " FROM payables WHERE company_id IN (%s) AND amount - COALESCE(paid,0) > 0.005" % ph,
+            ids).fetchone()
+        data["kpis"]["active_loan"] = round(row["outstanding"] or 0, 2)
+        data["kpis"]["active_loan_bills"] = row["n"]
+        data["kpis"]["active_loan_overdue"] = round(row["overdue"] or 0, 2)
+    except Exception:
+        data["kpis"].update(active_loan=0.0, active_loan_bills=0, active_loan_overdue=0.0)
     return jsonify(data)
 
 
@@ -1863,7 +1951,7 @@ def export_pnl_pdf():
     date_from, date_to = date_range_from_request()
     pnl = reports.profit_and_loss(db(), ids, date_from, date_to,
                                   project_attribution=_attribution_from_request(True))
-    return _pdf(pdf_export.export_pnl_pdf(pnl, label, "Period %s to %s" % (date_from, date_to)),
+    return _pdf(pdf_export.export_pnl_pdf(pnl, label, "Period %s to %s" % (_dmy(date_from), _dmy(date_to))),
                 "profit_loss_%s_to_%s.pdf" % (date_from, date_to))
 
 
@@ -1873,7 +1961,7 @@ def export_bs_pdf():
     ids, label = scope_from_request()
     as_of = as_of_from_request()
     bs = reports.balance_sheet(db(), ids, as_of)
-    return _pdf(pdf_export.export_balance_sheet_pdf(bs, label, "As of %s" % as_of),
+    return _pdf(pdf_export.export_balance_sheet_pdf(bs, label, "As of %s" % _dmy(as_of)),
                 "balance_sheet_%s.pdf" % as_of)
 
 
@@ -1883,7 +1971,7 @@ def export_tb_pdf():
     ids, label = scope_from_request()
     date_from, date_to = date_range_from_request()
     tb = reports.trial_balance(db(), ids, date_from, date_to)
-    return _pdf(pdf_export.export_trial_balance_pdf(tb, label, "Period %s to %s" % (date_from, date_to)),
+    return _pdf(pdf_export.export_trial_balance_pdf(tb, label, "Period %s to %s" % (_dmy(date_from), _dmy(date_to))),
                 "trial_balance_%s_to_%s.pdf" % (date_from, date_to))
 
 
@@ -1919,7 +2007,7 @@ def export_tb():
     ids, label = scope_from_request()
     date_from, date_to = date_range_from_request()
     tb = reports.trial_balance(db(), ids, date_from, date_to)
-    return _xlsx(excel_io.export_trial_balance(tb, label, "Period %s to %s" % (date_from, date_to)),
+    return _xlsx(excel_io.export_trial_balance(tb, label, "Period %s to %s" % (_dmy(date_from), _dmy(date_to))),
                  "trial_balance_%s_to_%s.xlsx" % (date_from, date_to))
 
 
@@ -1930,7 +2018,7 @@ def export_pnl():
     date_from, date_to = date_range_from_request()
     pnl = reports.profit_and_loss(db(), ids, date_from, date_to,
                                   project_attribution=_attribution_from_request(True))
-    return _xlsx(excel_io.export_pnl(pnl, label, "Period %s to %s" % (date_from, date_to)),
+    return _xlsx(excel_io.export_pnl(pnl, label, "Period %s to %s" % (_dmy(date_from), _dmy(date_to))),
                  "profit_loss_%s_to_%s.xlsx" % (date_from, date_to))
 
 
@@ -1940,7 +2028,7 @@ def export_bs():
     ids, label = scope_from_request()
     as_of = as_of_from_request()
     bs = reports.balance_sheet(db(), ids, as_of)
-    return _xlsx(excel_io.export_balance_sheet(bs, label, "As of %s" % as_of),
+    return _xlsx(excel_io.export_balance_sheet(bs, label, "As of %s" % _dmy(as_of)),
                  "balance_sheet_%s.xlsx" % as_of)
 
 
@@ -3313,6 +3401,341 @@ def oracle_consult():
     return jsonify(result)
 
 
+# ---- Product Finance Analysis ------------------------------------------------
+
+PRODUCT_STAGES = ("idea", "build", "launch", "growth", "sunset")
+_PF_NUMERIC = ("arpu", "arpu_growth_annual", "start_users", "new_users_first",
+               "new_users_growth", "churn_monthly", "server_base", "server_per_user",
+               "server_step_users", "server_step_cost")
+
+
+def _product_access(pid):
+    row = db().execute("SELECT * FROM products WHERE id=?", (pid,)).fetchone()
+    if not row:
+        raise ValueError("SBU not found")
+    check_company_access(row["company_id"])
+    return row
+
+
+def _ym_or_none(v, label):
+    v = (v or "").strip()
+    if not v:
+        return None
+    if not re.match(r"^\d{4}-(0[1-9]|1[0-2])$", v[:7]):
+        raise ValueError("%s must be a month like 2027-03" % label)
+    return v[:7]
+
+
+@app.get("/api/products")
+@login_required
+def list_products():
+    ids = accessible_company_ids()
+    database.ensure_product_tables(db())
+    rows = db().execute(
+        "SELECT p.*, c.code AS company_code FROM products p JOIN companies c ON c.id=p.company_id"
+        " WHERE p.company_id IN (%s) ORDER BY p.sort, p.id" % ",".join("?" * len(ids)),
+        ids).fetchall() if ids else []
+    out = []
+    for r in rows:
+        d = dict(r)
+        d.pop("assumptions", None)
+        try:
+            ctx = product_fa.load_context(db(), r["id"], ids)
+            sm = product_fa.summarise(ctx, product_fa.simulate(ctx))
+            d.update({"verdict": sm["verdict"], "break_even_month": sm["break_even_month"],
+                      "funding_required": sm["funding_required"], "target_month": sm["target_month"]})
+        except Exception as e:  # one broken product must not blank the menu
+            d.update({"verdict": "ERROR", "error": str(e)})
+        out.append(d)
+    return jsonify(out)
+
+
+@app.post("/api/products")
+@role_required("admin", "finance")
+def create_product():
+    d = request.get_json(force=True)
+    database.ensure_product_tables(db())
+    cid = int(d.get("company_id") or 0)
+    check_company_access(cid)
+    name = (d.get("name") or "").strip()
+    if not name:
+        raise ValueError("An SBU needs a name")
+    stage = d.get("stage") if d.get("stage") in PRODUCT_STAGES else "build"
+    n = db().execute("SELECT COUNT(*)+1 FROM products").fetchone()[0]
+    cur = db().execute(
+        "INSERT INTO products (company_id, code, name, stage, launch_month, target_year, sort)"
+        " VALUES (?,?,?,?,?,?,?)",
+        (cid, (d.get("code") or "SBU-%02d" % n).strip(), name, stage,
+         _ym_or_none(d.get("launch_month"), "Launch month"),
+         int(d.get("target_year") or datetime.now().year + 1), n))
+    pid = cur.lastrowid
+    linked = None
+    if d.get("template"):
+        linked = database.apply_product_template(
+            db(), pid, d["template"], accessible_company_ids(),
+            link_code="NX-01" if d["template"] == "nx01" else None)
+    db().commit()
+    return jsonify({"id": pid, "linked_project_id": linked}), 201
+
+
+@app.get("/api/products/<int:pid>")
+@login_required
+def get_product(pid):
+    return jsonify(_product_detail(pid))
+
+
+def _product_detail(pid):
+    """Everything the settings tab shows - also what the Excel model exports."""
+    row = _product_access(pid)
+    out = dict(row)
+    out["assumptions"] = product_fa.merged_assumptions(row["assumptions"])
+    out["lines"] = [dict(r) for r in db().execute(
+        "SELECT * FROM product_cost_lines WHERE product_id=? ORDER BY sort, id", (pid,))]
+    out["oneoffs"] = [dict(r) for r in db().execute(
+        "SELECT * FROM product_oneoffs WHERE product_id=? ORDER BY month, id", (pid,))]
+    out["capex"] = [dict(r) for r in db().execute(
+        "SELECT * FROM product_capex WHERE product_id=? ORDER BY month, id", (pid,))]
+    out["project_ids"] = [r[0] for r in db().execute(
+        "SELECT project_id FROM product_projects WHERE product_id=?", (pid,))]
+    out["projects"] = _accessible_projects()
+    out["categories"] = [{"key": c, "label": product_fa.CATEGORY_LABELS[c]}
+                         for c in product_fa.CATEGORIES]
+    out["stages"] = list(PRODUCT_STAGES)
+    return out
+
+
+def _apply_product_payload(pid, d):
+    """Everything the settings tab AND the Excel import may change, validated in
+    one place so the two can never disagree. Lists use replace semantics.
+    Raises ValueError and commits nothing - the caller commits or rolls back."""
+    row = _product_access(pid)
+    sets, params = [], []
+    if "company_id" in d:
+        check_company_access(int(d["company_id"]))
+        sets.append("company_id=?"); params.append(int(d["company_id"]))
+    for key in ("name", "code", "notes"):
+        if key in d:
+            val = (d.get(key) or "").strip()
+            if key == "name" and not val:
+                raise ValueError("An SBU needs a name")
+            sets.append("%s=?" % key); params.append(val)
+    if "stage" in d:
+        sets.append("stage=?"); params.append(d["stage"] if d["stage"] in PRODUCT_STAGES else "build")
+    for key, label in (("launch_month", "Launch month"), ("actual_through", "Actual through"),
+                       ("horizon_end", "Horizon end")):
+        if key in d:
+            sets.append("%s=?" % key); params.append(_ym_or_none(d.get(key), label))
+    if "target_year" in d:
+        y = int(d.get("target_year") or 0)
+        if not 2000 <= y <= 2100:
+            raise ValueError("Target year looks wrong")
+        sets.append("target_year=?"); params.append(y)
+    if "burn_budget" in d:
+        sets.append("burn_budget=?"); params.append(max(0.0, float(d.get("burn_budget") or 0)))
+    if "assumptions" in d:
+        cur = product_fa.merged_assumptions(row["assumptions"])
+        inc = d.get("assumptions") or {}
+        for k in _PF_NUMERIC:
+            if k in inc:
+                v = float(inc.get(k) or 0)
+                if k in ("churn_monthly",) and not 0 <= v <= 1:
+                    raise ValueError("Churn must be between 0% and 100% a month")
+                if k != "arpu_growth_annual" and k != "new_users_growth" and v < 0:
+                    raise ValueError("%s cannot be negative" % k.replace("_", " "))
+                cur[k] = int(v) if k == "server_step_users" else v
+        if "revenue_start_month" in inc:
+            cur["revenue_start_month"] = _ym_or_none(inc.get("revenue_start_month"), "Revenue start")
+        sets.append("assumptions=?"); params.append(json.dumps(cur))
+    if sets:
+        db().execute("UPDATE products SET %s WHERE id=?" % ", ".join(sets), params + [pid])
+
+    if "lines" in d:
+        db().execute("DELETE FROM product_cost_lines WHERE product_id=?", (pid,))
+        for i, l in enumerate(d.get("lines") or []):
+            cat = l.get("category") if l.get("category") in product_fa.CATEGORIES else "other"
+            basis = "per_working_day" if l.get("basis") == "per_working_day" else "fixed"
+            db().execute(
+                "INSERT INTO product_cost_lines (product_id, label, category, monthly_amount, basis,"
+                " start_month, end_month, escalation_annual, sort) VALUES (?,?,?,?,?,?,?,?,?)",
+                (pid, (l.get("label") or "").strip() or "Cost line", cat,
+                 float(l.get("monthly_amount") or 0), basis,
+                 _ym_or_none(l.get("start_month"), "Start month"),
+                 _ym_or_none(l.get("end_month"), "End month"),
+                 float(l.get("escalation_annual") or 0), i))
+    if "oneoffs" in d:
+        db().execute("DELETE FROM product_oneoffs WHERE product_id=?", (pid,))
+        for o in d.get("oneoffs") or []:
+            m = _ym_or_none(o.get("month"), "One-off month")
+            if not m:
+                continue
+            db().execute("INSERT INTO product_oneoffs (product_id, month, flow, label, amount)"
+                         " VALUES (?,?,?,?,?)",
+                         (pid, m, "in" if o.get("flow") == "in" else "out",
+                          (o.get("label") or "").strip(), float(o.get("amount") or 0)))
+    if "capex" in d:
+        db().execute("DELETE FROM product_capex WHERE product_id=?", (pid,))
+        for c in d.get("capex") or []:
+            m = _ym_or_none(c.get("month"), "CAPEX month")
+            if not m:
+                continue
+            db().execute("INSERT INTO product_capex (product_id, month, label, amount, life_months)"
+                         " VALUES (?,?,?,?,?)",
+                         (pid, m, (c.get("label") or "").strip(), float(c.get("amount") or 0),
+                          max(1, int(float(c.get("life_months") or 48)))))
+    if "project_ids" in d:
+        allowed = set(accessible_company_ids())
+        db().execute("DELETE FROM product_projects WHERE product_id=?", (pid,))
+        for prj in {int(x) for x in (d.get("project_ids") or [])}:
+            prow = db().execute("SELECT company_id FROM projects WHERE id=?", (prj,)).fetchone()
+            if not prow or prow["company_id"] not in allowed:
+                raise ValueError("Project %s is not accessible" % prj)
+            db().execute("INSERT INTO product_projects (product_id, project_id) VALUES (?,?)",
+                         (pid, prj))
+
+
+@app.put("/api/products/<int:pid>")
+@role_required("admin", "finance")
+def save_product(pid):
+    """Save everything on the settings tab in one go (replace semantics for lists)."""
+    _apply_product_payload(pid, request.get_json(force=True))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+# ---- SBU model workbook (Excel) ----------------------------------------------
+
+def _sbu_categories():
+    return [(c, product_fa.CATEGORY_LABELS[c]) for c in product_fa.CATEGORIES]
+
+
+def _accessible_projects():
+    ids = accessible_company_ids()
+    return [dict(r) for r in db().execute(
+        "SELECT p.id, p.code, p.name, p.company_id, c.code AS company_code, c.name AS company_name"
+        " FROM projects p JOIN companies c ON c.id=p.company_id WHERE p.company_id IN (%s)"
+        " ORDER BY c.code, p.code" % ",".join("?" * len(ids)), ids)] if ids else []
+
+
+def _sbu_workbook_payload(stream):
+    """Parse a workbook and resolve its company and project codes -> (payload, errors)."""
+    payload, errors = excel_io.parse_sbu_workbook(stream, _sbu_categories(), PRODUCT_STAGES)
+    if payload is None:
+        return None, errors
+    code = (payload.pop("company_code", None) or "").strip()
+    if code:
+        hit = next((c for c in db().execute("SELECT id, code FROM companies WHERE code=?", (code,))
+                    if c["id"] in accessible_company_ids()), None)
+        if hit:
+            payload["company_id"] = hit["id"]
+        else:
+            errors.append("SBU sheet: company '%s' is not a company you can access." % code)
+    refs = payload.pop("project_refs", None)
+    if refs is not None:
+        projects, pids = _accessible_projects(), []
+        for n, pcode, ccode in refs:
+            hits = [p for p in projects if p["code"] == pcode and (not ccode or p["company_code"] == ccode)]
+            if not hits:
+                errors.append("Projects row %d: project '%s' was not found%s." % (
+                    n, pcode, " in %s" % ccode if ccode else ""))
+            elif len(hits) > 1:
+                errors.append("Projects row %d: '%s' exists in more than one company - "
+                              "put the company code next to it." % (n, pcode))
+            elif hits[0]["id"] not in pids:
+                pids.append(hits[0]["id"])
+        payload["project_ids"] = pids
+    return payload, errors
+
+
+def _sbu_import_result(pid, payload, errors, status=200):
+    if errors:
+        db().rollback()
+        return jsonify({"ok": False, "errors": errors})
+    db().commit()
+    return jsonify({"ok": True, "id": pid, "summary": {
+        "cost_lines": len(payload.get("lines") or []), "oneoffs": len(payload.get("oneoffs") or []),
+        "capex": len(payload.get("capex") or []), "projects": len(payload.get("project_ids") or [])}}), status
+
+
+@app.get("/api/products/template")
+@login_required
+def sbu_template():
+    """The blank SBU model workbook."""
+    return _xlsx(excel_io.export_sbu_workbook({}, "", [], _accessible_projects(),
+                                             _sbu_categories(), PRODUCT_STAGES),
+                 "SBU_model_template.xlsx")
+
+
+@app.get("/api/products/<int:pid>/workbook")
+@login_required
+def sbu_workbook(pid):
+    """This SBU's whole model as a workbook - edit it in Excel and import it back."""
+    detail = _product_detail(pid)
+    comp = db().execute("SELECT code FROM companies WHERE id=?", (detail["company_id"],)).fetchone()
+    linked = [dict(r) for r in db().execute(
+        "SELECT p.code, p.name, c.code AS company_code FROM product_projects pp"
+        " JOIN projects p ON p.id=pp.project_id JOIN companies c ON c.id=p.company_id"
+        " WHERE pp.product_id=? ORDER BY c.code, p.code", (pid,))]
+    fname = re.sub(r"[^A-Za-z0-9_-]+", "_", detail.get("code") or detail.get("name") or "").strip("_") or "SBU"
+    return _xlsx(excel_io.export_sbu_workbook(detail, comp["code"] if comp else "", linked,
+                                             detail["projects"], _sbu_categories(), PRODUCT_STAGES),
+                 "SBU_model_%s.xlsx" % fname)
+
+
+@app.post("/api/products/<int:pid>/import")
+@role_required("admin", "finance")
+def sbu_import(pid):
+    """Replace this SBU's model with the workbook's. All or nothing."""
+    _product_access(pid)
+    payload, errors = _sbu_workbook_payload(_import_file())
+    if not errors:
+        try:
+            _apply_product_payload(pid, payload)
+        except ValueError as e:
+            errors = [str(e)]
+    return _sbu_import_result(pid, payload, errors)
+
+
+@app.post("/api/products/import")
+@role_required("admin", "finance")
+def sbu_import_new():
+    """Create a new SBU straight from a filled-in workbook. All or nothing."""
+    database.ensure_product_tables(db())
+    payload, errors = _sbu_workbook_payload(_import_file())
+    pid = None
+    if not errors:
+        try:
+            cid = int(payload.get("company_id") or request.form.get("company_id") or 0)
+            check_company_access(cid)
+            payload["company_id"] = cid
+            n = db().execute("SELECT COUNT(*)+1 FROM products").fetchone()[0]
+            pid = db().execute(
+                "INSERT INTO products (company_id, code, name, stage, target_year, sort) VALUES (?,?,?,?,?,?)",
+                (cid, payload.get("code") or "SBU-%02d" % n, payload["name"], "build",
+                 int(payload.get("target_year") or datetime.now().year + 1), n)).lastrowid
+            _apply_product_payload(pid, payload)
+        except ValueError as e:
+            errors = [str(e)]
+    return _sbu_import_result(pid, payload, errors, 201)
+
+
+@app.delete("/api/products/<int:pid>")
+@role_required("admin", "finance")
+def delete_product(pid):
+    _product_access(pid)
+    for t in ("product_cost_lines", "product_oneoffs", "product_capex", "product_projects"):
+        db().execute("DELETE FROM %s WHERE product_id=?" % t, (pid,))
+    db().execute("DELETE FROM products WHERE id=?", (pid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/products/<int:pid>/analysis")
+@login_required
+def product_analysis(pid):
+    _product_access(pid)
+    return jsonify(product_fa.analyse(db(), pid, accessible_company_ids()))
+
+
 @app.get("/api/oracle/readiness")
 @login_required
 def oracle_readiness():
@@ -3689,7 +4112,8 @@ def switch_database_api():
 
 # left-nav routes a user may be granted; kept in sync with the frontend NAV_ITEMS
 MENU_ROUTES = {"dashboard", "projecthv", "journals", "bank", "receivables", "payables",
-               "budgets", "investments", "oracle", "projects", "money", "reports", "accountant", "settings"}
+               "budgets", "investments", "oracle", "product", "projects", "money", "reports",
+               "accountant", "settings"}
 
 
 def _clean_menu_access(val):

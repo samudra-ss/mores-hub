@@ -58,6 +58,27 @@ function fmtRatio(v) { return (v == null || isNaN(v)) ? "—" : v.toFixed(2).rep
 function fmtDays(v) { return (v == null || isNaN(v)) ? "—" : Math.round(v) + " d"; }
 function fmtMonths(v) { return (v == null || isNaN(v)) ? "—" : v.toFixed(1).replace(".", ",") + " mo"; }
 
+// DD/MM/YYYY wherever a person reads a date. Values stay ISO underneath - inputs,
+// the API and sorting all keep YYYY-MM-DD - and only what is shown changes.
+function fmtDate(v) {
+  if (v == null || v === "") return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(v);
+}
+function fmtYM(v) {
+  if (!v) return "—";
+  const m = /^(\d{4})-(\d{2})$/.exec(String(v).slice(0, 7));
+  return m ? `${m[2]}/${m[1]}` : String(v);
+}
+// Sentences written by the server (Oracle actions, warnings, import notes) carry
+// ISO dates. Rewrite them for display. The year is pinned to 19xx/20xx so an
+// account code such as 5100-02 is never mistaken for a month.
+function fmtDatesIn(text) {
+  return String(text == null ? "" : text)
+    .replace(/\b((?:19|20)\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/g, "$3/$2/$1")
+    .replace(/\b((?:19|20)\d{2})-(0[1-9]|1[0-2])\b(?![\d/-])/g, "$2/$1");
+}
+
 const HEALTH_PILL = { healthy: "posted", watch: "draft", danger: "bad", "n/a": "inactive" };
 const HEALTH_LABEL = { healthy: "Healthy", watch: "Watch", danger: "Danger", "n/a": "n/a" };
 function healthStatusCls(s) { return s === "danger" ? "red" : s === "watch" ? "amber" : s === "healthy" ? "green" : ""; }
@@ -93,7 +114,7 @@ function renderTbDetailed(d, consolidated) {
       <td><span class="caret">&#9656;</span> ${esc(acc.code)}</td><td>${esc(acc.name)}</td><td>${esc(acc.type)}</td>
       <td class="num">${fmt(acc.debit)}</td><td class="num">${fmt(acc.credit)}</td><td class="num">${fmt(acc.balance)}</td></tr>`;
     const entries = (acc.entries || []).map(e => `<tr class="tb-entry" data-acc="${esc(acc.code)}" hidden>
-      <td class="muted" style="padding-left:24px">${esc(e.date)}</td>
+      <td class="muted" style="padding-left:24px">${esc(fmtDate(e.date))}</td>
       <td><b>${esc(e.entry_no)}</b> — ${esc(e.description || e.line_desc || "")} ${srcPill(e)}${consolidated ? ` <span class="muted">${esc(e.company_code)}</span>` : ""}${e.reference ? ` <span class="muted">ref ${esc(e.reference)}</span>` : ""}</td>
       <td></td><td class="num">${e.debit ? fmt(e.debit) : ""}</td><td class="num">${e.credit ? fmt(e.credit) : ""}</td><td></td></tr>`).join("");
     return head + (entries || `<tr class="tb-entry" data-acc="${esc(acc.code)}" hidden><td></td><td class="muted" colspan="5">No posted entries in this period</td></tr>`);
@@ -116,7 +137,7 @@ async function openAccountLedger(code, fallbackName) {
     const d = await api(`/api/reports/account-ledger?${scopeQS()}&date_from=${from}&date_to=${to}&code=${encodeURIComponent(code)}`);
     const consolidated = state.companyId === "all";
     const rows = d.entries.map(e => `<tr>
-      <td class="muted" style="white-space:nowrap">${esc(e.date)}</td>
+      <td class="muted" style="white-space:nowrap">${esc(fmtDate(e.date))}</td>
       <td><b>${esc(e.entry_no)}</b>${consolidated ? ` <span class="muted">${esc(e.company_code)}</span>` : ""}</td>
       <td>${esc(e.description || e.line_desc || "")}${e.reference ? ` <span class="muted">ref ${esc(e.reference)}</span>` : ""}</td>
       <td><span class="pill ${SOURCE_CLASS[e.source] || "inactive"}">${esc(e.source_label || e.source)}</span></td>
@@ -127,7 +148,7 @@ async function openAccountLedger(code, fallbackName) {
       <div class="ledger-head">
         <div><b>${esc(d.code)} — ${esc(d.name || fallbackName)}</b>
           ${d.type ? ` <span class="pill">${esc(d.type)}</span>` : ""}</div>
-        <div class="muted">${esc(d.scope)} · ${esc(d.date_from)} → ${esc(d.date_to)} · ${d.entries.length} entr${d.entries.length === 1 ? "y" : "ies"}</div>
+        <div class="muted">${esc(d.scope)} · ${esc(fmtDate(d.date_from))} → ${esc(fmtDate(d.date_to))} · ${d.entries.length} entr${d.entries.length === 1 ? "y" : "ies"}</div>
       </div>
       <div class="ledger-scroll"><table class="tbl">
         <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th>Source</th>
@@ -237,7 +258,7 @@ function toast(msg, isError) {
 function openModal(html, opts = {}) {
   closeModal();
   const root = $("#modalRoot");
-  root.innerHTML = `<div class="modal-backdrop"><div class="modal ${opts.small ? "small" : ""}">
+  root.innerHTML = `<div class="modal-backdrop"><div class="modal ${opts.small ? "small" : ""} ${opts.wide ? "wide" : ""}">
     <div class="modal-head"><h3>${esc(opts.title || "")}</h3>
     <button class="modal-close" title="Close">&times;</button></div>
     <div class="modal-body">${html}</div></div></div>`;
@@ -477,6 +498,81 @@ const TR = {
   "unchanged, as it must be.": "tidak berubah, sebagaimana mestinya.",
   "THESE DO NOT MATCH. Do not trust this result.": "TIDAK COCOK. Jangan percayai hasil ini.",
   "How to use": "Cara pakai",
+  "All SBUs": "Semua SBU",
+  "Back to all SBUs": "Kembali ke semua SBU",
+  "— all SBUs —": "— semua SBU —",
+  "Switch SBU": "Ganti SBU",
+  "Open": "Buka",
+  "Excel model": "Model Excel",
+  "Blank template": "Template kosong",
+  "Import Excel": "Impor Excel",
+  "Download this SBU's whole model as a workbook": "Unduh seluruh model SBU ini sebagai workbook",
+  "Stage": "Tahap",
+  "From an Excel file": "Dari file Excel",
+  "Click an SBU to open it. The selector at the top switches SBU from any tab.": "Klik SBU untuk membukanya. Pemilih di atas mengganti SBU dari tab mana pun.",
+  "Upload an SBU model workbook. It replaces this SBU's drivers, cost lines, one-offs, CAPEX and linked projects with what the file says.": "Unggah workbook model SBU. Isinya menggantikan asumsi, pos biaya, pos sekali jalan, CAPEX dan proyek tertaut SBU ini.",
+  "Upload a filled-in SBU model workbook to create a new SBU from it.": "Unggah workbook model SBU yang sudah diisi untuk membuat SBU baru.",
+  "Download this SBU as a workbook first": "Unduh SBU ini sebagai workbook dulu",
+  "Download the blank template": "Unduh template kosong",
+  "Company, when the file does not name one": "Perusahaan, bila file tidak menyebutkannya",
+  "Excel file": "File Excel",
+  "Import": "Impor",
+  "Import the SBU model from Excel": "Impor model SBU dari Excel",
+  "New SBU from Excel": "SBU baru dari Excel",
+  "Reading the file…": "Membaca file…",
+  "This replaces the SBU's whole model with the file's. Continue?": "Ini menggantikan seluruh model SBU dengan isi file. Lanjutkan?",
+  "Nothing was imported — fix these and upload again:": "Tidak ada yang diimpor — perbaiki ini lalu unggah lagi:",
+  "Imported": "Diimpor",
+  "cost lines": "pos biaya",
+  "one-offs": "pos sekali jalan",
+  "linked projects": "proyek tertaut",
+  "SBU": "SBU", "Strategic Business Unit · is it good, and does it make real profit?": "Unit Bisnis Strategis · apakah bagus, dan benar-benar menghasilkan untung?",
+  "Launch an SBU": "Luncurkan SBU", "No SBUs yet.": "Belum ada SBU.", "Start from a blank SBU": "Mulai dari SBU kosong",
+  "SBU name": "Nama SBU", "A blank SBU": "SBU kosong", "SBU launched": "SBU diluncurkan", "The SBU": "SBU ini",
+  "Ledger projects this SBU spends from": "Proyek di buku besar yang dipakai SBU ini",
+  "Delete SBU": "Hapus SBU", "SBU deleted": "SBU dihapus",
+  "Cost Breakdown — Realization vs Plan": "Rincian Biaya — Realisasi vs Rencana",
+  "By category · full year": "Per kategori · setahun penuh", "By account · realized": "Per akun · realisasi",
+  "Other accounts": "Akun lainnya", "Operating cost": "Biaya operasional", "Realization": "Realisasi",
+  "Plan": "Rencana", "realized": "terealisasi", "is non-cash and sits outside the donut.": "bersifat non-kas dan tidak masuk donat.",
+  "Nothing is booked in the ledger for this year yet — every month is forecast. Switch to ‘By category’ to see the plan.":
+    "Belum ada yang dibukukan tahun ini — semua bulan masih proyeksi. Pilih ‘Per kategori’ untuk melihat rencana.",
+  "No cost is planned for this year.": "Tidak ada biaya direncanakan tahun ini.",
+  "Active Loan": "Pinjaman Aktif", "from Payables": "dari Utang", "open bill(s)": "tagihan terbuka",
+  "overdue": "jatuh tempo", "Active loan": "Pinjaman aktif",
+  "Show or hide the Active Loan tile (taken from the Payables module)": "Tampilkan atau sembunyikan kartu Pinjaman Aktif (diambil dari modul Utang)",
+  "Product Finance": "Keuangan Produk", "Product Finance Analysis": "Analisis Keuangan Produk",
+  "is the product good, and does it make real profit?": "apakah produknya bagus, dan benar-benar menghasilkan untung?",
+  "Launch a product": "Luncurkan produk", "Launch": "Luncurkan", "No products yet.": "Belum ada produk.",
+  "Overview": "Ringkasan", "P&L by month": "Laba rugi per bulan", "SaaS metrics": "Metrik SaaS",
+  "Server cost": "Biaya server", "Target & marketing": "Target & marketing", "Settings & drivers": "Pengaturan & asumsi",
+  "Running the numbers…": "Menghitung…",
+  "PROFITABLE": "UNTUNG", "RUN-RATE PROFITABLE · NOT PAID BACK": "UNTUNG BULANAN · BELUM BALIK MODAL",
+  "Making money month by month by the target, but the cash spent getting there is not back yet":
+    "Sudah untung per bulan pada target, tapi kas yang dikeluarkan untuk sampai ke sana belum kembali",
+  "Making money month by month by the target, and every rupiah spent getting there is back":
+    "Sudah untung per bulan pada target, dan semua kas yang dikeluarkan sudah kembali",
+  "Still losing money in the target month": "Masih rugi pada bulan target",
+  "NOT PROFITABLE": "BELUM UNTUNG", "NO DATA": "BELUM ADA DATA",
+  "idea": "ide", "build": "pengembangan", "launch": "peluncuran", "growth": "pertumbuhan", "sunset": "dihentikan",
+  "Break-even month": "Bulan impas", "Cash payback": "Balik modal kas", "Funding required": "Dana yang dibutuhkan",
+  "Burn budget · runway": "Anggaran bakar · runway", "Active users": "Pengguna aktif", "Gross margin": "Margin kotor",
+  "Net burn": "Net burn", "Runway": "Runway", "Churn": "Churn", "CAC payback": "Balik modal CAC",
+  "Actual through": "Aktual sampai", "actual": "aktual", "forecast": "proyeksi", "forecast months": "bulan proyeksi",
+  "target": "target", "cost": "biaya", "profit / (loss)": "laba / (rugi)", "Profit / (loss)": "Laba / (rugi)",
+  "margin": "margin", "Margin": "Margin", "Opex": "Biaya operasional", "Depreciation": "Penyusutan",
+  "Net cash": "Kas bersih", "Cumulative cash": "Kas kumulatif", "Cumulative profit": "Laba kumulatif",
+  "Year by year": "Per tahun", "Where the money goes": "Ke mana uangnya pergi", "Basis": "Dasar",
+  "Profit & loss, month by month": "Laba rugi, bulan demi bulan",
+  "Server & infrastructure": "Server & infrastruktur", "Revenue & users": "Pendapatan & pengguna",
+  "Cost lines (forecast)": "Pos biaya (proyeksi)", "One-off items": "Pos sekali jalan",
+  "Ledger projects this product spends from": "Proyek di buku besar yang dipakai produk ini",
+  "Save & re-run the analysis": "Simpan & hitung ulang", "Delete product": "Hapus produk",
+  "Growth ladder": "Tangga pertumbuhan", "Burn": "Pembakaran dana",
+  "Active users needed": "Pengguna aktif yang dibutuhkan", "New users per month": "Pengguna baru per bulan",
+  "CAC ceiling": "Batas atas CAC", "Gap to close": "Selisih yang harus ditutup",
+  "What marketing has to deliver for the product to be profitable by": "Yang harus dicapai marketing agar produk untung pada",
+  "ENOUGH": "CUKUP", "NOT ENOUGH": "TIDAK CUKUP", "YES": "YA", "no": "tidak",
   "A budget exists for this year": "Anggaran tahun ini sudah ada",
   "Contracted revenue is marked 'committed'": "Pendapatan terkontrak sudah ditandai 'terkontrak'",
   "Every company has a minimum cash floor": "Tiap perusahaan punya batas kas minimum",
@@ -665,8 +761,8 @@ function fmtInputStamp(ts) {
   if (!ts) return "";
   const d = new Date(String(ts).replace(" ", "T") + (String(ts).endsWith("Z") ? "" : "Z"));
   if (isNaN(d)) return String(ts);
-  const m = (MONTHS_FULL[state.lang] || MONTHS_FULL.en)[d.getMonth()];
-  return `${d.getDate()} ${m} ${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}.${String(d.getMinutes()).padStart(2, "0")}`;
+  const p2 = n => String(n).padStart(2, "0");
+  return `${p2(d.getDate())}/${p2(d.getMonth() + 1)}/${d.getFullYear()} ${p2(d.getHours())}.${p2(d.getMinutes())}`;
 }
 
 const NAV_ITEMS = [
@@ -674,6 +770,7 @@ const NAV_ITEMS = [
   ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
   ["projects", "△", "Project Details"], ["money", "◈", "Money Tracker"],
   ["investments", "✦", "Investment Center"], ["oracle", "☾", "The Oracle"],
+  ["product", "◇", "SBU"],
   // Devil in Detail
   ["journals", "☰", "Journal Entries"], ["bank", "⇄", "Account Parsing"],
   ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
@@ -809,7 +906,7 @@ function renderCompanyChoice() {
 const routes = {
   dashboard: pageDashboard, projecthv: pageProjectHV, journals: pageJournals,
   bank: pageBank, receivables: pageReceivables, payables: pagePayables, budgets: pageBudgets,
-  investments: pageInvestments, oracle: pageOracle,
+  investments: pageInvestments, oracle: pageOracle, product: pageProduct,
   projects: pageProjects, money: pageMoneyTracker,
   reports: pageReports, accountant: pageAccountant, settings: pageSettings,
 };
@@ -873,10 +970,16 @@ async function pageDashboard(el) {
     ["cash_buffer", kpiv(t("Cash Buffer"), fmtMonths(k.cash_buffer_months), st("cash_buffer_months"), `target ≥ ${fmtMonths((hb.cash_buffer_months || {}).target)}`)],
     ["dso", kpiv(t("DSO"), fmtDays(k.dso_days), st("dso_days"), `target ≤ ${fmtDays((hb.dso_days || {}).target)}`)],
     ["current_ratio", kpiv(t("Current Ratio"), fmtRatio(k.current_ratio), st("current_ratio"), `target ≥ ${fmtRatio((hb.current_ratio || {}).target)}`)],
-    ["working_capital", kpi(t("Working Capital · Today"), k.working_capital, "", `as of ${d.as_of} · CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`)],
+    ["working_capital", kpi(t("Working Capital · Today"), k.working_capital, "", `as of ${fmtDate(d.as_of)} · CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`)],
     ["cash_bank", kpi(t("Cash & Bank"), k.cash_balance, "hl")],
     ["receivables", kpi(t("Receivables"), k.accounts_receivable)],
     ["payables", kpi(t("Payables"), k.accounts_payable)],
+    // Active Loan is read from the Payables MODULE - the bills and loans people
+    // actually record and chase - not from the 2100 ledger balance beside it.
+    ["active_loan", `<div class="kpi ${k.active_loan_overdue > 0 ? "amber" : ""}">
+        <div class="kpi-label">${t("Active Loan")} <span class="muted" style="font-weight:500">· ${t("from Payables")}</span></div>
+        <div class="kpi-value" title="${fmtRp(k.active_loan)}">${fmtShortRp(k.active_loan)}</div>
+        <div class="kpi-sub">${k.active_loan_bills || 0} ${t("open bill(s)")}${k.active_loan_overdue ? ` · ${fmtShortRp(k.active_loan_overdue)} ${t("overdue")}` : ""}</div></div>`],
     ["budget_used", `<div class="kpi ${bvaPct != null && bvaPct > 100 ? "red" : ""}">
         <div class="kpi-label">${t("Budget Used")}</div>
         <div class="kpi-value">${bvaPct == null ? "n/a" : bvaPct + "%"}</div>
@@ -887,6 +990,8 @@ async function pageDashboard(el) {
   el.innerHTML = `
     <div class="page-head"><h2>${t("Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}${d.last_input ? ` · ${t("Last input")}: <b>${esc(fmtInputStamp(d.last_input.created_at))}</b>${d.last_input.ref ? ` (${esc(d.last_input.ref)})` : ""}` : ""}</span></h2>
       <div class="page-actions" style="gap:14px;flex-wrap:wrap">
+        ${isAdmin() ? `<label class="seg-check" title="${t("Show or hide the Active Loan tile (taken from the Payables module)")}">
+          <input type="checkbox" id="dashLoan" ${(!kpiVisible || kpiVisible.has("active_loan")) ? "checked" : ""}> ${t("Active loan")}</label>` : ""}
         <div class="seg-group" id="dashAttr" title="${t("Revenue & COGS follow the project's company (management view) or stay with the booking entity (legal view).")}">
           <button class="seg ${state.dashAttr === "project" ? "active" : ""}" data-attr="project">${t("By project company")}</button>
           <button class="seg ${state.dashAttr === "entity" ? "active" : ""}" data-attr="entity">${t("By booking entity")}</button>
@@ -1029,6 +1134,18 @@ async function pageDashboard(el) {
     renderCompanyChoice();  // keep topbar choice in sync
     render();
   });
+  if ($("#dashLoan")) $("#dashLoan").onchange = async e => {
+    // one source of truth: the same tile list Settings → Dashboard edits
+    try {
+      const cfg = await api("/api/settings/dashboard-kpis");
+      const allKeys = cfg.all.map(x => x.key);
+      let keys = (cfg.selected && cfg.selected.length ? cfg.selected : allKeys).filter(x => x !== "active_loan");
+      if (e.target.checked) keys.push("active_loan");
+      // every tile on is stored as "all", so a tile added later is never silently hidden
+      await api("/api/settings/dashboard-kpis", { json: { keys: keys.length === allKeys.length ? [] : keys } });
+      pageDashboard(el);
+    } catch (err) { e.target.checked = !e.target.checked; toast(err.message, true); }
+  };
   $$("#dashAttr .seg").forEach(b => b.onclick = () => {
     state.dashAttr = b.dataset.attr;
     render();
@@ -1421,7 +1538,7 @@ async function pageJournals(el) {
       <th class="num">Amount</th><th>Status</th></tr></thead>
       <tbody>${rows.map(j => `<tr class="clickable" data-id="${j.id}">
         ${writable ? `<td class="sel-cell"><input type="checkbox" class="row-sel" data-id="${j.id}"></td>` : ""}
-        <td>${esc(j.date)}</td><td>${esc(j.entry_no)}</td><td>${esc(j.company)}</td>
+        <td>${esc(fmtDate(j.date))}</td><td>${esc(j.entry_no)}</td><td>${esc(j.company)}</td>
         <td>${esc(j.description)} ${j.reference ? `<span class="muted">(${esc(j.reference)})</span>` : ""}</td>
         <td class="num">${fmt(j.amount)}</td>
         <td><span class="pill ${j.status}">${j.status}</span></td></tr>`).join("") ||
@@ -1477,7 +1594,7 @@ async function viewJournal(id, reload) {
   const customRows = fields.filter(f => j.custom && j.custom[f.id] != null)
     .map(f => `<div><b>${esc(f.label)}:</b> ${esc(j.custom[f.id])}</div>`).join("");
   openModal(`
-    <div class="muted">${esc(j.date)} &middot; ${esc(j.company)} &middot; ${esc(j.reference || "")}</div>
+    <div class="muted">${esc(fmtDate(j.date))} &middot; ${esc(j.company)} &middot; ${esc(j.reference || "")}</div>
     <p>${esc(j.description)}</p>${customRows}
     <table class="tbl mt"><thead><tr><th>Account</th><th>Project</th><th>Description</th>
       <th class="num">Debit</th><th class="num">Credit</th></tr></thead>
@@ -1507,17 +1624,28 @@ async function viewJournal(id, reload) {
 async function journalEditor(reload, existing) {
   const cid = existing ? existing.company_id
     : (state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10));
-  const fields = await api("/api/custom-fields?entity=journal");
+  // Projects come from EVERY company the user can see. A project's costs are
+  // often paid out of another entity's books - NX-01 belongs to SBR-NX but is
+  // paid from MDA - and reports attribute a project line to the project's own
+  // company, so tagging across companies is how that is recorded properly.
+  const [fields, allProjects] = await Promise.all([
+    api("/api/custom-fields?entity=journal"),
+    api("/api/projects?company_id=all").catch(() => []),
+  ]);
   const root = openModal(`
     <div class="form-grid">
-      <label>Company <select id="jeCompany" ${existing ? "disabled" : ""}>${companyOptions(cid)}</select></label>
+      <label>Company <select id="jeCompany" ${canWrite() ? "" : "disabled"}>${companyOptions(cid)}</select></label>
       <label>Date <input type="date" id="jeDate" value="${existing ? esc(existing.date) : new Date().toISOString().slice(0, 10)}"></label>
+      <div class="je-company-note" id="jeCoNote" hidden></div>
       <label class="full">Description <input id="jeDesc" value="${existing ? esc(existing.description) : ""}" placeholder="What is this entry for?"></label>
       <label>Reference <input id="jeRef" value="${existing ? esc(existing.reference) : ""}" placeholder="invoice no, contract…"></label>
       ${fields.map(f => customFieldInput(f, existing && existing.custom ? existing.custom[f.id] || "" : "")).join("")}
     </div>
-    <table class="tbl je-lines mt"><thead><tr><th style="width:30%">Account</th><th style="width:18%">Project</th>
-      <th>Line description</th><th class="amt">Debit</th><th class="amt">Credit</th><th></th></tr></thead>
+    <table class="tbl je-lines mt">
+      <colgroup><col class="c-acc"><col class="c-prj"><col class="c-desc"><col class="c-amt"><col class="c-amt"><col class="c-del"></colgroup>
+      <thead><tr><th>Account <span class="muted" style="font-weight:400">(this company)</span></th>
+        <th>Project <span class="muted" style="font-weight:400">(any company)</span></th>
+        <th>Line description</th><th class="amt">Debit</th><th class="amt">Credit</th><th></th></tr></thead>
       <tbody id="jeLines"></tbody></table>
     <button class="btn btn-sm mt" id="addLine">+ Add line</button>
     <div class="je-balance" id="jeBalance"></div>
@@ -1525,38 +1653,81 @@ async function journalEditor(reload, existing) {
       ${existing ? `<button class="btn btn-primary" id="saveEdit">Save Changes (stays ${existing.status})</button>`
         : `<button class="btn" id="saveDraft">Save as Draft</button>
            <button class="btn btn-primary" id="savePost">Save &amp; Post</button>`}
-    </div>`, { title: existing ? `Edit ${existing.entry_no}` : "New Journal Entry" });
+    </div>`, { title: existing ? `Edit ${existing.entry_no}` : "New Journal Entry", wide: true });
 
-  let accounts = [], projects = [];
-  async function loadCompanyData() {
-    const c = $("#jeCompany").value;
-    [accounts, projects] = await Promise.all([
-      api("/api/accounts?company_id=" + c),
-      api("/api/projects?company_id=" + c),
-    ]);
-    accounts = accounts.filter(a => a.is_active);
-    $$("#jeLines tr").forEach(refreshLineSelects);
-  }
+  const origCompany = String(cid);
+  let accounts = [];
+  const companyLabel = id => {
+    const c = (state.me.companies || []).find(x => String(x.id) === String(id));
+    return c ? `${c.code} — ${c.name}` : `company ${id}`;
+  };
+
   function accountOpts(sel) {
     return `<option value="">—</option>` + accounts.map(a =>
-      `<option value="${a.id}" ${String(sel) === String(a.id) ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("");
+      `<option value="${a.id}" data-code="${esc(a.code)}" ${String(sel) === String(a.id) ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("");
   }
   function projectOpts(sel) {
-    return `<option value="">—</option>` + projects.map(p =>
-      `<option value="${p.id}" ${String(sel) === String(p.id) ? "selected" : ""}>${esc(p.code)}</option>`).join("");
+    const entryCo = String($("#jeCompany").value);
+    const groups = new Map();
+    allProjects.forEach(p => {
+      const k = String(p.company_id);
+      if (!groups.has(k)) groups.set(k, { code: p.company_code, name: p.company_name, items: [] });
+      groups.get(k).items.push(p);
+    });
+    // the entry's own company first, then the rest alphabetically
+    const keys = [...groups.keys()].sort((x, y) =>
+      x === entryCo ? -1 : y === entryCo ? 1 : String(groups.get(x).code).localeCompare(groups.get(y).code));
+    return `<option value="">— no project —</option>` + keys.map(k => {
+      const g = groups.get(k);
+      return `<optgroup label="${esc(g.code)} — ${esc(g.name)}${k === entryCo ? " · this entry's company" : ""}">${
+        g.items.map(p => `<option value="${p.id}" ${String(sel) === String(p.id) ? "selected" : ""}>${esc(p.code)} — ${esc(p.name)}</option>`).join("")
+      }</optgroup>`;
+    }).join("");
   }
-  function refreshLineSelects(tr) {
-    $(".je-acc", tr).innerHTML = accountOpts($(".je-acc", tr).value);
-    $(".je-prj", tr).innerHTML = projectOpts($(".je-prj", tr).value);
+
+  // Switching company swaps the chart of accounts. Every line keeps its account
+  // CODE and is re-pointed at the new company's account with the same code; a
+  // code that does not exist there is cleared and reported, never guessed.
+  async function loadCompanyData(remap) {
+    const c = $("#jeCompany").value;
+    if (remap) $$("#jeLines tr").forEach(tr => {
+      const o = $(".je-acc", tr).selectedOptions[0];
+      tr.dataset.code = o && o.value ? (o.dataset.code || "") : "";
+    });
+    accounts = (await api("/api/accounts?company_id=" + c)).filter(a => a.is_active);
+    let lost = 0;
+    $$("#jeLines tr").forEach(tr => {
+      const prj = $(".je-prj", tr).value;
+      if (remap) {
+        const code = tr.dataset.code;
+        const hit = code ? accounts.find(a => a.code === code) : null;
+        if (code && !hit) lost++;
+        $(".je-acc", tr).innerHTML = accountOpts(hit ? hit.id : "");
+      } else {
+        $(".je-acc", tr).innerHTML = accountOpts($(".je-acc", tr).value);
+      }
+      $(".je-prj", tr).innerHTML = projectOpts(prj);
+    });
+    const note = $("#jeCoNote");
+    if (existing && String(c) !== origCompany) {
+      note.hidden = false;
+      note.textContent = `Moving this entry from ${companyLabel(origCompany)} to ${companyLabel(c)}. ` +
+        `Accounts are matched by code in the new company's chart of accounts` +
+        (lost ? ` — ${lost} line(s) had no matching code and were cleared; choose them before saving.`
+              : " — every line found its account.") +
+        " If the entry number is already used there, a new one is assigned.";
+    } else {
+      note.hidden = true;
+    }
   }
   function addLine(line) {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td><select class="je-acc">${accountOpts(line ? line.account_id : "")}</select></td>
       <td><select class="je-prj">${projectOpts(line ? line.project_id : "")}</select></td>
-      <td><input class="je-ldesc" value="${line ? esc(line.description) : ""}"></td>
+      <td><textarea class="je-ldesc" rows="1" placeholder="What this line is">${line ? esc(line.description) : ""}</textarea></td>
       <td><input class="je-debit amt" type="number" min="0" step="any" placeholder="0" value="${line && line.debit ? line.debit : ""}"></td>
       <td><input class="je-credit amt" type="number" min="0" step="any" placeholder="0" value="${line && line.credit ? line.credit : ""}"></td>
-      <td><button class="btn btn-sm btn-ghost je-del">&times;</button></td>`;
+      <td><button class="btn btn-sm btn-ghost je-del" title="Remove line">&times;</button></td>`;
     $("#jeLines").appendChild(tr);
     $(".je-del", tr).onclick = () => { tr.remove(); updateBalance(); };
     $$("input", tr).forEach(i => i.addEventListener("input", updateBalance));
@@ -1573,7 +1744,11 @@ async function journalEditor(reload, existing) {
     bal.textContent = `Debit ${fmt(d)}  vs  Credit ${fmt(c)}` + (ok ? " ✓ balanced" : ` (diff ${fmt(d - c)})`);
   }
   async function save(status) {
-    const lines = $$("#jeLines tr").map(tr => ({
+    const rows = $$("#jeLines tr");
+    const missing = rows.filter(tr => !$(".je-acc", tr).value &&
+      ((parseFloat($(".je-debit", tr).value) || 0) || (parseFloat($(".je-credit", tr).value) || 0)));
+    if (missing.length) { toast(`${missing.length} line(s) with an amount have no account — choose one before saving`, true); return; }
+    const lines = rows.map(tr => ({
       account_id: parseInt($(".je-acc", tr).value, 10) || null,
       project_id: parseInt($(".je-prj", tr).value, 10) || null,
       description: $(".je-ldesc", tr).value,
@@ -1589,8 +1764,10 @@ async function journalEditor(reload, existing) {
     };
     try {
       if (existing) {
-        await api("/api/journals/" + existing.id, { method: "PUT", json: payload });
-        toast(`Entry ${existing.entry_no} updated`);
+        const res = await api("/api/journals/" + existing.id, { method: "PUT", json: payload });
+        toast(res.moved
+          ? `Entry moved to ${companyLabel(payload.company_id)}${res.renumbered ? ` and renumbered ${res.entry_no}` : ""}`
+          : `Entry ${res.entry_no} updated`);
       } else {
         const res = await api("/api/journals", { json: payload });
         toast(`Entry ${res.entry_no} saved (${status})`);
@@ -1599,10 +1776,10 @@ async function journalEditor(reload, existing) {
     } catch (e) { toast(e.message, true); }
   }
   $("#addLine").onclick = () => addLine();
-  $("#jeCompany").onchange = loadCompanyData;
+  $("#jeCompany").onchange = () => loadCompanyData(true);
   if (existing) $("#saveEdit").onclick = () => save(existing.status);
   else { $("#saveDraft").onclick = () => save("draft"); $("#savePost").onclick = () => save("posted"); }
-  await loadCompanyData();
+  await loadCompanyData(false);
   if (existing) existing.lines.forEach(l => addLine(l));
   else { addLine(); addLine(); }
   updateBalance();
@@ -1853,7 +2030,7 @@ async function pageBank(el) {
       <th style="min-width:140px">Contra account<br><span style="font-weight:400;text-transform:none">(cost OUT / revenue IN)</span></th><th>Project</th></tr></thead>
       <tbody>${txs.map((t, i) => `<tr data-i="${i}" ${t.duplicate || t.internal ? 'style="opacity:.55"' : ""}>
         <td><input type="checkbox" class="bk-sel" ${t.ok && !t.duplicate && !t.internal && t.amount && t.date ? "checked" : ""}></td>
-        <td>${esc(t.date || "?")}<br><span class="muted">${esc(t.time)}</span></td>
+        <td>${esc(t.date ? fmtDate(t.date) : "?")}<br><span class="muted">${esc(t.time)}</span></td>
         <td><span class="pill ${t.direction === "in" ? "posted" : "draft"}">${t.direction === "in" ? "IN" : "OUT"}</span></td>
         <td><textarea class="bk-desc" rows="2" style="width:100%;min-width:140px;resize:vertical;font-family:inherit">${esc(t.description)}</textarea>
           ${t.va_number ? `<span class="muted">VA ${esc(t.va_number)}</span>` : ""}
@@ -1914,8 +2091,8 @@ async function pageBank(el) {
     infoEl.textContent = `${txs.length} transaction(s) found` +
       (dups ? ` (${dups} already booked)` : "") +
       (res.meta && res.meta["no. rekening"] ? ` — account ${res.meta["no. rekening"]} ${res.meta["nama"] || ""} ${res.meta["periode"] || ""}` : "") +
-      (res.meta && res.meta.statement_date ? ` — card ${res.meta.customer || ""} · statement ${res.meta.statement_date}` : "") +
-      (res.warnings.length ? ` — ${res.warnings.length} warning(s): ${res.warnings.join("; ")}` : "");
+      (res.meta && res.meta.statement_date ? ` — card ${res.meta.customer || ""} · statement ${fmtDate(res.meta.statement_date)}` : "") +
+      (res.warnings.length ? ` — ${res.warnings.length} warning(s): ${fmtDatesIn(res.warnings.join("; "))}` : "");
     $("#bkStage2").hidden = txs.length === 0;
     $("#bkResults").innerHTML = "";
     renderTable();
@@ -2031,11 +2208,11 @@ async function pageBank(el) {
           source: BANK_SOURCE_BY_MODE[mode] || "bca_bank",
         }});
         okCount++;
-        results.push(`<li class="pos">✓ ${esc(t.reference || t.date)} — booked as <b>${esc(res.entry_no)}</b> (${status})</li>`);
+        results.push(`<li class="pos">✓ ${esc(t.reference || fmtDate(t.date))} — booked as <b>${esc(res.entry_no)}</b> (${status})</li>`);
         $(".bk-sel", tr).checked = false;
         tr.style.opacity = ".5";
       } catch (e) {
-        results.push(`<li class="neg">✗ ${esc(t.reference || t.date)} — ${esc(e.message)}</li>`);
+        results.push(`<li class="neg">✗ ${esc(t.reference || fmtDate(t.date))} — ${esc(e.message)}</li>`);
       }
     }
     $("#bkBook").disabled = false;
@@ -2074,8 +2251,8 @@ async function pageReceivables(el) {
       ${consol ? `<td>${esc(it.company_code)}</td>` : ""}
       <td><b>${esc(it.client)}</b></td>
       <td>${esc(it.invoice_no)}</td>
-      <td class="muted">${esc(it.invoice_date || "")}</td>
-      <td>${esc(it.due_date || "")}</td>
+      <td class="muted">${esc(fmtDate(it.invoice_date))}</td>
+      <td>${esc(fmtDate(it.due_date))}</td>
       <td class="num">${fmt(it.amount)}</td>
       <td class="num">${fmt(it.outstanding)}</td>
       <td class="num">${bcell(it, "not_due")}</td>
@@ -2191,8 +2368,8 @@ async function pagePayables(el) {
       ${consol ? `<td>${esc(it.company_code)}</td>` : ""}
       <td><b>${esc(it.vendor)}</b></td>
       <td>${esc(it.bill_no)}</td>
-      <td class="muted">${esc(it.bill_date || "")}</td>
-      <td>${esc(it.due_date || "")}</td>
+      <td class="muted">${esc(fmtDate(it.bill_date))}</td>
+      <td>${esc(fmtDate(it.due_date))}</td>
       <td class="num">${fmt(it.amount)}</td>
       <td class="num">${fmt(it.outstanding)}</td>
       <td class="num">${bcell(it, "not_due")}</td>
@@ -2431,7 +2608,7 @@ async function investmentDetail(iid, reload) {
     "n/a": ["", "—", "enter the total sales / benefit to compute the contribution margin."] }[cmStatus];
   openModal(`
     <div class="muted">${INV_CATEGORIES[inv.category] || inv.category} · ${esc(inv.company_code)} ·
-      started ${esc(inv.start_date || "?")} · horizon ${inv.horizon_years} years
+      started ${esc(inv.start_date ? fmtDate(inv.start_date) : "?")} · horizon ${inv.horizon_years} years
       ${inv.project_code ? "· linked to " + esc(inv.project_code) : ""}</div>
     <p>${esc(inv.description)}</p>
     <div class="grid kpis">
@@ -2472,7 +2649,7 @@ async function investmentDetail(iid, reload) {
     <table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Description</th>
       <th class="num">Amount</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
       <tbody>${inv.events.map(e => `<tr>
-        <td>${esc(e.date)}</td>
+        <td>${esc(fmtDate(e.date))}</td>
         <td><span class="pill ${e.kind === "benefit" ? "posted" : "draft"}">${e.kind}</span></td>
         <td>${esc(e.description)}</td><td class="num">${fmt(e.amount)}</td>
         ${canWrite() ? `<td><button class="btn btn-sm btn-ghost" data-del-ev="${e.id}">&times;</button></td>` : ""}</tr>`).join("") ||
@@ -2974,7 +3151,7 @@ async function projectAccountLedger(pid, code, accName, projName, back) {
         <thead><tr><th>${t("Date")}</th><th>${t("Entry")}</th><th>Co.</th><th>${t("Description")}</th>
           <th>${t("Source")}</th><th>${t("Inputter")}</th><th class="num">${t("Debit")}</th><th class="num">${t("Credit")}</th></tr></thead>
         <tbody>${d.entries.map(e => `<tr>
-          <td>${esc(e.date)}</td><td><b>${esc(e.entry_no)}</b></td><td>${esc(e.company_code)}</td>
+          <td>${esc(fmtDate(e.date))}</td><td><b>${esc(e.entry_no)}</b></td><td>${esc(e.company_code)}</td>
           <td>${esc(e.line_desc || e.description || "")}</td>
           <td><span class="pill ${SOURCE_CLASS[e.source] || "inactive"}">${esc(e.source_label)}</span></td>
           <td>${esc(e.inputter)}</td>
@@ -3045,7 +3222,7 @@ async function renderCfWeekly(host, cid, year) {
     { name: "Budget Ending", color: "#c87a08", values: wk.map(w => w.budget_ending), type: "line" },
   ], { width: 860, height: 300 });
   const rows = wk.map(w => `<tr>
-    <td>W${w.week}</td><td class="muted" style="white-space:nowrap">${esc(w.start.slice(5))}–${esc(w.end.slice(5))}</td>
+    <td>W${w.week}</td><td class="muted" style="white-space:nowrap">${esc(fmtDate(w.start).slice(0, 5))}–${esc(fmtDate(w.end).slice(0, 5))}</td>
     <td class="num">${fmt(w.cash_in)}</td><td class="num">${fmt(w.cash_out)}</td>
     <td class="num ${w.net >= 0 ? "pos" : "neg"}">${fmt(w.net)}</td><td class="num"><b>${fmt(w.ending)}</b></td>
     ${editable
@@ -3148,7 +3325,7 @@ async function pageReports(el) {
       </div>`;
   }
   const rangeQS = () => `date_from=${$("#rdFrom").value}&date_to=${$("#rdTo").value}`;
-  const periodLabel = d => `Period ${d.date_from} → ${d.date_to}`;
+  const periodLabel = d => `Period ${fmtDate(d.date_from)} → ${fmtDate(d.date_to)}`;
 
   async function show() {
     const body = $("#rBody");
@@ -3189,7 +3366,7 @@ async function pageReports(el) {
       const run = async () => {
         const d = await api(`/api/reports/balance-sheet?${scopeQS()}&as_of=${$("#rdAsOf").value}`);
         $("#rScope").textContent = d.scope;
-        $("#rPeriod").textContent = `As of ${d.as_of}`;
+        $("#rPeriod").textContent = `As of ${fmtDate(d.as_of)}`;
         $("#rExp").href = `/api/export/balance-sheet?${scopeQS()}&as_of=${$("#rdAsOf").value}`;
         $("#rExpPdf").href = `/api/export/pdf/balance-sheet?${scopeQS()}&as_of=${$("#rdAsOf").value}`;
         const sect = (title, rows, total) => `<tr class="section"><td colspan="3">${title}</td></tr>` +
@@ -3370,9 +3547,9 @@ async function renderInvestmentCommitments(iid, reload) {
   catch (e) { box.innerHTML = ""; return; }
   const rows = d.commitments.map(cm => `<tr>
       <td>${cm.year} · ${MONTH_NAMES[cm.month - 1]} <b>W${cm.week}</b>
-        <br><span class="muted">${esc(cm.start || "")} → ${esc(cm.end || "")}</span></td>
+        <br><span class="muted">${esc(fmtDate(cm.start))} → ${esc(fmtDate(cm.end))}</span></td>
       <td><span class="pill ${CERTAINTY_PILL[cm.certainty] || "inactive"}">${esc(cm.certainty)}</span></td>
-      <td class="muted">${esc(cm.settles || "")}</td>
+      <td class="muted">${esc(fmtDate(cm.settles))}</td>
       <td class="num"><b>${fmt(cm.amount)}</b></td>
       <td>${esc(cm.note || "")}</td>
       ${canWrite() ? `<td><button class="btn btn-sm btn-ghost" data-delcm="${cm.id}">&times;</button></td>` : ""}
@@ -3426,7 +3603,7 @@ async function oracleConsult(versionId, box) {
   try { d = await api("/api/oracle/consult", { json: { version_id: versionId || null, year: state.year } }); }
   catch (e) { box.innerHTML = `<div class="card mt"><p class="neg">${esc(e.message)}</p></div>`; return; }
   const chip = e => `<span class="pill ${VERDICT_CLS[e.verdict] || "inactive"}"
-      title="${t("floor")} ${fmtRp(e.floor)} · ${t("worst")} ${esc(e.detail.worst_date || "-")}">${esc(e.company_code)}: ${esc(e.verdict)}</span>`;
+      title="${t("floor")} ${fmtRp(e.floor)} · ${t("worst")} ${esc(fmtDate(e.detail.worst_date) || "-")}">${esc(e.company_code)}: ${esc(e.verdict)}</span>`;
   const worst = d.entities.find(e => e.company_code === d.driven_by) || d.entities[0] || {};
   const wk = worst.weekly || [];
   box.innerHTML = `
@@ -3437,8 +3614,8 @@ async function oracleConsult(versionId, box) {
       <p class="muted" style="margin-top:-4px">${esc(d.verdict_text)}</p>
       <p><b>${t("Group rule")}:</b> <span class="muted">${esc(d.rule)}</span>
         ${d.driven_by ? `<br><b>${t("Driven by")}:</b> ${esc(d.driven_by)}` : ""}
-        ${worst.detail && worst.detail.first_below_floor ? `<br><b>${t("First below floor")}:</b> ${esc(worst.detail.first_below_floor)}` : ""}
-        ${worst.detail && worst.detail.first_negative_cash ? `<br><b class="neg">${t("Cash goes negative")}:</b> ${esc(worst.detail.first_negative_cash)}` : ""}</p>
+        ${worst.detail && worst.detail.first_below_floor ? `<br><b>${t("First below floor")}:</b> ${esc(fmtDate(worst.detail.first_below_floor))}` : ""}
+        ${worst.detail && worst.detail.first_negative_cash ? `<br><b class="neg">${t("Cash goes negative")}:</b> ${esc(fmtDate(worst.detail.first_negative_cash))}` : ""}</p>
       <div class="mt">${d.entities.map(chip).join(" ")}</div>
       ${wk.length ? `<div class="mt">${chartBars(wk.map(w => (w.week === 1 ? w.label.slice(0, 2) : "")), [
           { name: t("Cash (Bound)"), color: C_REV, values: wk.map(w => w.ending), type: "line" },
@@ -3456,10 +3633,10 @@ async function oracleConsult(versionId, box) {
           <td class="num">${fmt(e.opening_cash)}</td>
           <td class="num muted">${fmt(e.floor)}</td>
           <td class="num ${(e.detail.min_headroom || 0) < 0 ? "neg" : "pos"}">${fmt(e.detail.min_headroom || 0)}</td>
-          <td>${esc(e.detail.worst_date || "—")}</td></tr>`).join("")}</tbody></table>
+          <td>${esc(fmtDate(e.detail.worst_date) || "—")}</td></tr>`).join("")}</tbody></table>
       ${(d.warnings || []).length ? `<h3 style="margin-top:14px">${t("Assumptions & warnings")}</h3>
         <ul class="muted" style="margin:0 0 0 18px;line-height:1.7;font-size:12.5px">
-          ${d.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+          ${d.warnings.map(w => `<li>${esc(fmtDatesIn(w))}</li>`).join("")}</ul>` : ""}
       <p class="muted mt" style="font-size:12px">${t("The verdict is always taken from the Bound run. Base and Optimistic are context, never the answer.")}</p>
     </div>`;
 }
@@ -3490,7 +3667,7 @@ async function oracleGuideView(body) {
         ${r.checks.map(c => `<tr>
           <td style="width:34px"><span class="pill ${GUIDE_STATE_PILL[c.state] || "inactive"}"
               title="${esc(c.state)}">${GUIDE_STATE_MARK[c.state] || "?"}</span></td>
-          <td><b>${esc(t(c.title))}</b><div class="muted" style="font-size:12.5px">${esc(c.detail)}</div></td>
+          <td><b>${esc(t(c.title))}</b><div class="muted" style="font-size:12.5px">${esc(fmtDatesIn(c.detail))}</div></td>
           <td class="num" style="width:190px">${c.state === "pass" ? ""
             : `<button class="btn btn-sm og-go" data-route="${esc(c.route)}">${esc(t(c.cta))} &rarr;</button>`}</td>
         </tr>`).join("")}
@@ -3697,8 +3874,8 @@ async function oracleVerdictView(body, versionId) {
   const rec = worst.recommend || { actions: [] };
 
   const breachLine = safe.kind === "zero"
-    ? `${t("After that cash goes BELOW ZERO on")} <b>${esc(safe.breach)}</b> — ${t("a payment will not clear.")}`
-    : `${t("After that cash drops through the buffer floor on")} <b>${esc(safe.breach)}</b>.`;
+    ? `${t("After that cash goes BELOW ZERO on")} <b>${esc(fmtDate(safe.breach))}</b> — ${t("a payment will not clear.")}`
+    : `${t("After that cash drops through the buffer floor on")} <b>${esc(fmtDate(safe.breach))}</b>.`;
   const safeLine = !safe.breach
     ? `<b class="pos">${t("Safe all year")}</b> — ${t("cash stays above the buffer floor every day on the Bound run.")}`
     : safe.never_safe
@@ -3706,8 +3883,8 @@ async function oracleVerdictView(body, versionId) {
            safe.kind === "zero"
              ? t("cash is already below zero on the first day of the plan")
              : t("cash is already under the buffer floor on the first day of the plan")
-         } (<b>${esc(safe.breach)}</b>). ${t("This starts as an opening-balance problem, not a plan problem.")}`
-      : `<b class="neg">${t("Safe until")} ${esc(safe.safe_until)}</b> — ${t("about")} <b>${safe.weeks_safe} ${t("weeks")}</b>. ${breachLine}`;
+         } (<b>${esc(fmtDate(safe.breach))}</b>). ${t("This starts as an opening-balance problem, not a plan problem.")}`
+      : `<b class="neg">${t("Safe until")} ${esc(fmtDate(safe.safe_until))}</b> — ${t("about")} <b>${safe.weeks_safe} ${t("weeks")}</b>. ${breachLine}`;
 
   body.innerHTML = `
     <div class="card">
@@ -3723,9 +3900,9 @@ async function oracleVerdictView(body, versionId) {
 
     <div class="card mt"><h3>${t("Recommended action")}</h3>
       ${rec.needed ? `<p class="muted" style="margin-top:-4px">${t("Short by")} <b class="neg">${fmtRp(rec.needed)}</b>
-        ${t("at the worst point")} (${esc(rec.worst_date || "")}) ${t("in")} <b>${esc(worst.company_code || "")}</b>.</p>` : ""}
+        ${t("at the worst point")} (${esc(fmtDate(rec.worst_date))}) ${t("in")} <b>${esc(worst.company_code || "")}</b>.</p>` : ""}
       <ol style="margin:8px 0 0 20px;line-height:1.8">${(rec.actions || []).map(a =>
-        `<li>${esc(a.text)}</li>`).join("")}</ol>
+        `<li>${esc(fmtDatesIn(a.text))}</li>`).join("")}</ol>
     </div>
 
     ${wk.length ? `<div class="card mt"><h3>${t("Weekly cash")} — ${esc(worst.company_code)} (${t("Bound run")})</h3>
@@ -3747,22 +3924,22 @@ async function oracleVerdictView(body, versionId) {
           <td><span class="pill ${VERDICT_CLS[e.verdict] || "inactive"}">${esc(e.verdict)}</span></td>
           <td>${!(e.safe && e.safe.breach) ? `<span class="pos">${t("all year")}</span>`
             : e.safe.never_safe ? `<span class="neg">${t("never")}</span>`
-            : esc(e.safe.safe_until) + ` <span class="muted">(${e.safe.weeks_safe}w)</span>`}</td>
+            : esc(fmtDate(e.safe.safe_until)) + ` <span class="muted">(${e.safe.weeks_safe}w)</span>`}</td>
           <td class="num">${fmt(e.opening_cash)}</td>
           <td class="num muted">${fmt(e.floor)}</td>
           <td class="num ${(e.detail.min_headroom || 0) < 0 ? "neg" : "pos"}">${fmt(e.detail.min_headroom || 0)}</td>
-          <td>${esc(e.detail.worst_date || "—")}</td></tr>`).join("")}</tbody></table></div>
+          <td>${esc(fmtDate(e.detail.worst_date) || "—")}</td></tr>`).join("")}</tbody></table></div>
     </div>
 
     ${(worst.contributors || []).length ? `<div class="card mt"><h3>${t("Biggest outflows before the worst day")}</h3>
       <table class="tbl"><thead><tr><th>${t("Date")}</th><th>${t("What")}</th><th>${t("Certainty")}</th><th class="num">${t("Amount")}</th></tr></thead>
-        <tbody>${worst.contributors.map(cc => `<tr><td>${esc(cc.date)}</td><td>${esc(cc.label)}</td>
+        <tbody>${worst.contributors.map(cc => `<tr><td>${esc(fmtDate(cc.date))}</td><td>${esc(cc.label)}</td>
           <td><span class="pill ${CERTAINTY_PILL[cc.certainty] || "inactive"}">${esc(cc.certainty)}</span></td>
           <td class="num">${fmt(cc.amount)}</td></tr>`).join("")}</tbody></table></div>` : ""}
 
     ${(d.warnings || []).length ? `<div class="card mt"><h3>${t("Assumptions & warnings")}</h3>
       <ul class="muted" style="margin:0 0 0 18px;line-height:1.7;font-size:12.5px">
-        ${d.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}`;
+        ${d.warnings.map(w => `<li>${esc(fmtDatesIn(w))}</li>`).join("")}</ul></div>` : ""}`;
 }
 
 async function oracleSensitivityView(body, versionId) {
@@ -3786,7 +3963,7 @@ async function oracleSensitivityView(body, versionId) {
       <td style="min-width:170px"><div class="bar"><span style="width:${w}%;background:${w > 66 ? "#bd362f" : w > 33 ? "#c87a08" : "#1f9d57"}"></span></div>
         <span class="muted" style="font-size:11px">${t("swing")} ${x.swing ? fmtShortRp(x.swing) : t("none — this axis changes nothing here")}</span></td>
       <td>${x.levels.map(lv => `<span class="pill ${VERDICT_CLS[lv.verdict] || "inactive"}" style="margin:1px"
-        title="${t("min headroom")} ${fmtShortRp(lv.min_headroom || 0)}${lv.first_breach ? " · " + t("breach") + " " + lv.first_breach : ""}">${fmtLevel(x.axis, lv.level)}</span>`).join(" ")}</td></tr>`;
+        title="${t("min headroom")} ${fmtShortRp(lv.min_headroom || 0)}${lv.first_breach ? " · " + t("breach") + " " + fmtDate(lv.first_breach) : ""}">${fmtLevel(x.axis, lv.level)}</span>`).join(" ")}</td></tr>`;
   }).join("");
 
   const beBlocked = d.breakevens.filter(b => b.already_breached).length;
@@ -3832,7 +4009,7 @@ async function oracleSensitivityView(body, versionId) {
 
     ${(d.warnings || []).length ? `<div class="card mt"><h3>${t("Assumptions & warnings")}</h3>
       <ul class="muted" style="margin:0 0 0 18px;line-height:1.7;font-size:12.5px">
-        ${d.warnings.map(w => `<li>${esc(w)}</li>`).join("")}</ul></div>` : ""}`;
+        ${d.warnings.map(w => `<li>${esc(fmtDatesIn(w))}</li>`).join("")}</ul></div>` : ""}`;
 }
 
 async function oraclePolicyModal(reload) {
@@ -3872,6 +4049,607 @@ async function oraclePolicyModal(reload) {
         absolute_floor: floors } } });
       toast(t("Cash policy saved")); closeModal(); reload && reload();
     } catch (e) { toast(e.message, true); }
+  };
+}
+
+/* ------------------------------------------------------------------ product finance analysis */
+// One question per product: is it good, and does it make the company REAL profit?
+// Months that have happened come from the ledger (the product's linked projects);
+// months that have not come from the drivers on the Settings tab. Every table
+// marks which is which, because a forecast shown as a fact is how a product
+// looks healthy right up until it isn't.
+
+const PF_VERDICT_CLS = { PROFITABLE: "posted", PROFITABLE_NOT_PAID_BACK: "draft", NOT_PROFITABLE: "bad", NO_DATA: "inactive", ERROR: "bad" };
+const PF_VERDICT_LABEL = {
+  PROFITABLE: "PROFITABLE", PROFITABLE_NOT_PAID_BACK: "RUN-RATE PROFITABLE · NOT PAID BACK",
+  NOT_PROFITABLE: "NOT PROFITABLE", NO_DATA: "NO DATA", ERROR: "ERROR",
+};
+// green grades: the SBU section proves (or disproves) that a business line makes money
+const PF_CAT_COLOR = { people: "#10b981", server: "#059669", marketing: "#34d399", tools: "#047857", office: "#6ee7b7", other: "#065f46" };
+const SBU_GRADES = ["#10b981", "#059669", "#34d399", "#047857", "#6ee7b7", "#065f46", "#a7f3d0", "#94a3b8"];
+const pfPct = (v, dp = 1) => v == null ? "—" : (v * 100).toFixed(dp) + "%";
+const pfMonth = m => fmtYM(m);
+const pfN = v => v == null ? "—" : fmtShort(v);
+const pfRp = v => v == null ? "—" : fmtShortRp(v);
+const pfTile = (label, value, sub, cls) => `<div class="kpi ${cls || ""}">
+  <div class="kpi-label">${label}</div><div class="kpi-value">${value}</div>${sub ? `<div class="kpi-sub">${sub}</div>` : ""}</div>`;
+
+async function pageProduct(el) {
+  if (!state.pfTab) state.pfTab = "overview";
+  let list = [];
+  try { list = await api("/api/products"); }
+  catch (e) { el.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; return; }
+  // an SBU that was deleted, or lives in another database, is simply not open
+  if (state.pfId && !list.some(p => p.id === state.pfId)) state.pfId = null;
+  const cur = list.find(p => p.id === state.pfId);
+  const num = id => list.findIndex(p => p.id === id) + 1;
+
+  const tabs = [["overview", t("Overview")], ["pnl", t("P&L by month")], ["saas", t("SaaS metrics")],
+                ["server", t("Server cost")], ["target", t("Target & marketing")], ["settings", t("Settings & drivers")]];
+  el.innerHTML = `
+    <div class="page-head"><h2>${cur ? `<button class="btn btn-sm" id="pfBack" title="${t("Back to all SBUs")}">&larr; ${t("All SBUs")}</button> ` : ""}${t("SBU")}${cur ? ` ${num(cur.id)}` : ""}
+      <span class="muted" style="font-size:13px;font-weight:500">· ${cur ? esc(cur.name) : t("Strategic Business Unit · is it good, and does it make real profit?")}</span></h2>
+      <div class="page-actions">
+        ${list.length ? `<select id="pfSwitch" title="${t("Switch SBU")}" style="min-width:240px">
+            <option value="">${t("— all SBUs —")}</option>
+            ${list.map((p, i) => `<option value="${p.id}" ${p.id === state.pfId ? "selected" : ""}>SBU ${i + 1} · ${esc(p.name)}</option>`).join("")}
+          </select>` : ""}
+        ${cur ? `<a class="btn" href="/api/products/${cur.id}/workbook" title="${t("Download this SBU's whole model as a workbook")}">&#x2913; ${t("Excel model")}</a>`
+              : `<a class="btn" href="/api/products/template">&#x2913; ${t("Blank template")}</a>`}
+        ${canWrite() ? `<button class="btn" id="pfImport">&#x2912; ${t("Import Excel")}</button>` : ""}
+        ${canWrite() ? `<button class="btn btn-primary" id="pfNew">+ ${t("Launch an SBU")}</button>` : ""}
+      </div></div>
+    ${cur ? `<div class="tabs" id="pfTabs">${tabs.map(([k, l]) =>
+      `<button data-t="${k}" class="${state.pfTab === k ? "active" : ""}">${l}</button>`).join("")}</div>` : ""}
+    <div id="pfBody" class="mt"></div>`;
+
+  // the selector keeps the tab, so P&L of SBU 1 -> P&L of SBU 2 is one change
+  const open = (id, keepTab) => { state.pfId = id || null; if (!keepTab) state.pfTab = "overview"; pageProduct(el); };
+  const show = async () => {
+    const body = $("#pfBody");
+    if (!list.length) return pfEmpty(body, () => pageProduct(el));
+    if (!cur) return pfPortfolio(body, list, open);
+    body.innerHTML = `<div class="card"><div class="empty">${t("Running the numbers…")}</div></div>`;
+    if (state.pfTab === "settings") return pfSettings(body, state.pfId, () => pageProduct(el));
+    let a;
+    try { a = await api(`/api/products/${state.pfId}/analysis`); }
+    catch (e) { body.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; return; }
+    const view = { overview: pfOverview, pnl: pfPnl, saas: pfSaas, server: pfServer, target: pfTarget }[state.pfTab] || pfOverview;
+    view(body, a);
+  };
+  if ($("#pfBack")) $("#pfBack").onclick = () => open(null);
+  if ($("#pfSwitch")) $("#pfSwitch").onchange = e => open(e.target.value ? parseInt(e.target.value, 10) : null, true);
+  $$("#pfTabs button").forEach(b => b.onclick = () => {
+    state.pfTab = b.dataset.t;
+    $$("#pfTabs button").forEach(x => x.classList.toggle("active", x === b));
+    show();
+  });
+  if ($("#pfImport")) $("#pfImport").onclick = () => pfImportModal(cur ? cur.id : null, open);
+  if ($("#pfNew")) $("#pfNew").onclick = () => pfLaunchModal(open);
+  await show();
+}
+
+// Every SBU in one table. "Back" lands here, so going from SBU 1 to SBU 2 is one
+// click; the selector at the top jumps straight between SBUs from any tab.
+function pfPortfolio(body, list, open) {
+  body.innerHTML = `<div class="card">
+    <h3>${t("All SBUs")} <span class="muted" style="font-weight:500">· ${list.length}</span></h3>
+    <p class="muted" style="margin-top:-6px">${t("Click an SBU to open it. The selector at the top switches SBU from any tab.")}</p>
+    <div class="pf-scroll"><table class="tbl">
+      <thead><tr><th>#</th><th>${t("SBU")}</th><th>${t("Company")}</th><th>${t("Stage")}</th><th>${t("Verdict")}</th>
+        <th>${t("Break-even month")}</th><th class="num">${t("Funding required")}</th><th></th></tr></thead>
+      <tbody>${list.map((p, i) => `<tr class="pf-row" data-id="${p.id}" style="cursor:pointer">
+        <td><b>SBU ${i + 1}</b></td>
+        <td><b>${esc(p.name)}</b><br><span class="muted">${esc(p.code || "")}</span></td>
+        <td>${esc(p.company_code || "")}</td>
+        <td><span class="pf-stage">${esc(t(p.stage || ""))}</span></td>
+        <td><span class="pill ${PF_VERDICT_CLS[p.verdict] || "inactive"}">${esc(t(PF_VERDICT_LABEL[p.verdict] || p.verdict || ""))}</span></td>
+        <td>${p.break_even_month ? pfMonth(p.break_even_month) : "—"}</td>
+        <td class="num">${pfRp(p.funding_required)}</td>
+        <td class="num"><button class="btn btn-sm">${t("Open")} &rarr;</button></td></tr>`).join("")}</tbody></table></div></div>`;
+  $$("#pfBody .pf-row").forEach(tr => tr.onclick = () => open(parseInt(tr.dataset.id, 10)));
+}
+
+// Set an SBU up from Excel. Into an open SBU the file REPLACES its model; with no
+// SBU open it creates a new one. The server applies nothing when any row is wrong.
+function pfImportModal(pid, onDone) {
+  const into = !!pid;
+  const cid = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
+  openModal(`
+    <p class="muted" style="margin-top:0">${into
+      ? t("Upload an SBU model workbook. It replaces this SBU's drivers, cost lines, one-offs, CAPEX and linked projects with what the file says.")
+      : t("Upload a filled-in SBU model workbook to create a new SBU from it.")}
+      <a href="${into ? `/api/products/${pid}/workbook` : "/api/products/template"}">${into ? t("Download this SBU as a workbook first") : t("Download the blank template")}</a></p>
+    <form id="sbuImp" style="display:flex;flex-direction:column;gap:12px">
+      ${into ? "" : `<label>${t("Company, when the file does not name one")} <select name="company_id">${companyOptions(cid)}</select></label>`}
+      <label>${t("Excel file")} <input type="file" name="file" accept=".xlsx,.xlsm" required></label>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">${t("Import")}</button></div>
+    </form>
+    <div id="sbuImpResult"></div>`, { title: into ? t("Import the SBU model from Excel") : t("New SBU from Excel"), small: true });
+  $("#sbuImp").addEventListener("submit", async e => {
+    e.preventDefault();
+    if (into && !confirm(t("This replaces the SBU's whole model with the file's. Continue?"))) return;
+    const out = $("#sbuImpResult");
+    out.innerHTML = `<p class="muted">${t("Reading the file…")}</p>`;
+    try {
+      const res = await api(into ? `/api/products/${pid}/import` : "/api/products/import", { method: "POST", body: new FormData(e.target) });
+      if (!res.ok) {
+        out.innerHTML = `<p class="neg"><b>${t("Nothing was imported — fix these and upload again:")}</b></p>
+          <ul>${(res.errors || []).map(x => `<li class="neg">${esc(x)}</li>`).join("")}</ul>`;
+        return;
+      }
+      const sm = res.summary || {};
+      toast(`${t("Imported")}: ${sm.cost_lines || 0} ${t("cost lines")}, ${sm.oneoffs || 0} ${t("one-offs")}, ${sm.capex || 0} CAPEX, ${sm.projects || 0} ${t("linked projects")}`);
+      closeModal();
+      onDone(res.id);
+    } catch (err) { out.innerHTML = `<p class="neg">${esc(err.message)}</p>`; }
+  });
+}
+
+function pfEmpty(body, reload) {
+  body.innerHTML = `<div class="pf-two">
+    <div class="card"><h3>${t("Start from a blank SBU")}</h3>
+      <p class="muted">${t("Name it, link the ledger project it spends from, then set the drivers: team cost, marketing, price per user, churn and server cost.")}</p>
+      ${canWrite() ? `<div class="form-actions"><button class="btn" id="pfXl">&#x2912; ${t("From an Excel file")}</button> <button class="btn" id="pfBlank">+ ${t("Launch an SBU")}</button></div>` : ""}</div>
+    <div class="card"><h3>${t("Use the NX-01 model from your Excel")}</h3>
+      <p class="muted">${t("Loads the drivers from “NX Plan Analysis 2026-2027” — team salary, food per working day, subscriptions, the Sep-26 marketing plan, the Rp 860 jt December termin and the CAPEX register — and links project NX-01 so Jan–Jul come straight from the ledger.")}</p>
+      ${canWrite() ? `<div class="form-actions"><button class="btn btn-primary" id="pfTpl">${t("Load the NX-01 model")}</button></div>` : ""}</div>
+  </div>`;
+  const go = tpl => pfLaunchModal(id => { state.pfId = id; state.pfTab = "overview"; reload(); }, tpl);
+  if ($("#pfBlank")) $("#pfBlank").onclick = () => go("");
+  if ($("#pfXl")) $("#pfXl").onclick = () => pfImportModal(null, id => { state.pfId = id; state.pfTab = "overview"; reload(); });
+  if ($("#pfTpl")) $("#pfTpl").onclick = () => go("nx01");
+}
+
+function pfLaunchModal(onDone, template = "") {
+  const cid = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
+  const nx = template === "nx01";
+  openModal(`<div class="form-grid">
+      <label>${t("SBU name")} <input id="plName" value="${nx ? "NX-01 Sentimind — Media Monitoring" : ""}" placeholder="Product 1"></label>
+      <label>${t("Code")} <input id="plCode" placeholder="SBU-01"></label>
+      <label>${t("Company")} <select id="plCo">${companyOptions(cid)}</select></label>
+      <label>${t("Stage")} <select id="plStage">${["idea", "build", "launch", "growth", "sunset"].map(x =>
+        `<option value="${x}" ${x === (nx ? "launch" : "build") ? "selected" : ""}>${esc(t(x))}</option>`).join("")}</select></label>
+      <label>${t("Launch month")} <input type="month" id="plLaunch" value="${nx ? "2026-01" : new Date().toISOString().slice(0, 7)}"></label>
+      <label>${t("Must be profitable by (year)")} <input type="number" id="plYear" value="${nx ? 2027 : new Date().getFullYear() + 1}"></label>
+      <label class="full">${t("Start from")} <select id="plTpl">
+        <option value="" ${nx ? "" : "selected"}>${t("A blank SBU")}</option>
+        <option value="nx01" ${nx ? "selected" : ""}>${t("The NX-01 model from “NX Plan Analysis 2026-2027” (links project NX-01 if it exists)")}</option>
+      </select></label>
+    </div>
+    <div class="form-actions"><button class="btn btn-primary" id="plGo">${t("Launch")}</button></div>`,
+    { title: t("Launch an SBU") });
+  $("#plGo").onclick = async () => {
+    try {
+      const r = await api("/api/products", { json: {
+        name: $("#plName").value, code: $("#plCode").value, company_id: parseInt($("#plCo").value, 10),
+        stage: $("#plStage").value, launch_month: $("#plLaunch").value,
+        target_year: parseInt($("#plYear").value, 10), template: $("#plTpl").value,
+      }});
+      toast($("#plTpl").value === "nx01"
+        ? (r.linked_project_id ? t("SBU launched from the NX-01 model and linked to project NX-01")
+                               : t("SBU launched from the NX-01 model — no NX-01 project found to link"))
+        : t("SBU launched"));
+      closeModal(); onDone(r.id);
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+/* ---- overview -------------------------------------------------------------- */
+function pfOverview(body, a) {
+  const s = a.summary, ty = s.target_month.slice(0, 4), yrs = Object.keys(s.years).sort();
+  const cur = String(new Date().getFullYear());
+  const yc = s.years[cur] || s.years[yrs[0]] || {};
+  const yt = s.years[ty] || {};
+  const tr = s.target_row || {};
+  const boundary = a.months.findIndex(m => m.phase === "forecast");
+
+  body.innerHTML = `
+    <div class="card">
+      <div class="pf-verdict">
+        <span class="pill ${PF_VERDICT_CLS[s.verdict]}" style="font-size:14px">${esc(t(PF_VERDICT_LABEL[s.verdict]))}</span>
+        <span class="muted">${esc(t(s.verdict_text))} · ${t("target")} <b>${pfMonth(s.target_month)}</b></span>
+      </div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">${t("Actual through")} <b>${pfMonth(s.actual_through)}</b>
+        (${esc(t({ ledger: "from the ledger", stated: "set by hand", calendar: "no ledger — all plan" }[s.actual_through_source] || ""))}),
+        ${t("forecast after that")}.</p>
+    </div>
+
+    <div class="pf-kpis mt">
+      ${pfTile(`${cur} ${t("cost")}`, pfRp(yc.opex), `${yc.actual_months || 0} ${t("actual")} · ${yc.forecast_months || 0} ${t("forecast months")}`)}
+      ${pfTile(`${ty} ${t("profit / (loss)")}`, pfRp(yt.profit), yt.margin == null ? "" : `${t("margin")} ${pfPct(yt.margin)}`, (yt.profit || 0) < 0 ? "bad" : "good")}
+      ${pfTile(t("Break-even month"), pfMonth(s.break_even_month), s.first_profitable_month ? `${t("first profitable month")} ${pfMonth(s.first_profitable_month)}` : t("no profitable month in the horizon"))}
+      ${pfTile(t("Cash payback"), s.payback_month ? pfMonth(s.payback_month) : t("not in horizon"), t("when every rupiah spent is back"))}
+      ${pfTile(t("Funding required"), pfRp(s.funding_required), s.funding_trough_month ? `${t("deepest point")} ${pfMonth(s.funding_trough_month)}` : t("never below zero"), s.funding_required ? "warn" : "")}
+      ${pfTile(t("Burn budget · runway"), s.burn_budget ? pfRp(s.budget_remaining) : t("not set"),
+        s.burn_budget ? (s.runway_months != null ? `${s.runway_months} ${t("months at")} ${pfRp(s.avg_net_burn)}/${t("mo")}` : t("no net burn right now"))
+                      : t("set it on Settings to measure runway"),
+        s.within_burn_budget === false ? "bad" : "")}
+      ${pfTile(`${t("ARR in")} ${pfMonth(s.target_month)}`, pfRp(tr.arr), `${pfN(tr.users_end)} ${t("active users")}`)}
+    </div>
+
+    <div class="card mt"><h3>${t("Revenue and cost by month, with the cumulative cash position")}</h3>
+      ${chartBars(a.months.map((m, i) => (i === boundary ? "▸" : "") + (m.month.endsWith("-01") || i === 0 ? pfMonth(m.month) : "")), [
+        { name: t("Revenue"), color: "#059669", values: a.months.map(m => m.revenue) },
+        { name: t("Cost (opex)"), color: "#bd362f", values: a.months.map(m => -m.opex) },
+        { name: t("Cumulative cash"), color: "#c87a08", values: a.months.map(m => m.cum_cash), type: "line" },
+      ], { height: 290 })}
+      <p class="muted" style="font-size:12px">${boundary > 0 ? `${t("The ▸ marks the first forecast month")} (${pfMonth(a.months[boundary].month)}). ` : ""}${t("Cash includes CAPEX when it is paid; profit instead spreads it as depreciation.")}</p>
+    </div>
+
+    <div class="card mt"><h3>${t("Year by year")}</h3><div class="pf-scroll"><table class="tbl">
+      <thead><tr><th>${t("Year")}</th><th class="num">${t("Revenue")}</th><th class="num">${t("Opex")}</th>
+        <th class="num">${t("Depreciation")}</th><th class="num">CAPEX</th><th class="num">${t("Profit / (loss)")}</th>
+        <th class="num">${t("Margin")}</th><th class="num">${t("Net cash")}</th><th>${t("Basis")}</th></tr></thead>
+      <tbody>${yrs.map(y => { const r = s.years[y]; return `<tr>
+        <td><b>${y}</b></td><td class="num">${fmt(r.revenue)}</td><td class="num">${fmt(r.opex)}</td>
+        <td class="num muted">${fmt(r.depreciation)}</td><td class="num muted">${fmt(r.capex)}</td>
+        <td class="num ${r.profit < 0 ? "neg" : "pos"}">${fmt(r.profit)}</td><td class="num">${pfPct(r.margin)}</td>
+        <td class="num ${r.net_cash < 0 ? "neg" : "pos"}">${fmt(r.net_cash)}</td>
+        <td class="muted">${r.actual_months} ${t("actual")} + ${r.forecast_months} ${t("forecast")}</td></tr>`; }).join("")}</tbody></table></div></div>
+
+    <div class="card mt" id="sbuCost"></div>
+
+    ${a.warnings.length ? `<div class="card mt"><h3>${t("Assumptions & warnings")}</h3>
+      <ul class="muted" style="margin:0 0 0 18px;line-height:1.7;font-size:12.5px">${a.warnings.map(w => `<li>${esc(fmtDatesIn(w))}</li>`).join("")}</ul></div>` : ""}`;
+  pfCostCard(a);
+}
+
+// Cost breakdown, drawn the way the dashboard draws operating expense: a donut,
+// its legend with amounts, and a realization box underneath. "By category"
+// covers the whole year (actual + forecast); "By account" is only what has
+// really been booked in the ledger.
+function pfCostCard(a) {
+  const box = $("#sbuCost");
+  if (!box) return;
+  const years = Object.keys(a.summary.years).sort();
+  const cur = String(new Date().getFullYear());
+  if (!state.sbuCostYear || !years.includes(state.sbuCostYear))
+    state.sbuCostYear = years.includes(cur) ? cur : years[years.length - 1];
+  if (!state.sbuCostMode) state.sbuCostMode = "category";
+  const y = a.summary.years[state.sbuCostYear] || {};
+  const share = (v, tot) => tot ? ` · ${(100 * v / tot).toFixed(1).replace(".", ",")}%` : "";
+  let items = [];
+  if (state.sbuCostMode === "account") {
+    const accts = y.actual_accounts || [], tot = y.actual_opex || 0;
+    const top = accts.slice(0, 7), rest = accts.slice(7).reduce((sum, x) => sum + x.amount, 0);
+    items = top.map((x, i) => ({ label: `${x.code} ${x.name}${share(x.amount, tot)}`, value: x.amount, color: SBU_GRADES[i] }));
+    if (rest > 0) items.push({ label: `${t("Other accounts")}${share(rest, tot)}`, value: rest, color: SBU_GRADES[7] });
+  } else {
+    const tot = y.opex || 0;
+    items = a.categories.map(c => ({ label: `${t(c.label)}${share((y.costs || {})[c.key] || 0, tot)}`,
+                                      value: (y.costs || {})[c.key] || 0, color: PF_CAT_COLOR[c.key] }))
+      .filter(x => x.value > 0).sort((p, q) => q.value - p.value);
+  }
+  const realized = y.actual_opex || 0, plan = y.opex || 0;
+  box.innerHTML = `
+    <div class="page-head" style="margin-bottom:10px"><h3 style="margin:0">${t("Cost Breakdown — Realization vs Plan")}
+      <span class="muted" style="font-weight:500;font-size:13px">· ${esc(a.product.name)} · ${state.sbuCostYear}</span></h3>
+      <div class="page-actions">
+        <div class="seg-group" id="sbuMode">
+          <button class="seg ${state.sbuCostMode === "category" ? "active" : ""}" data-m="category">${t("By category · full year")}</button>
+          <button class="seg ${state.sbuCostMode === "account" ? "active" : ""}" data-m="account">${t("By account · realized")}</button>
+        </div>
+        <div class="seg-group" id="sbuYear">${years.map(yy =>
+          `<button class="seg ${yy === state.sbuCostYear ? "active" : ""}" data-y="${yy}">${yy}</button>`).join("")}</div>
+      </div></div>
+    ${items.length ? chartDonut(items) : `<div class="empty">${state.sbuCostMode === "account"
+      ? t("Nothing is booked in the ledger for this year yet — every month is forecast. Switch to ‘By category’ to see the plan.")
+      : t("No cost is planned for this year.")}</div>`}
+    <div class="sbu-real">
+      <span><b>${t("Operating cost")}</b> <span class="muted">(${y.actual_months || 0} ${t("actual")} + ${y.forecast_months || 0} ${t("forecast months")})</span></span>
+      <span>${t("Realization")} <b>${fmtRp(realized)}</b> · ${t("Plan")} <b>${fmtRp(plan)}</b> · ${plan ? Math.round(100 * realized / plan) + "% " + t("realized") : "—"}</span>
+    </div>
+    ${y.depreciation ? `<p class="muted" style="font-size:12px;margin:8px 0 0">${t("Depreciation")} ${fmtRp(y.depreciation)} ${t("is non-cash and sits outside the donut.")}</p>` : ""}`;
+  $$("#sbuMode .seg").forEach(b => b.onclick = () => { state.sbuCostMode = b.dataset.m; pfCostCard(a); });
+  $$("#sbuYear .seg").forEach(b => b.onclick = () => { state.sbuCostYear = b.dataset.y; pfCostCard(a); });
+}
+
+/* ---- P&L by month ---------------------------------------------------------- */
+function pfMonthTable(a, rows) {
+  const head = `<tr><th class="pf-lbl"></th>${a.months.map(m =>
+    `<th class="num ${m.phase === "actual" ? "pf-act" : ""}">${pfMonth(m.month)}<br><span class="pf-phase">${esc(t(m.phase))}</span></th>`).join("")}</tr>`;
+  const body = rows.map(r => `<tr class="${r.cls || ""}"><td class="pf-lbl">${r.label}</td>${a.months.map(m => {
+    const v = r.get(m);
+    return `<td class="num ${m.phase === "actual" ? "pf-act" : ""} ${r.neg && v < 0 ? "neg" : ""}">${r.fmt ? r.fmt(v) : pfN(v)}</td>`;
+  }).join("")}</tr>`).join("");
+  return `<div class="pf-scroll"><table class="tbl pf-grid"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+}
+
+function pfPnl(body, a) {
+  const rows = [
+    { label: t("Active users"), get: m => m.users_end },
+    { label: `<b>${t("Revenue")}</b>`, get: m => m.revenue, cls: "pf-sub" },
+    ...a.categories.map(c => ({ label: `&nbsp;&nbsp;${esc(t(c.label))}`, get: m => m.costs[c.key] })),
+    { label: `<b>${t("Opex")}</b>`, get: m => m.opex, cls: "pf-sub" },
+    { label: t("Depreciation (non-cash)"), get: m => m.depreciation },
+    { label: `<b>${t("Profit / (loss)")}</b>`, get: m => m.profit, cls: "pf-sub", neg: true },
+    { label: t("Cumulative profit"), get: m => m.cum_profit, neg: true },
+    { label: "CAPEX (" + t("cash") + ")", get: m => m.capex },
+    { label: `<b>${t("Net cash")}</b>`, get: m => m.net_cash, cls: "pf-sub", neg: true },
+    { label: `<b>${t("Cumulative cash")}</b>`, get: m => m.cum_cash, neg: true },
+  ];
+  body.innerHTML = `<div class="card"><h3>${t("Profit & loss, month by month")}</h3>
+    <p class="muted" style="margin-top:-4px">${t("Shaded columns are actual — posted ledger lines on the linked projects. The rest is forecast from the drivers.")}</p>
+    ${pfMonthTable(a, rows)}</div>`;
+}
+
+/* ---- SaaS metrics ---------------------------------------------------------- */
+function pfSaas(body, a) {
+  const s = a.summary, tr = s.target_row || {};
+  const churn = parseFloat(a.assumptions.churn_monthly) || 0;
+  const fc = a.months.filter(m => m.phase === "forecast");
+  body.innerHTML = `
+    <div class="pf-kpis">
+      ${pfTile(`MRR ${pfMonth(s.target_month)}`, pfRp(tr.mrr), `ARR ${pfRp(tr.arr)}`)}
+      ${pfTile(t("Active users"), pfN(tr.users_end), `+${pfN(tr.users_new)} ${t("new")} · −${pfN(tr.users_churned)} ${t("churned")}`)}
+      ${pfTile(t("Churn"), pfPct(churn), `${pfPct(1 - Math.pow(1 - churn, 12))} ${t("a year")}`, churn > 0.05 ? "bad" : "")}
+      ${pfTile("ARPU", pfRp(tr.arpu), t("per active user per month"))}
+      ${pfTile("CAC", pfRp(tr.cac), t("marketing spend ÷ new users"))}
+      ${pfTile("LTV", pfRp(tr.ltv), t("ARPU × gross margin ÷ churn"))}
+      ${pfTile("LTV : CAC", tr.ltv_cac == null ? "—" : tr.ltv_cac + "×", t("3× or better is healthy"), tr.ltv_cac != null && tr.ltv_cac < 3 ? "warn" : "")}
+      ${pfTile(t("CAC payback"), tr.cac_payback_months == null ? "—" : tr.cac_payback_months + " " + t("mo"), t("months of gross margin to earn back one user"))}
+      ${pfTile(t("Gross margin"), pfPct(tr.gross_margin), t("after server & infrastructure"))}
+      ${pfTile(t("Net burn"), pfRp(s.avg_net_burn), t("average of the last three months, per month"), s.avg_net_burn > 0 ? "warn" : "")}
+      ${pfTile(t("Runway"), s.runway_months == null ? (s.burn_budget ? t("no net burn") : t("no budget set")) : s.runway_months + " " + t("mo"), s.burn_budget ? `${t("of")} ${pfRp(s.burn_budget)} ${t("budget")}` : "")}
+      ${pfTile(t("Funding required"), pfRp(s.funding_required), t("the deepest the cumulative cash goes"))}
+    </div>
+    <div class="pf-two mt">
+      <div class="card"><h3>${t("Recurring revenue")}</h3>
+        ${chartBars(fc.map((m, i) => (i % 3 === 0 ? pfMonth(m.month) : "")), [
+          { name: "MRR", color: "#059669", values: fc.map(m => m.mrr) },
+          { name: t("Cost"), color: "#bd362f", values: fc.map(m => m.opex), type: "line" },
+        ], { height: 230 })}</div>
+      <div class="card"><h3>${t("Users")}</h3>
+        ${chartBars(fc.map((m, i) => (i % 3 === 0 ? pfMonth(m.month) : "")), [
+          { name: t("New"), color: "#34d399", values: fc.map(m => m.users_new) },
+          { name: t("Churned"), color: "#bd362f", values: fc.map(m => -m.users_churned) },
+          { name: t("Active"), color: "#047857", values: fc.map(m => m.users_end), type: "line" },
+        ], { height: 230, valueFmt: v => fmt(v) })}</div>
+    </div>
+    <div class="card mt"><h3>${t("SaaS metrics by month")}</h3>
+      ${pfMonthTable(a, [
+        { label: t("New users"), get: m => m.users_new },
+        { label: t("Churned users"), get: m => m.users_churned },
+        { label: `<b>${t("Active users")}</b>`, get: m => m.users_end, cls: "pf-sub" },
+        { label: "ARPU", get: m => m.arpu },
+        { label: "MRR", get: m => m.mrr },
+        { label: "ARR", get: m => m.arr },
+        { label: "CAC", get: m => m.cac },
+        { label: "LTV", get: m => m.ltv },
+        { label: "LTV : CAC", get: m => m.ltv_cac, fmt: v => v == null ? "—" : v + "×" },
+        { label: t("CAC payback (mo)"), get: m => m.cac_payback_months, fmt: v => v == null ? "—" : v },
+        { label: t("Gross margin"), get: m => m.gross_margin, fmt: v => pfPct(v) },
+        { label: t("Gross burn"), get: m => m.gross_burn },
+        { label: `<b>${t("Net burn")}</b>`, get: m => m.net_burn, cls: "pf-sub" },
+      ])}
+      <p class="muted mt" style="font-size:12px">${t("User counts are a model in every month, including actual ones — the ledger records money, not logins. CAC, LTV and payback are blank where they would divide by zero.")}</p>
+    </div>`;
+}
+
+/* ---- server cost ----------------------------------------------------------- */
+function pfServer(body, a) {
+  const sv = a.server;
+  const costAt = u => sv.base + sv.per_user * u + (sv.step_users > 0 ? sv.step_cost * Math.floor(u / sv.step_users) : 0);
+  const fc = sv.rows.filter(r => r.phase === "forecast");
+  const last = fc[fc.length - 1] || {};
+  body.innerHTML = `
+    <div class="pf-kpis">
+      ${pfTile(t("Base infrastructure"), pfRp(sv.base), t("per month, whether anyone logs in or not"))}
+      ${pfTile(t("Per active user"), pfRp(sv.per_user), t("variable cost per month"))}
+      ${pfTile(t("Capacity step"), sv.step_users ? `+${pfRp(sv.step_cost)}` : "—", sv.step_users ? `${t("every")} ${fmt(sv.step_users)} ${t("users")}` : t("no tiers set"))}
+      ${pfTile(t("Cost of the next 1,000 users"), pfRp(sv.marginal_per_1000_users), t("per month"))}
+      ${pfTile(`${t("Server cost")} ${pfMonth(last.month)}`, pfRp(last.server_cost), last.share_of_revenue == null ? "" : `${pfPct(last.share_of_revenue)} ${t("of revenue")}`)}
+      ${pfTile(t("Cost per user"), pfRp(last.per_user), `${t("at")} ${pfN(last.users)} ${t("users")}`)}
+    </div>
+    <div class="pf-two mt">
+      <div class="card"><h3>${t("Server cost as users grow, month by month")}</h3>
+        ${chartBars(sv.rows.map((r, i) => (i % 3 === 0 ? pfMonth(r.month) : "")), [
+          { name: t("Server cost"), color: "#059669", values: sv.rows.map(r => r.server_cost) },
+        ], { height: 230 })}
+        <p class="muted" style="font-size:12px">${t("Actual months show what the server & API accounts cost in the ledger; forecast months use the model on the right.")}</p></div>
+      <div class="card"><h3>${t("The cost curve")}</h3>
+        <table class="tbl"><thead><tr><th class="num">${t("Active users")}</th><th class="num">${t("Server cost / month")}</th><th class="num">${t("Per user")}</th></tr></thead>
+          <tbody>${sv.curve.map(c => `<tr><td class="num">${fmt(c.users)}</td><td class="num">${fmt(c.server_cost)}</td><td class="num muted">${c.per_user == null ? "—" : fmt(c.per_user)}</td></tr>`).join("")}</tbody></table>
+        <div class="filters mt" style="align-items:center">
+          <label>${t("What if we had")} <input type="number" id="svWhat" min="0" value="${Math.round((last.users || 100) * 2)}" style="width:120px"></label>
+          <span id="svWhatOut" class="muted"></span></div></div>
+    </div>
+    ${sv.thresholds.length ? `<div class="card mt"><h3>${t("Where the next capacity tier kicks in")}</h3>
+      <table class="tbl"><thead><tr><th class="num">${t("At")}</th><th class="num">${t("Adds per month")}</th><th class="num">${t("Total server cost after")}</th></tr></thead>
+      <tbody>${sv.thresholds.map(x => `<tr><td class="num">${fmt(x.users)} ${t("users")}</td><td class="num">+${fmt(x.adds_monthly)}</td><td class="num">${fmt(x.cost_after)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    <div class="card mt"><h3>${t("Server cost by month")}</h3><div class="pf-scroll"><table class="tbl pf-grid">
+      <thead><tr><th class="pf-lbl"></th>${sv.rows.map(r => `<th class="num ${r.phase === "actual" ? "pf-act" : ""}">${pfMonth(r.month)}</th>`).join("")}</tr></thead>
+      <tbody>
+        <tr><td class="pf-lbl">${t("Active users")}</td>${sv.rows.map(r => `<td class="num ${r.phase === "actual" ? "pf-act" : ""}">${pfN(r.users)}</td>`).join("")}</tr>
+        <tr class="pf-sub"><td class="pf-lbl">${t("Server cost")}</td>${sv.rows.map(r => `<td class="num ${r.phase === "actual" ? "pf-act" : ""}">${pfN(r.server_cost)}</td>`).join("")}</tr>
+        <tr><td class="pf-lbl">${t("Per user")}</td>${sv.rows.map(r => `<td class="num ${r.phase === "actual" ? "pf-act" : ""}">${pfN(r.per_user)}</td>`).join("")}</tr>
+        <tr><td class="pf-lbl">${t("Share of revenue")}</td>${sv.rows.map(r => `<td class="num ${r.phase === "actual" ? "pf-act" : ""}">${pfPct(r.share_of_revenue)}</td>`).join("")}</tr>
+      </tbody></table></div></div>`;
+  const what = () => {
+    const u = Math.max(0, parseFloat($("#svWhat").value) || 0), c = costAt(u);
+    $("#svWhatOut").innerHTML = `→ <b>${fmtRp(c)}</b> ${t("a month")}${u ? ` · ${fmtRp(c / u)} ${t("per user")}` : ""}`;
+  };
+  $("#svWhat").oninput = what; what();
+}
+
+/* ---- target & marketing ---------------------------------------------------- */
+function pfTarget(body, a) {
+  const tg = a.targets, s = a.summary;
+  body.innerHTML = `
+    <div class="card"><h3>${t("What marketing has to deliver for the SBU to be profitable by")} ${pfMonth(tg.target_month)}</h3>
+      <p class="muted" style="margin-top:-4px">${t("Profitable means the target month's revenue covers that month's full cost, depreciation included. Paid back means the cash spent getting there has come back too.")}</p>
+      ${tg.required_active_users == null ? `<p class="neg">${(tg.notes || []).map(esc).join(" ")}</p>` : `
+      <div class="pf-kpis mt">
+        ${pfTile(t("Active users needed"), fmt(tg.required_active_users), `${t("the plan reaches")} ${pfN(tg.planned_active_users)}`, tg.active_user_gap > 0 ? "bad" : "good")}
+        ${pfTile(t("Gap to close"), tg.active_user_gap > 0 ? `+${fmt(Math.ceil(tg.active_user_gap))}` : t("none"), t("active users"), tg.active_user_gap > 0 ? "bad" : "good")}
+        ${pfTile(t("New users per month"), tg.required_new_users_per_month == null ? "—" : fmt(tg.required_new_users_per_month), `${t("constant, for")} ${tg.months_to_target} ${t("months, after churn")}`)}
+        ${pfTile(t("CAC ceiling"), pfRp(tg.cac_ceiling), `${t("at")} ${pfRp(tg.avg_forecast_marketing)}/${t("mo marketing")}`)}
+        ${pfTile(t("Acquisition growth for payback"), tg.required_growth_for_payback == null ? t("not reachable") : pfPct(tg.required_growth_for_payback), t("month-on-month growth in new users"), tg.required_growth_for_payback == null ? "bad" : "")}
+        ${pfTile(t("Unit margin per user"), pfRp(tg.unit_margin_per_user), t("ARPU less the server cost that user drives"))}
+      </div>`}
+    </div>
+    ${tg.ladder ? `<div class="card mt"><h3>${t("Growth ladder")} — ${t("where each acquisition growth rate lands by")} ${pfMonth(tg.target_month)}</h3>
+      <table class="tbl"><thead><tr><th class="num">${t("New-user growth / mo")}</th><th class="num">${t("Active users")}</th><th class="num">MRR</th>
+        <th class="num">${t("Month profit")}</th><th class="num">${t("Cumulative cash")}</th><th>${t("Profitable?")}</th><th>${t("Paid back?")}</th></tr></thead>
+      <tbody>${tg.ladder.map(r => `<tr>
+        <td class="num"><b>${pfPct(r.growth, 0)}</b></td><td class="num">${fmt(r.users_end)}</td><td class="num">${fmt(r.mrr)}</td>
+        <td class="num ${r.profit < 0 ? "neg" : "pos"}">${fmt(r.profit)}</td><td class="num ${r.cum_cash < 0 ? "neg" : "pos"}">${fmt(r.cum_cash)}</td>
+        <td><span class="pill ${r.profitable ? "posted" : "bad"}">${r.profitable ? t("YES") : t("no")}</span></td>
+        <td><span class="pill ${r.paid_back ? "posted" : "bad"}">${r.paid_back ? t("YES") : t("no")}</span></td></tr>`).join("")}</tbody></table>
+      <p class="muted mt" style="font-size:12px">${t("Every other driver is held at plan. This is the same test as tab 07 of the workbook, run on users instead of a revenue growth rate.")}</p></div>` : ""}
+    ${(tg.notes || []).length && tg.required_active_users != null ? `<div class="card mt"><ul class="muted" style="margin:0 0 0 18px">${tg.notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul></div>` : ""}
+    <div class="card mt"><h3>${t("Burn")}</h3>
+      <table class="tbl"><tbody>
+        <tr><td>${t("Funding required — the deepest point of cumulative cash")}</td><td class="num"><b>${fmtRp(s.funding_required)}</b></td><td class="muted">${pfMonth(s.funding_trough_month)}</td></tr>
+        <tr><td>${t("Burnt so far")}</td><td class="num">${fmtRp(s.burnt_so_far)}</td><td class="muted">${t("through")} ${pfMonth(s.actual_through)}</td></tr>
+        <tr><td>${t("Burn budget")}</td><td class="num">${s.burn_budget ? fmtRp(s.burn_budget) : "—"}</td>
+          <td>${s.within_burn_budget == null ? `<span class="muted">${t("not set")}</span>` : `<span class="pill ${s.within_burn_budget ? "posted" : "bad"}">${s.within_burn_budget ? t("ENOUGH") : t("NOT ENOUGH")}</span>`}</td></tr>
+        <tr><td>${t("Runway at the current net burn")}</td><td class="num">${s.runway_months == null ? "—" : s.runway_months + " " + t("months")}</td><td class="muted">${pfRp(s.avg_net_burn)}/${t("mo")}</td></tr>
+      </tbody></table>
+      <p class="muted mt" style="font-size:12px">${t("Set the burn budget to what the company is prepared to lose on this product before it pays for itself. If the funding required is larger, the plan runs out of money before it works.")}</p></div>`;
+}
+
+/* ---- settings & drivers ---------------------------------------------------- */
+async function pfSettings(body, pid, reload) {
+  let d;
+  try { d = await api(`/api/products/${pid}`); }
+  catch (e) { body.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; return; }
+  const A = d.assumptions, ro = canWrite() ? "" : "disabled";
+  const pct = v => v == null || v === "" ? "" : +(parseFloat(v) * 100).toFixed(4);
+  const catOpts = sel => d.categories.map(c => `<option value="${c.key}" ${c.key === sel ? "selected" : ""}>${esc(t(c.label))}</option>`).join("");
+  const groups = {};
+  d.projects.forEach(p => (groups[p.company_code] = groups[p.company_code] || []).push(p));
+
+  const lineRow = l => `<tr>
+    <td><input class="pl-label" value="${esc(l.label || "")}" ${ro}></td>
+    <td><select class="pl-cat" ${ro}>${catOpts(l.category)}</select></td>
+    <td><input class="pl-amt num" type="number" step="any" value="${l.monthly_amount || 0}" ${ro}></td>
+    <td><select class="pl-basis" ${ro}><option value="fixed" ${l.basis !== "per_working_day" ? "selected" : ""}>${t("per month")}</option>
+      <option value="per_working_day" ${l.basis === "per_working_day" ? "selected" : ""}>${t("per working day")}</option></select></td>
+    <td><input class="pl-start" type="month" value="${esc(l.start_month || "")}" ${ro}></td>
+    <td><input class="pl-end" type="month" value="${esc(l.end_month || "")}" ${ro}></td>
+    <td><input class="pl-esc num" type="number" step="any" value="${pct(l.escalation_annual) || 0}" ${ro}></td>
+    <td>${canWrite() ? `<button class="btn btn-sm btn-ghost pl-del">&times;</button>` : ""}</td></tr>`;
+  const oneRow = o => `<tr>
+    <td><input class="po-month" type="month" value="${esc(o.month || "")}" ${ro}></td>
+    <td><select class="po-flow" ${ro}><option value="in" ${o.flow === "in" ? "selected" : ""}>${t("money in")}</option><option value="out" ${o.flow !== "in" ? "selected" : ""}>${t("money out")}</option></select></td>
+    <td><input class="po-label" value="${esc(o.label || "")}" ${ro}></td>
+    <td><input class="po-amt num" type="number" step="any" value="${o.amount || 0}" ${ro}></td>
+    <td>${canWrite() ? `<button class="btn btn-sm btn-ghost pl-del">&times;</button>` : ""}</td></tr>`;
+  const capRow = c => `<tr>
+    <td><input class="pc-month" type="month" value="${esc(c.month || "")}" ${ro}></td>
+    <td><input class="pc-label" value="${esc(c.label || "")}" ${ro}></td>
+    <td><input class="pc-amt num" type="number" step="any" value="${c.amount || 0}" ${ro}></td>
+    <td><input class="pc-life num" type="number" min="1" value="${c.life_months || 48}" ${ro}></td>
+    <td>${canWrite() ? `<button class="btn btn-sm btn-ghost pl-del">&times;</button>` : ""}</td></tr>`;
+
+  body.innerHTML = `
+    <div class="card pf-edit"><h3>${t("The SBU")}</h3>
+      <div class="form-grid">
+        <label>${t("Name")} <input id="psName" value="${esc(d.name)}" ${ro}></label>
+        <label>${t("Code")} <input id="psCode" value="${esc(d.code)}" ${ro}></label>
+        <label>${t("Company")} <select id="psCo" ${ro}>${companyOptions(d.company_id)}</select></label>
+        <label>${t("Stage")} <select id="psStage" ${ro}>${d.stages.map(x => `<option value="${x}" ${x === d.stage ? "selected" : ""}>${esc(t(x))}</option>`).join("")}</select></label>
+        <label>${t("Launch month")} <input type="month" id="psLaunch" value="${esc(d.launch_month || "")}" ${ro}></label>
+        <label>${t("Must be profitable by (year)")} <input type="number" id="psYear" value="${d.target_year || ""}" ${ro}></label>
+        <label>${t("Actual through")} <input type="month" id="psThrough" value="${esc(d.actual_through || "")}" ${ro}>
+          <span class="muted" style="font-weight:400">${t("blank = the last month the ledger has")}</span></label>
+        <label>${t("Model until")} <input type="month" id="psHorizon" value="${esc(d.horizon_end || "")}" ${ro}>
+          <span class="muted" style="font-weight:400">${t("blank = December of the target year")}</span></label>
+        <label>${t("Burn budget (Rp)")} <input type="number" id="psBudget" step="any" value="${d.burn_budget || 0}" ${ro}>
+          <span class="muted" style="font-weight:400">${t("what the company is prepared to lose before it pays back")}</span></label>
+        <label class="full">${t("Notes")} <input id="psNotes" value="${esc(d.notes || "")}" ${ro}></label>
+      </div></div>
+
+    <div class="card mt"><h3>${t("Ledger projects this SBU spends from")}</h3>
+      <p class="muted" style="margin-top:-4px">${t("Actual months come from posted journal lines tagged to these projects — in whichever company's books they were booked.")}</p>
+      ${Object.keys(groups).map(co => `<div style="margin:8px 0"><b>${esc(co)}</b><div class="chk-grid">${groups[co].map(p =>
+        `<label class="chk"><input type="checkbox" class="ps-prj" value="${p.id}" ${d.project_ids.includes(p.id) ? "checked" : ""} ${ro}> ${esc(p.code)} — ${esc(p.name)}</label>`).join("")}</div></div>`).join("") || `<p class="muted">${t("No projects in the companies you can see.")}</p>`}
+    </div>
+
+    <div class="pf-two mt">
+      <div class="card pf-edit"><h3>${t("Revenue & users")}</h3><div class="form-grid">
+        <label>${t("Price per active user / month (ARPU)")} <input type="number" step="any" id="paArpu" value="${A.arpu || 0}" ${ro}></label>
+        <label>${t("Price rise per year (%)")} <input type="number" step="any" id="paArpuG" value="${pct(A.arpu_growth_annual) || 0}" ${ro}></label>
+        <label>${t("Subscription revenue starts")} <input type="month" id="paRevStart" value="${esc(A.revenue_start_month || "")}" ${ro}></label>
+        <label>${t("Users already on board then")} <input type="number" step="any" id="paStartU" value="${A.start_users || 0}" ${ro}></label>
+        <label>${t("New users in the first month")} <input type="number" step="any" id="paNew" value="${A.new_users_first || 0}" ${ro}></label>
+        <label>${t("Growth in new users / month (%)")} <input type="number" step="any" id="paNewG" value="${pct(A.new_users_growth) || 0}" ${ro}></label>
+        <label>${t("Churn / month (%)")} <input type="number" step="any" id="paChurn" value="${pct(A.churn_monthly) || 0}" ${ro}></label>
+      </div></div>
+      <div class="card pf-edit"><h3>${t("Server & infrastructure")}</h3><div class="form-grid">
+        <label>${t("Base cost / month")} <input type="number" step="any" id="paSvBase" value="${A.server_base || 0}" ${ro}></label>
+        <label>${t("Cost per active user / month")} <input type="number" step="any" id="paSvUser" value="${A.server_per_user || 0}" ${ro}></label>
+        <label>${t("Add a capacity tier every N users")} <input type="number" step="1" id="paSvStepU" value="${A.server_step_users || 0}" ${ro}></label>
+        <label>${t("Each tier costs / month")} <input type="number" step="any" id="paSvStepC" value="${A.server_step_cost || 0}" ${ro}></label>
+      </div>
+      <p class="muted" style="font-size:12px">${t("In actual months the server figure is whatever the ledger's server & API accounts (5100-02) cost. The model takes over from the first forecast month.")}</p></div>
+    </div>
+
+    <div class="card mt pf-edit"><h3>${t("Cost lines (forecast)")}</h3>
+      <div class="pf-scroll"><table class="tbl"><thead><tr><th>${t("Line")}</th><th>${t("Category")}</th><th class="num">${t("Amount")}</th>
+        <th>${t("Basis")}</th><th>${t("From")}</th><th>${t("Until")}</th><th class="num">${t("Rise / yr %")}</th><th></th></tr></thead>
+        <tbody id="psLines">${d.lines.map(lineRow).join("")}</tbody></table></div>
+      ${canWrite() ? `<button class="btn btn-sm mt" id="psAddLine">+ ${t("Add cost line")}</button>` : ""}
+      <p class="muted" style="font-size:12px">${t("A blank ‘From’ means the line runs from the first forecast month.")}</p></div>
+
+    <div class="pf-two mt">
+      <div class="card pf-edit"><h3>${t("One-off items")}</h3>
+        <table class="tbl"><thead><tr><th>${t("Month")}</th><th>${t("Direction")}</th><th>${t("What")}</th><th class="num">${t("Amount")}</th><th></th></tr></thead>
+          <tbody id="psOne">${d.oneoffs.map(oneRow).join("")}</tbody></table>
+        ${canWrite() ? `<button class="btn btn-sm mt" id="psAddOne">+ ${t("Add one-off")}</button>` : ""}</div>
+      <div class="card pf-edit"><h3>CAPEX</h3>
+        <table class="tbl"><thead><tr><th>${t("Month")}</th><th>${t("Asset")}</th><th class="num">${t("Amount")}</th><th class="num">${t("Life (mo)")}</th><th></th></tr></thead>
+          <tbody id="psCap">${d.capex.map(capRow).join("")}</tbody></table>
+        ${canWrite() ? `<button class="btn btn-sm mt" id="psAddCap">+ ${t("Add asset")}</button>` : ""}</div>
+    </div>
+
+    ${canWrite() ? `<div class="form-actions"><button class="btn btn-danger" id="psDel">${t("Delete SBU")}</button>
+      <button class="btn btn-primary" id="psSave">${t("Save & re-run the analysis")}</button></div>` : ""}`;
+
+  const bindDel = () => $$("#pfBody .pl-del").forEach(b => b.onclick = () => b.closest("tr").remove());
+  bindDel();
+  const add = (sel, html) => { $(sel).insertAdjacentHTML("beforeend", html); bindDel(); };
+  if ($("#psAddLine")) $("#psAddLine").onclick = () => add("#psLines", lineRow({ category: "people", basis: "fixed" }));
+  if ($("#psAddOne")) $("#psAddOne").onclick = () => add("#psOne", oneRow({ flow: "in" }));
+  if ($("#psAddCap")) $("#psAddCap").onclick = () => add("#psCap", capRow({ life_months: 48 }));
+
+  if ($("#psSave")) $("#psSave").onclick = async () => {
+    const n = id => parseFloat($(id).value) || 0, frac = id => (parseFloat($(id).value) || 0) / 100;
+    const payload = {
+      name: $("#psName").value, code: $("#psCode").value, company_id: parseInt($("#psCo").value, 10),
+      stage: $("#psStage").value, launch_month: $("#psLaunch").value,
+      target_year: parseInt($("#psYear").value, 10), actual_through: $("#psThrough").value,
+      horizon_end: $("#psHorizon").value, burn_budget: n("#psBudget"), notes: $("#psNotes").value,
+      project_ids: $$("#pfBody .ps-prj").filter(c => c.checked).map(c => parseInt(c.value, 10)),
+      assumptions: {
+        arpu: n("#paArpu"), arpu_growth_annual: frac("#paArpuG"), revenue_start_month: $("#paRevStart").value,
+        start_users: n("#paStartU"), new_users_first: n("#paNew"), new_users_growth: frac("#paNewG"),
+        churn_monthly: frac("#paChurn"), server_base: n("#paSvBase"), server_per_user: n("#paSvUser"),
+        server_step_users: n("#paSvStepU"), server_step_cost: n("#paSvStepC"),
+      },
+      lines: $$("#psLines tr").map(tr => ({
+        label: $(".pl-label", tr).value, category: $(".pl-cat", tr).value,
+        monthly_amount: parseFloat($(".pl-amt", tr).value) || 0, basis: $(".pl-basis", tr).value,
+        start_month: $(".pl-start", tr).value, end_month: $(".pl-end", tr).value,
+        escalation_annual: (parseFloat($(".pl-esc", tr).value) || 0) / 100,
+      })),
+      oneoffs: $$("#psOne tr").map(tr => ({ month: $(".po-month", tr).value, flow: $(".po-flow", tr).value,
+        label: $(".po-label", tr).value, amount: parseFloat($(".po-amt", tr).value) || 0 })),
+      capex: $$("#psCap tr").map(tr => ({ month: $(".pc-month", tr).value, label: $(".pc-label", tr).value,
+        amount: parseFloat($(".pc-amt", tr).value) || 0, life_months: parseInt($(".pc-life", tr).value, 10) || 48 })),
+    };
+    try {
+      await api(`/api/products/${pid}`, { method: "PUT", json: payload });
+      toast(t("Saved — analysis re-run"));
+      state.pfTab = "overview"; reload();
+    } catch (e) { toast(e.message, true); }
+  };
+  if ($("#psDel")) $("#psDel").onclick = async () => {
+    if (!confirm(t("Delete this SBU and all its drivers? The ledger is not touched."))) return;
+    try { await api(`/api/products/${pid}`, { method: "DELETE" }); toast(t("SBU deleted")); state.pfId = null; reload(); }
+    catch (e) { toast(e.message, true); }
   };
 }
 
@@ -3995,7 +4773,7 @@ async function moneyTrackerDetail(tid, reload) {
   const name = m.project_code ? `${m.project_code} — ${m.project_name || ""}` : (m.title || "Invoice track");
   openModal(`
     <div class="muted" style="margin-top:-4px">${esc(m.company_code)}${m.client ? " · " + esc(m.client) : ""}
-      ${m.invoice_no ? " · invoice " + esc(m.invoice_no) : ""}${m.started_at ? " · started " + esc(m.started_at) : ""}</div>
+      ${m.invoice_no ? " · invoice " + esc(m.invoice_no) : ""}${m.started_at ? " · started " + esc(fmtDate(m.started_at)) : ""}</div>
     <div class="grid kpis mt">
       <div class="kpi"><div class="kpi-label">${t("Amount")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(m.amount)}</div></div>
       <div class="kpi hl"><div class="kpi-label">${t("Current phase")}</div><div class="kpi-value" style="font-size:16px">${esc(m.phase_label)}</div>
@@ -4035,9 +4813,9 @@ async function moneyTrackerDetail(tid, reload) {
         <td>${h.no}</td>
         <td><b>${esc(h.label)}</b><br><span class="muted">${esc(h.name)}</span></td>
         <td class="num">${h.plan_days ? h.plan_days + " days" : "—"}</td>
-        <td>${esc(h.entered_at || "—")}</td>
-        <td class="muted">${esc(h.est_end || "—")}</td>
-        <td>${esc(h.completed_at || "—")}</td>
+        <td>${esc(fmtDate(h.entered_at) || "—")}</td>
+        <td class="muted">${esc(fmtDate(h.est_end) || "—")}</td>
+        <td>${esc(fmtDate(h.completed_at) || "—")}</td>
         <td><span class="pill ${MT_STATE_PILL[h.state] || "inactive"}">${h.state}</span></td>
         <td><button class="mt-badge ${h.comment_count ? "has" : ""}" data-phase="${esc(h.key)}"
               title="${t("Notes & context for this phase")}">&#128172; ${h.comment_count || 0}</button></td></tr>
@@ -4244,7 +5022,7 @@ function renderAcctTB(body, d, focusCode) {
     <thead><tr><th>Code</th><th>Account</th><th>Type</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance</th></tr></thead>
     <tbody>${rows}<tr class="total"><td colspan="3">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
       <td class="num">${fmt(d.total_credit)}</td><td></td></tr></tbody></table></div>
-    <p class="muted mt">Consolidated across all companies, ${esc(d.date_from)} → ${esc(d.date_to)}. Grouped by parent account (bold = subtotal).
+    <p class="muted mt">Consolidated across all companies, ${esc(fmtDate(d.date_from))} → ${esc(fmtDate(d.date_to))}. Grouped by parent account (bold = subtotal).
       <b>Click an account</b> to see its full audit trail — every entry, its source and who input it.</p></div>`;
   $$("#acBody .ac-code").forEach(a => a.onclick = e => {
     e.preventDefault();
@@ -4259,8 +5037,8 @@ function renderAcctTB(body, d, focusCode) {
 
 function renderAcctLedger(body, d) {
   const rows = d.lines.map(l => `<tr>
-    <td>${esc(l.date)}</td>
-    <td><b>${esc(l.entry_no)}</b><br><span class="muted">${esc(l.company_code)}</span></td>
+    <td>${esc(fmtDate(l.date))}</td>
+    <td class="ac-open" data-jid="${l.entry_id}" title="Open this entry — view, edit or move it"><b>${esc(l.entry_no)}</b> &#9998;<br><span class="muted">${esc(l.company_code)}</span></td>
     <td>${esc(l.acc_code)}<br><span class="muted">${esc(l.acc_name)}</span></td>
     <td>${esc(l.line_desc || l.entry_desc || "")}${l.project_code ? `<br><span class="muted">proj ${esc(l.project_code)}</span>` : ""}</td>
     <td><span class="pill ${SOURCE_CLASS[l.source] || "inactive"}">${esc(l.source_label)}</span></td>
@@ -4273,8 +5051,14 @@ function renderAcctLedger(body, d) {
       <th class="num">Debit</th><th class="num">Credit</th></tr></thead>
     <tbody>${rows}<tr class="total"><td colspan="6">TOTAL — ${d.count} line(s)</td>
       <td class="num">${fmt(d.total_debit)}</td><td class="num">${fmt(d.total_credit)}</td></tr></tbody></table></div>
-    <p class="muted mt">Every posted journal line, ${esc(d.date_from)} → ${esc(d.date_to)}, across all companies — with its
-      <b>source</b> (manual / bank / credit card / …) and the <b>user who input it</b>. Filter by account, inputter or source above for review.</p></div>`;
+    <p class="muted mt">Every posted journal line, ${esc(fmtDate(d.date_from))} → ${esc(fmtDate(d.date_to))}, across all companies — with its
+      <b>source</b> (manual / bank / credit card / …) and the <b>user who input it</b>. Filter by account, inputter or source above for review.
+      <b>Click an entry number</b> to open it, edit it, or move it to another company or project.</p></div>`;
+  // re-running the current filter is how this tab reloads; an edit may have
+  // moved a line to another account, company or project
+  const refresh = () => $("#acCode").dispatchEvent(new Event("change"));
+  $$("#acBody .ac-open").forEach(td => td.onclick = () =>
+    viewJournal(parseInt(td.dataset.jid, 10), refresh));
 }
 
 async function pageSettings(el) {
@@ -4317,7 +5101,7 @@ function updateDbBadge() {
   const asOf = state.me.data_as_of || "";
   // the cut-off belongs next to the database name: a figure from a ledger that
   // stops in July must never be read as a figure that is current
-  badge.textContent = active ? "LIVE · " + active + (asOf ? " · " + t("data to") + " " + asOf : "") : "";
+  badge.textContent = active ? "LIVE · " + active + (asOf ? " · " + t("data to") + " " + fmtDate(asOf) : "") : "";
   badge.hidden = !active;
   badge.className = "db-badge" + (isSandbox ? " sandbox" : "");
   badge.style.cursor = "pointer";

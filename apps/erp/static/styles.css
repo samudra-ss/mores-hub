@@ -561,3 +561,101 @@ html[data-theme="dark"] .bc-grid tr:hover .bc-acc { background: #191f25; }
   font-family: var(--font-mono); font-size: 13px; font-weight: 600;
   background: var(--accent-soft); color: var(--accent-bright); border: 1px solid var(--border);
 }
+
+/* ==========================================================================
+   JOURNAL EDITOR — room to read what you are changing
+   The line description and the project are the two fields people actually
+   correct, and at 860px they were squeezed into slivers. The editor opens wide,
+   the project column shows code AND name, and the description wraps.
+   ========================================================================== */
+.modal.wide { max-width: min(1360px, 96vw); }
+.je-lines { table-layout: fixed; width: 100%; }
+.je-lines col.c-acc { width: 22%; }
+.je-lines col.c-prj { width: 22%; }
+.je-lines col.c-desc { width: auto; }
+.je-lines col.c-amt { width: 128px; }
+.je-lines col.c-del { width: 40px; }
+.je-lines td { vertical-align: top; }
+.je-lines textarea.je-ldesc {
+  width: 100%; min-height: 34px; resize: vertical; padding: 6px 8px; font: inherit; font-size: 13px;
+  line-height: 1.4; field-sizing: content; max-height: 160px;
+}
+.je-lines select.je-prj optgroup { font-weight: 700; color: var(--muted); }
+.je-company-note { grid-column: 1 / -1; font-size: 12px; color: var(--amber); }
+.je-company-note[hidden] { display: none; }
+.ac-open { cursor: pointer; }
+.ac-open:hover b { color: var(--accent); text-decoration: underline; }
+
+/* ==========================================================================
+   PRODUCT FINANCE ANALYSIS
+   ========================================================================== */
+.pf-products { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.pf-products .seg { display: inline-flex; align-items: center; gap: 6px; }
+.pf-stage { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+.pf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.pf-verdict { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.pf-scroll { overflow-x: auto; max-width: 100%; }
+.pf-grid { min-width: 100%; }
+.pf-grid th, .pf-grid td { white-space: nowrap; }
+.pf-grid .pf-lbl { position: sticky; left: 0; z-index: 2; background: var(--card); min-width: 210px; }
+.pf-grid thead .pf-lbl { z-index: 3; }
+.pf-grid th.pf-act, .pf-grid td.pf-act { background: color-mix(in srgb, var(--accent) 6%, var(--card)); }
+.pf-grid tr.pf-sub td { font-weight: 700; border-top: 1px solid var(--border); }
+.pf-grid tr.pf-neg td.num { color: var(--red); }
+.pf-phase { font-family: var(--font-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.pf-edit input, .pf-edit select { width: 100%; }
+.pf-edit td { vertical-align: top; }
+.pf-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .pf-two { grid-template-columns: 1fr; } }
+
+/* ==========================================================================
+   SBU — its own palette: emerald
+   The books are teal and the Oracle is amethyst. An SBU page is a verdict on
+   whether a business line makes money, so it reads green - the colour of the
+   thing it is trying to prove - in both themes.
+   ========================================================================== */
+html[data-page="product"] {
+  --accent: #059669;
+  --accent-dark: #047857;
+  --accent-bright: #059669;
+  --accent-soft: #d1fae5;
+  --bg: #f1f8f4;
+  --border: #d3eadc;
+  --sbu-glow: rgba(5, 150, 105, .12);
+  --sbu-rule: linear-gradient(90deg, #047857, #34d399 55%, transparent);
+}
+html[data-page="product"][data-theme="dark"] {
+  --accent: #10b981;
+  --accent-dark: #059669;
+  --accent-bright: #34d399;
+  --accent-soft: rgba(52, 211, 153, .15);
+  --bg: #07110d;
+  --card: #0f1a15;
+  --border: #1d3a2d;
+  --sbu-glow: rgba(52, 211, 153, .16);
+  --sbu-rule: linear-gradient(90deg, #34d399, #059669 55%, transparent);
+}
+html[data-page="product"] .content { background: var(--bg); }
+html[data-page="product"] input:focus,
+html[data-page="product"] select:focus,
+html[data-page="product"] textarea:focus { outline-color: #a7f3d0; }
+html[data-page="product"][data-theme="dark"] input:focus,
+html[data-page="product"][data-theme="dark"] select:focus,
+html[data-page="product"][data-theme="dark"] textarea:focus { outline-color: #1d5c44; }
+html[data-page="product"] .content > .page-head {
+  border-bottom: 2px solid transparent; border-image: var(--sbu-rule) 1; padding-bottom: 12px;
+}
+html[data-page="product"] .card { box-shadow: 0 1px 2px var(--sbu-glow); }
+html[data-page="product"] .tabs button.active { color: var(--accent-bright); border-bottom-color: var(--accent-bright); }
+html[data-page="product"] .seg.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+html[data-page="product"][data-theme="dark"] .seg.active { background: var(--accent-bright); color: #052e20; }
+/* the SBU entry keeps its green in the menu so it is findable without reading */
+.sidebar nav a[data-route="product"] { color: #059669; }
+html[data-theme="dark"] .sidebar nav a[data-route="product"] { color: #34d399; }
+.sidebar nav a[data-route="product"]:hover { background: #d1fae5; color: #047857; }
+html[data-theme="dark"] .sidebar nav a[data-route="product"]:hover { background: rgba(52,211,153,.14); color: #6ee7b7; }
+.sidebar nav a[data-route="product"].active { background: #059669; color: #fff; }
+html[data-theme="dark"] .sidebar nav a[data-route="product"].active { background: #34d399; color: #052e20; }
+/* realization box under the SBU cost donut, mirroring the dashboard's Office Expense box */
+.sbu-real { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--accent-soft);
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 13px; }

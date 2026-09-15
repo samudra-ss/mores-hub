@@ -1,10 +1,12 @@
 """MORES ERP - Excel import/export built on openpyxl."""
 import io
+import re
 from datetime import datetime, date
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -100,8 +102,8 @@ def export_receivables(aging, scope_label):
         ws.cell(row=r, column=1, value=i)
         ws.cell(row=r, column=2, value=it["client"])
         ws.cell(row=r, column=3, value=it["invoice_no"])
-        ws.cell(row=r, column=4, value=it["invoice_date"])
-        ws.cell(row=r, column=5, value=it["due_date"])
+        _date_cell(ws, r, 4, it["invoice_date"])
+        _date_cell(ws, r, 5, it["due_date"])
         _num(ws, r, 6, it["amount"])
         _num(ws, r, 7, it["outstanding"])
         if it["bucket"]:
@@ -142,8 +144,8 @@ def export_payables(aging, scope_label):
         ws.cell(row=r, column=1, value=i)
         ws.cell(row=r, column=2, value=it["vendor"])
         ws.cell(row=r, column=3, value=it["bill_no"])
-        ws.cell(row=r, column=4, value=it["bill_date"])
-        ws.cell(row=r, column=5, value=it["due_date"])
+        _date_cell(ws, r, 4, it["bill_date"])
+        _date_cell(ws, r, 5, it["due_date"])
         _num(ws, r, 6, it["amount"])
         _num(ws, r, 7, it["outstanding"])
         if it["bucket"]:
@@ -370,7 +372,7 @@ def export_journals(entries, scope_label, period_label):
     for e in entries:
         for ln in e["lines"]:
             ws.cell(row=r, column=1, value=e["entry_no"])
-            ws.cell(row=r, column=2, value=e["date"])
+            _date_cell(ws, r, 2, e["date"])
             ws.cell(row=r, column=3, value=e["status"])
             ws.cell(row=r, column=4, value=e["description"])
             ws.cell(row=r, column=5, value=ln["account_code"])
@@ -560,6 +562,31 @@ def upsert_budget(conn, company_id, account_id, project_id, year, month, amount,
         )
 
 
+def _date_cell(ws, row, col, value):
+    """Write an ISO date as a REAL Excel date displayed DD/MM/YYYY, so it sorts
+    and filters as a date and reads the way the rest of the app does."""
+    cell = ws.cell(row=row, column=col)
+    text = str(value or "")[:10]
+    try:
+        cell.value = datetime.strptime(text, "%Y-%m-%d")
+        cell.number_format = "DD/MM/YYYY"
+    except ValueError:
+        cell.value = value
+    return cell
+
+
+def _iso_date(text):
+    """DD/MM/YYYY (how people type it) or YYYY-MM-DD (how a real Excel date
+    arrives) -> YYYY-MM-DD, or None when it is neither."""
+    text = (text or "").strip()[:10]
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(text, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return None
+
+
 def _cell_str(v):
     if v is None:
         return ""
@@ -603,11 +630,9 @@ def import_journals(conn, company_id, stream, created_by):
         if not row or not _cell_str(row[0]):
             continue
         ref = _cell_str(row[0])
-        entry_date = _cell_str(row[1])
-        try:
-            datetime.strptime(entry_date, "%Y-%m-%d")
-        except ValueError:
-            errors.append("Entry %s: invalid date '%s' (use YYYY-MM-DD)" % (ref, entry_date))
+        entry_date = _iso_date(_cell_str(row[1]))
+        if not entry_date:
+            errors.append("Entry %s: invalid date '%s' (use DD/MM/YYYY)" % (ref, _cell_str(row[1])))
             continue
         code = _cell_str(row[3])
         if code not in accounts:
@@ -731,3 +756,368 @@ def import_budget(conn, company_id, year, stream):
         saved += 1
     conn.commit()
     return saved, errors
+
+
+# --------------------------------------------------------------------------
+# SBU model workbook - set up (or back up) a whole SBU from one Excel file
+# --------------------------------------------------------------------------
+
+# key, label, kind, note. The key sits in a hidden column so a label can be
+# reworded (or translated) inside the file without breaking the import.
+SBU_FIELDS = [
+    ("name", "SBU name", "text", "Required."),
+    ("code", "Code", "text", "e.g. SBU-01 - blank keeps the current code"),
+    ("company", "Company code", "text", "The owning company, e.g. SBR"),
+    ("stage", "Stage", "stage", "idea / build / launch / growth / sunset"),
+    ("launch_month", "Launch month", "month", "MM/YYYY"),
+    ("target_year", "Must be profitable by (year)", "int", "e.g. 2027"),
+    ("actual_through", "Actual through", "month", "MM/YYYY - blank = the last month the ledger has"),
+    ("horizon_end", "Model until", "month", "MM/YYYY - blank = December of the target year"),
+    ("burn_budget", "Burn budget (Rp)", "money", "What the company is prepared to lose before it pays back"),
+    ("notes", "Notes", "text", ""),
+    ("arpu", "Price per active user / month (Rp)", "money", "ARPU"),
+    ("arpu_growth_annual", "Price rise per year", "pct", "A percentage"),
+    ("revenue_start_month", "Subscription revenue starts", "month", "MM/YYYY - blank = the launch month"),
+    ("start_users", "Users already on board then", "number", ""),
+    ("new_users_first", "New users in the first month", "number", ""),
+    ("new_users_growth", "Growth in new users / month", "pct", "A percentage"),
+    ("churn_monthly", "Churn / month", "pct", "A percentage of the opening base lost each month"),
+    ("server_base", "Server base cost / month (Rp)", "money", "Runs whether anyone logs in or not"),
+    ("server_per_user", "Server cost per active user / month (Rp)", "money", ""),
+    ("server_step_users", "Add a capacity tier every N users", "int", "0 = no tiers"),
+    ("server_step_cost", "Each tier costs / month (Rp)", "money", ""),
+]
+_SBU_ASSUMPTIONS = {"arpu", "arpu_growth_annual", "revenue_start_month", "start_users", "new_users_first",
+                    "new_users_growth", "churn_monthly", "server_base", "server_per_user",
+                    "server_step_users", "server_step_cost"}
+_PCT_FMT = "0.00%"
+
+
+def _month_out(v):
+    v = str(v or "")
+    return "%s/%s" % (v[5:7], v[:4]) if re.match(r"^\d{4}-\d{2}", v) else None
+
+
+def _sbu_month_in(v):
+    """MM/YYYY as typed, a real Excel date, YYYY-MM or DD/MM/YYYY -> YYYY-MM."""
+    if v in (None, ""):
+        return None
+    if isinstance(v, (datetime, date)):
+        return "%04d-%02d" % (v.year, v.month)
+    s = str(v).strip()
+    for pattern, yi, mi in ((r"^(\d{1,2})[/-](\d{4})$", 2, 1),
+                            (r"^(\d{4})-(\d{1,2})(?:-\d{1,2})?$", 1, 2),
+                            (r"^\d{1,2}/(\d{1,2})/(\d{4})$", 2, 1)):
+        m = re.match(pattern, s)
+        if m and 1 <= int(m.group(mi)) <= 12:
+            return "%s-%02d" % (m.group(yi), int(m.group(mi)))
+    raise ValueError("'%s' is not a month - write it as MM/YYYY" % s)
+
+
+def _sbu_money_in(v):
+    if v in (None, ""):
+        return 0.0
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        return float(v)
+    s = str(v).replace("Rp", "").replace("rp", "").replace(" ", "").strip()
+    if re.match(r"^-?\d{1,3}(\.\d{3})+(,\d+)?$", s):        # 1.200.000,50
+        s = s.replace(".", "").replace(",", ".")
+    elif re.match(r"^-?\d{1,3}(,\d{3})+(\.\d+)?$", s):      # 1,200,000.50
+        s = s.replace(",", "")
+    elif "," in s and "." not in s:                          # 2,5
+        s = s.replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        raise ValueError("'%s' is not an amount" % v)
+
+
+def _sbu_pct_in(cell):
+    """The workbook holds real Excel percentages (0.02 shown as 2%). A plain
+    cell holding 2, or the text '2%', means 2% as well."""
+    v = getattr(cell, "value", cell)
+    if v in (None, ""):
+        return 0.0
+    if isinstance(v, str):
+        s = v.strip()
+        return _sbu_money_in(s[:-1] if s.endswith("%") else s) / 100.0
+    fmt = getattr(cell, "number_format", "") or ""
+    return float(v) if "%" in fmt else float(v) / 100.0
+
+
+def _sbu_int_in(v):
+    if v in (None, ""):
+        return 0
+    try:
+        return int(round(_sbu_money_in(v)))
+    except ValueError:
+        raise ValueError("'%s' is not a whole number" % v)
+
+
+def _sbu_category_in(v, categories):
+    s = _cell_str(v).lower()
+    if not s:
+        return "other"
+    for key, label in categories:
+        if s in (key, label.lower()):
+            return key
+    raise ValueError("unknown category '%s' - use %s" % (_cell_str(v), " / ".join(k for k, _ in categories)))
+
+
+def _note(ws, ref, text):
+    ws[ref] = text
+    ws[ref].font = Font(color="666666", italic=True)
+
+
+def export_sbu_workbook(sbu, company_code, linked_projects, all_projects, categories, stages):
+    """One workbook that IS the SBU model: settings and drivers, cost lines,
+    one-offs, CAPEX and linked projects. Download it, edit it, import it back.
+    An empty `sbu` gives the blank template."""
+    wb = Workbook()
+    a = sbu.get("assumptions") or {}
+    ws = _sheet(wb, "SBU", "SBU model - %s" % (sbu.get("name") or "new SBU"),
+                "Fill in the Value column. Months are MM/YYYY, percentages are percentages. "
+                "Importing the file replaces the SBU's whole model with what it says.")
+    _header_row(ws, 4, ["Field", "Value", "Notes", "key"], [42, 26, 66, 4])
+    stage_row = None
+    for i, (key, label, kind, note) in enumerate(SBU_FIELDS):
+        r = 5 + i
+        ws.cell(row=r, column=1, value=label).font = BOLD
+        val = company_code if key == "company" else (a.get(key) if key in _SBU_ASSUMPTIONS else sbu.get(key))
+        cell = ws.cell(row=r, column=2)
+        if kind == "month":
+            cell.value = _month_out(val)
+        elif kind == "pct":
+            cell.value = float(val or 0)
+            cell.number_format = _PCT_FMT
+        elif kind == "money":
+            cell.value = float(val or 0)
+            cell.number_format = NUM_FMT
+        elif kind in ("int", "number"):
+            cell.value = val if val not in (None, "") else 0
+        else:
+            cell.value = val or None
+        if key == "stage":
+            stage_row = r
+        ws.cell(row=r, column=3, value=note or None).font = Font(color="666666", italic=True)
+        ws.cell(row=r, column=4, value=key).font = Font(color="BBBBBB")
+    ws.column_dimensions["D"].hidden = True
+    dv = DataValidation(type="list", formula1='"%s"' % ",".join(stages), allow_blank=True)
+    ws.add_data_validation(dv)
+    dv.add("B%d" % stage_row)
+
+    cats = [k for k, _ in categories]
+    lines = sbu.get("lines") or []
+    wl = wb.create_sheet("Cost lines")
+    wl["A1"] = "Forecast cost lines"
+    wl["A1"].font = TITLE_FONT
+    _note(wl, "A2", "Category: %s. Basis: per month or per working day. A blank From means the line "
+                    "runs from the first forecast month." % " / ".join(cats))
+    _header_row(wl, 4, ["Line", "Category", "Amount (Rp)", "Basis", "From (MM/YYYY)", "Until (MM/YYYY)",
+                        "Rise per year"], [38, 14, 18, 18, 16, 16, 14])
+    for i, ln in enumerate(lines):
+        r = 5 + i
+        wl.cell(row=r, column=1, value=ln.get("label") or None)
+        wl.cell(row=r, column=2, value=ln.get("category") or "other")
+        _num(wl, r, 3, ln.get("monthly_amount"))
+        wl.cell(row=r, column=4, value="per working day" if ln.get("basis") == "per_working_day" else "per month")
+        wl.cell(row=r, column=5, value=_month_out(ln.get("start_month")))
+        wl.cell(row=r, column=6, value=_month_out(ln.get("end_month")))
+        wl.cell(row=r, column=7, value=float(ln.get("escalation_annual") or 0)).number_format = _PCT_FMT
+    for r in range(5 + len(lines), 201):
+        wl.cell(row=r, column=7).number_format = _PCT_FMT   # a typed 5 becomes 5%, as Excel does
+    for col, options in (("B", cats), ("D", ["per month", "per working day"])):
+        v = DataValidation(type="list", formula1='"%s"' % ",".join(options), allow_blank=True)
+        wl.add_data_validation(v)
+        v.add("%s5:%s500" % (col, col))
+
+    wo = wb.create_sheet("One-offs")
+    wo["A1"] = "One-off items"
+    wo["A1"].font = TITLE_FONT
+    _note(wo, "A2", "Direction: in (money coming in, e.g. a termin) or out. Months that are already "
+                    "actual are ignored - the ledger decides what happened in those.")
+    _header_row(wo, 4, ["Month (MM/YYYY)", "Direction", "What", "Amount (Rp)"], [18, 12, 42, 18])
+    for i, o in enumerate(sbu.get("oneoffs") or []):
+        r = 5 + i
+        wo.cell(row=r, column=1, value=_month_out(o.get("month")))
+        wo.cell(row=r, column=2, value="in" if o.get("flow") == "in" else "out")
+        wo.cell(row=r, column=3, value=o.get("label") or None)
+        _num(wo, r, 4, o.get("amount"))
+    v = DataValidation(type="list", formula1='"in,out"', allow_blank=True)
+    wo.add_data_validation(v)
+    v.add("B5:B500")
+
+    wc = wb.create_sheet("CAPEX")
+    wc["A1"] = "CAPEX register"
+    wc["A1"].font = TITLE_FONT
+    _note(wc, "A2", "Cash when bought, then depreciated straight-line over its life.")
+    _header_row(wc, 4, ["Month bought (MM/YYYY)", "Asset", "Amount (Rp)", "Life (months)"], [22, 42, 18, 14])
+    for i, cx in enumerate(sbu.get("capex") or []):
+        r = 5 + i
+        wc.cell(row=r, column=1, value=_month_out(cx.get("month")))
+        wc.cell(row=r, column=2, value=cx.get("label") or None)
+        _num(wc, r, 3, cx.get("amount"))
+        wc.cell(row=r, column=4, value=int(cx.get("life_months") or 48))
+
+    wp = wb.create_sheet("Projects")
+    wp["A1"] = "Ledger projects this SBU spends from"
+    wp["A1"].font = TITLE_FONT
+    _note(wp, "A2", "Actual months come from posted journal lines on these projects, in whichever "
+                    "company's books they were booked. Copy codes from the 'Project list' sheet.")
+    _header_row(wp, 4, ["Project code", "Company code (needed only if the code exists in two companies)",
+                        "Project name (reference only)"], [18, 30, 46])
+    for i, p in enumerate(linked_projects or []):
+        r = 5 + i
+        wp.cell(row=r, column=1, value=p.get("code") or None)
+        wp.cell(row=r, column=2, value=p.get("company_code") or None)
+        wp.cell(row=r, column=3, value=p.get("name") or None)
+
+    wr = wb.create_sheet("Project list")
+    wr["A1"] = "Every project you can link"
+    wr["A1"].font = TITLE_FONT
+    _header_row(wr, 3, ["Project code", "Company code", "Project name"], [18, 16, 52])
+    for i, p in enumerate(all_projects or []):
+        r = 4 + i
+        wr.cell(row=r, column=1, value=p.get("code") or None)
+        wr.cell(row=r, column=2, value=p.get("company_code") or None)
+        wr.cell(row=r, column=3, value=p.get("name") or None)
+    wb.active = 0
+    return _to_bytes(wb)
+
+
+def parse_sbu_workbook(stream, categories, stages):
+    """Read an SBU model workbook -> (payload, errors).
+
+    The payload has the shape PUT /api/products/<id> takes, plus company_code and
+    project_refs for the server to resolve. Nothing is written here, and the
+    server applies nothing when any error is reported: half an imported model is
+    worse than none, because it looks finished.
+    """
+    try:
+        wb = load_workbook(stream, data_only=True)
+    except Exception:
+        return None, ["That file could not be opened as an Excel workbook (.xlsx)."]
+    sheets = {w.title.strip().lower(): w for w in wb.worksheets}
+    ws = sheets.get("sbu")
+    if ws is None:
+        return None, ["This is not an SBU model workbook - it has no sheet named 'SBU'. "
+                      "Download the template from the SBU page."]
+    errors, payload = [], {"assumptions": {}}
+    kinds = {k: kind for k, _, kind, _ in SBU_FIELDS}
+    by_label = {label.lower(): k for k, label, _, _ in SBU_FIELDS}
+    for row in ws.iter_rows(min_row=5):
+        if not row:
+            continue
+        label = _cell_str(row[0].value)
+        key = _cell_str(row[3].value) if len(row) > 3 else ""
+        if key not in kinds:
+            key = by_label.get(label.lower())
+        if not key:
+            continue
+        cell = row[1] if len(row) > 1 else None
+        raw = cell.value if cell is not None else None
+        kind = kinds[key]
+        try:
+            if kind == "month":
+                val = _sbu_month_in(raw)
+            elif kind == "pct":
+                val = _sbu_pct_in(cell)
+            elif kind in ("money", "number"):
+                val = _sbu_money_in(raw)
+            elif kind == "int":
+                val = _sbu_int_in(raw)
+            elif kind == "stage":
+                val = _cell_str(raw).lower() or "build"
+                if val not in stages:
+                    raise ValueError("stage must be one of %s" % " / ".join(stages))
+            else:
+                val = _cell_str(raw)
+        except ValueError as e:
+            errors.append("SBU sheet, %s: %s" % (label or key, e))
+            continue
+        if key == "company":
+            payload["company_code"] = val
+        elif key in _SBU_ASSUMPTIONS:
+            payload["assumptions"][key] = val
+        else:
+            payload[key] = val
+    if not payload.get("name"):
+        errors.append("SBU sheet: 'SBU name' is required.")
+    for key in ("code", "target_year"):            # blank keeps what the SBU already has
+        if not payload.get(key):
+            payload.pop(key, None)
+
+    def rows_of(name):
+        s = sheets.get(name)
+        return None if s is None else list(enumerate(s.iter_rows(min_row=5), start=5))
+
+    def at(r, i):
+        return r[i].value if i < len(r) else None
+
+    rs = rows_of("cost lines")
+    if rs is not None:
+        lines = []
+        for n, r in rs:
+            label, amount = _cell_str(at(r, 0)), at(r, 2)
+            if not label and amount in (None, ""):
+                continue
+            try:
+                lines.append({
+                    "label": label or "Cost line",
+                    "category": _sbu_category_in(at(r, 1), categories),
+                    "monthly_amount": _sbu_money_in(amount),
+                    "basis": "per_working_day" if "working" in _cell_str(at(r, 3)).lower() else "fixed",
+                    "start_month": _sbu_month_in(at(r, 4)),
+                    "end_month": _sbu_month_in(at(r, 5)),
+                    "escalation_annual": _sbu_pct_in(r[6] if len(r) > 6 else None),
+                })
+            except ValueError as e:
+                errors.append("Cost lines row %d: %s" % (n, e))
+        payload["lines"] = lines
+
+    rs = rows_of("one-offs")
+    if rs is not None:
+        out = []
+        for n, r in rs:
+            m, amount = at(r, 0), at(r, 3)
+            if m in (None, "") and amount in (None, ""):
+                continue
+            try:
+                month = _sbu_month_in(m)
+                if not month:
+                    raise ValueError("a month is required")
+                d = _cell_str(at(r, 1)).lower()
+                if d in ("in", "money in", "masuk"):
+                    flow = "in"
+                elif d in ("", "out", "money out", "keluar"):
+                    flow = "out"
+                else:
+                    raise ValueError("direction must be in or out")
+                out.append({"month": month, "flow": flow, "label": _cell_str(at(r, 2)),
+                            "amount": _sbu_money_in(amount)})
+            except ValueError as e:
+                errors.append("One-offs row %d: %s" % (n, e))
+        payload["oneoffs"] = out
+
+    rs = rows_of("capex")
+    if rs is not None:
+        out = []
+        for n, r in rs:
+            m, amount = at(r, 0), at(r, 2)
+            if m in (None, "") and amount in (None, ""):
+                continue
+            try:
+                month = _sbu_month_in(m)
+                if not month:
+                    raise ValueError("a month is required")
+                out.append({"month": month, "label": _cell_str(at(r, 1)), "amount": _sbu_money_in(amount),
+                            "life_months": _sbu_int_in(at(r, 3)) or 48})
+            except ValueError as e:
+                errors.append("CAPEX row %d: %s" % (n, e))
+        payload["capex"] = out
+
+    rs = rows_of("projects")
+    if rs is not None:
+        payload["project_refs"] = [(n, _cell_str(at(r, 0)), _cell_str(at(r, 1)))
+                                   for n, r in rs if _cell_str(at(r, 0))]
+    return payload, errors

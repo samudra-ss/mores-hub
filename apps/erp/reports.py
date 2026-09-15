@@ -377,7 +377,7 @@ def audit_ledger(conn, company_ids, date_from=None, date_to=None,
         where.append("COALESCE(u.username,'—') = ?"); params.append(created_by)
     rows = conn.execute(
         """
-        SELECT je.date AS date, je.entry_no AS entry_no, je.description AS entry_desc,
+        SELECT je.id AS entry_id, je.date AS date, je.entry_no AS entry_no, je.description AS entry_desc,
                je.reference AS reference, COALESCE(je.source,'manual') AS source,
                je.created_at AS created_at, c.code AS company_code,
                a.code AS acc_code, a.name AS acc_name, a.type AS acc_type,

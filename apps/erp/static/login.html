@@ -93,7 +93,7 @@ button[type=submit] .arrow { font-family: "JetBrains Mono", monospace; font-size
 /* ---- hero ---- */
 .right { flex: 1 1 380px; min-width: 280px; min-height: 58vh; position: relative; border-left: 3px solid var(--ink); background: var(--deep); overflow: hidden; }
 .plate { position: absolute; inset: -7%; will-change: transform; transition: transform 200ms cubic-bezier(.2,.7,.2,1); }
-.plate .shot { position: absolute; inset: 0; filter: grayscale(1) contrast(1.35) brightness(.85); background: url("/static/assets/login-hero.webp") center/cover no-repeat; }
+.plate .shot { position: absolute; inset: 0; filter: grayscale(1) contrast(1.35) brightness(.85); background: url("/static/assets/hero-building.jpg") center/cover no-repeat; }
 .plate .wash { position: absolute; inset: 0; pointer-events: none; background: var(--accent); mix-blend-mode: screen; opacity: .22; }
 .plate .scan { position: absolute; inset: 0; pointer-events: none; background-image: repeating-linear-gradient(0deg, #00000073 0 1px, transparent 1px 3px); }
 .chips { position: absolute; left: 18px; bottom: 64px; pointer-events: none; will-change: transform; transition: transform 300ms cubic-bezier(.2,.7,.2,1); display: flex; flex-direction: column; gap: 10px; }
@@ -175,8 +175,7 @@ button[type=submit] .arrow { font-family: "JetBrains Mono", monospace; font-size
 // yet and the app must not state a data cut-off it cannot know.
 function stamp() {
   const d = new Date(), p = n => String(n).padStart(2, "0");
-  const mon = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"][d.getMonth()];
-  return `${p(d.getDate())} ${mon} ${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())} LOCAL`;
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())} LOCAL`;
 }
 function paintTicker() {
   const line = ["helicopter view · group finance", "secure sign-in required",

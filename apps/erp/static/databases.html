@@ -323,9 +323,14 @@ function roleBadges(roles) {
   if (!roles || !roles.length) return '<span class="rb rb-none">none</span>';
   return roles.map(r => `<span class="rb rb-${r}">${ROLE_SHORT[r] || r}</span>`).join(' ');
 }
+// DD/MM/YYYY for anything shown; the stored value stays ISO
+function dmy(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : (v || '');
+}
 function usedText(db) {
   if (!db.entries) return 'No entries yet';
-  const when = db.last_entry || (db.last_at || '').slice(0, 10) || '—';
+  const when = dmy(db.last_entry || (db.last_at || '').slice(0, 10)) || '—';
   return `Last entry <b>${esc(when)}</b> · ${Number(db.entries).toLocaleString()} entries`;
 }
 
@@ -350,7 +355,7 @@ function render(d) {
       ${art}
       <div class="label"><div class="name" title="${esc(db.name)}">${esc(db.name)}</div>
         <div class="meta">${meta}</div>
-        ${db.data_as_of ? `<div class="asof">Data complete to ${esc(db.data_as_of)}</div>` : ''}
+        ${db.data_as_of ? `<div class="asof">Data complete to ${esc(dmy(db.data_as_of))}</div>` : ''}
         <div class="used">${usedText(db)}</div>
         <div class="access">
           <span class="acc-row"><span class="acc-k">Enter</span> ${roleBadges(db.enter_roles)}</span>

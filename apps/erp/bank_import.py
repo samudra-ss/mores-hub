@@ -159,6 +159,17 @@ def parse_date(s):
     return None
 
 
+def is_pending_date(raw):
+    """BCA prints PEND in the date column for a transaction it has not settled yet."""
+    return str(raw or "").strip().strip("'\"").upper().startswith("PEND")
+
+
+def pending_note(n, today):
+    return ("%d pending (PEND) transaction(s) were dated today, %s, from the system clock. "
+            "When the bank settles them they will appear again with their real date and a "
+            "different fingerprint — check for a duplicate before posting." % (n, today))
+
+
 def _parse_line(line):
     low = line.lower()
     for label in _SORTED_LABELS:
@@ -275,9 +286,15 @@ def parse_bca_csv(data):
             continue
         if len(cells) < 4:
             continue
-        date = parse_date(first)
+        # exports often prefix the date with an apostrophe so a spreadsheet keeps it
+        # as text; left in, it made every settled row unparseable
+        date = parse_date(first.lstrip("'").strip())
+        pending = False
+        if not date and is_pending_date(first):
+            # PEND = not settled yet. It still happened, so it is dated with the
+            # system's own date rather than dropped.
+            date, pending = datetime.now().strftime("%Y-%m-%d"), True
         if not date:
-            # BCA marks unsettled rows with 'PEND' instead of a date
             warnings.append("Row skipped (no transaction date): %s…" % cells[1][:40])
             continue
         desc = re.sub(r"\s+", " ", cells[1]).strip()
@@ -290,19 +307,28 @@ def parse_bca_csv(data):
             continue
         # bank codes like 2505/FTSCY/WS95051 are batch codes shared by several
         # rows, so build a unique per-row fingerprint for duplicate detection
-        reference = "CSV-" + hashlib.sha1(
-            ("%s|%s|%s|%s" % (date, desc, amount, balance)).encode()).hexdigest()[:12].upper()
+        # A pending row's fingerprint leaves the date out: it is "today" only because
+        # the bank has not dated it, so re-importing the same file tomorrow must not
+        # turn one transaction into two.
+        fp = ("PEND|%s|%s|%s" % (desc, amount, balance)) if pending else (
+            "%s|%s|%s|%s" % (date, desc, amount, balance))
+        reference = "CSV-" + hashlib.sha1(fp.encode()).hexdigest()[:12].upper()
         records.append({
             "date": date, "time": "", "tx_type": desc.split("  ")[0][:60],
             "from_account": meta.get("no. rekening", meta.get("no rekening", "")),
             "va_number": "", "name": "", "merchant": "",
             "amount": amount, "transfer_type": "", "reference": reference,
-            "status": "CSV", "note": "", "ok": True,
+            "status": "PEND" if pending else "CSV",
+            "note": "PEND — dated today (system date)" if pending else "", "ok": True,
             "description": desc, "direction": direction, "balance": balance,
+            "pending": pending,
             "suggested_code": suggest_bank_account(desc),
         })
     if not in_table:
         warnings.append("Header row 'Tanggal Transaksi' not found — is this a BCA mutasi-rekening CSV?")
+    n_pend = sum(1 for r in records if r.get("pending"))
+    if n_pend:
+        warnings.append(pending_note(n_pend, datetime.now().strftime("%Y-%m-%d")))
     warnings.extend(reconcile_balances(records))
     return records, warnings, meta
 
@@ -794,6 +820,9 @@ def _profile_records(all_rows, header_idx, profile, ref_prefix):
             continue
         raw_date = cell(row, "date")
         date = raw_date[:10] if re.match(r"\d{4}-\d{2}-\d{2}", raw_date) else parse_date(raw_date)
+        pending = False
+        if not date and is_pending_date(raw_date):
+            date, pending = datetime.now().strftime("%Y-%m-%d"), True
         amt_raw = cell(row, "amount")
         signed = parse_amount(amt_raw)   # already signed (− prefix or (parens))
         amount = round(abs(signed), 2)   # store a positive magnitude, like the other parsers
@@ -805,17 +834,23 @@ def _profile_records(all_rows, header_idx, profile, ref_prefix):
         desc = re.sub(r"\s+", " ", cell(row, "description")).strip() or "Bank transaction"
         bal_raw = cell(row, "balance")
         balance = parse_amount(bal_raw) if bal_raw else None
+        fp = ("PEND|%s|%s|%s" % (desc, amount, balance)) if pending else (
+            "%s|%s|%s|%s" % (date, desc, amount, balance))
         ref = cell(row, "reference") or (
-            ref_prefix + hashlib.sha1(
-                ("%s|%s|%s|%s" % (date, desc, amount, balance)).encode()).hexdigest()[:12].upper())
+            ref_prefix + hashlib.sha1(fp.encode()).hexdigest()[:12].upper())
         records.append({
             "date": date, "time": "", "tx_type": desc.split("  ")[0][:60],
             "from_account": "", "va_number": "", "name": "", "merchant": "",
             "amount": amount, "transfer_type": "", "reference": ref,
-            "status": (profile.get("name") or "custom")[:24], "note": "", "ok": True,
+            "status": "PEND" if pending else (profile.get("name") or "custom")[:24],
+            "note": "PEND — dated today (system date)" if pending else "", "ok": True,
             "description": desc, "direction": direction, "balance": balance,
+            "pending": pending,
             "suggested_code": suggest_bank_account(desc),
         })
+    n_pend = sum(1 for r in records if r.get("pending"))
+    if n_pend:
+        warnings.append(pending_note(n_pend, datetime.now().strftime("%Y-%m-%d")))
     return records, warnings
 
 
