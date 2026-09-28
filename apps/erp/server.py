@@ -12,11 +12,15 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import bank_import
 import database
+import io
+
 import excel_io
+import expense_detail
 import fpa_cash
 import product_fa
 import pdf_export
 import reports
+import sbu_report
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -36,7 +40,8 @@ app.permanent_session_lifetime = timedelta(days=30)  # "Remember me" duration
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 # where a journal entry came from (shown in the detailed trial balance)
-ENTRY_SOURCES = {"manual", "bca_bank", "bca_csv", "bca_pdf", "monit_wallet", "excel", "custom", "cc_card"}
+ENTRY_SOURCES = {"manual", "bca_bank", "bca_csv", "bca_pdf", "monit_wallet", "excel", "custom", "cc_card",
+                 "grab_business"}
 
 
 # --------------------------------------------------------------------------
@@ -822,8 +827,10 @@ def apply_standard_all():
 def list_projects():
     ids, _ = scope_from_request()
     rows = db().execute(
-        """SELECT p.*, c.code AS company_code, c.name AS company_name
+        """SELECT p.*, c.code AS company_code, c.name AS company_name,
+                  i.id AS investment_id, i.name AS investment_name
            FROM projects p JOIN companies c ON c.id = p.company_id
+           LEFT JOIN investments i ON i.linked_project_id = p.id
            WHERE p.company_id IN (%s) ORDER BY c.code, p.code""" % ",".join("?" * len(ids)),
         ids).fetchall()
     out = [dict(r) for r in rows]
@@ -839,11 +846,12 @@ def create_project():
     if not d.get("code") or not d.get("name"):
         raise ValueError("Code and name are required")
     cur = db().execute(
-        "INSERT INTO projects (company_id, code, name, status, start_date, end_date, description)"
-        " VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO projects (company_id, code, name, status, start_date, end_date,"
+        " description, contract_value) VALUES (?,?,?,?,?,?,?,?)",
         (d["company_id"], d["code"].strip(), d["name"].strip(),
          d.get("status", "active"), d.get("start_date") or None,
-         d.get("end_date") or None, d.get("description", "")))
+         d.get("end_date") or None, d.get("description", ""),
+         max(0.0, float(d.get("contract_value") or 0))))
     _save_custom_values(d.get("custom", {}), "project", cur.lastrowid)
     db().commit()
     return jsonify({"id": cur.lastrowid}), 201
@@ -858,9 +866,11 @@ def update_project(pid):
     check_company_access(row["company_id"])
     d = request.get_json(force=True)
     db().execute(
-        "UPDATE projects SET name=?, status=?, start_date=?, end_date=?, description=? WHERE id=?",
+        "UPDATE projects SET name=?, status=?, start_date=?, end_date=?, description=?,"
+        " contract_value=? WHERE id=?",
         (d["name"], d.get("status", "active"), d.get("start_date") or None,
-         d.get("end_date") or None, d.get("description", ""), pid))
+         d.get("end_date") or None, d.get("description", ""),
+         max(0.0, float(d.get("contract_value") or 0)), pid))
     _save_custom_values(d.get("custom", {}), "project", pid)
     db().commit()
     return jsonify({"ok": True})
@@ -1059,8 +1069,29 @@ def create_journal():
              l.get("description", ""), round(float(l.get("debit") or 0), 2),
              round(float(l.get("credit") or 0), 2)))
     _save_custom_values(d.get("custom", {}), "journal", cur.lastrowid)
+    if source == "grab_business" and isinstance(d.get("grab"), dict):
+        _save_grab_detail(cur.lastrowid, d["company_id"], d["grab"], total_d)
     db().commit()
     return jsonify({"id": cur.lastrowid, "entry_no": entry_no}), 201
+
+
+_GRAB_TEXT = ("booking_id", "service", "service_type", "employee", "employee_group",
+              "employee_email", "time", "city", "pickup", "dropoff", "merchant", "items",
+              "cost_code", "trip_description")
+
+
+def _save_grab_detail(entry_id, company_id, gd, amount):
+    """Who took the ride and where it went, kept beside the journal it was booked
+    as. The amount on the journal stays the one that counts."""
+    vals = [str(gd.get(k) or "").strip()[:500] for k in _GRAB_TEXT]
+    try:
+        tips = float(gd.get("tips") or 0)
+    except (TypeError, ValueError):
+        tips = 0.0
+    db().execute(
+        "INSERT INTO grab_transactions (entry_id, company_id, %s, amount, tips)"
+        " VALUES (?,?,%s,?,?)" % (", ".join(_GRAB_TEXT), ",".join("?" * len(_GRAB_TEXT))),
+        [entry_id, company_id] + vals + [amount, tips])
 
 
 @app.put("/api/journals/<int:jid>")
@@ -2049,18 +2080,26 @@ def export_budget():
     year = year_param()
     project_id = request.args.get("project_id")
     grid = get_budgets().get_json()
-    if project_id:
+    suffix = ""
+    if project_id == "all":
+        # every project's budget in one file, each row carrying its project code,
+        # so the whole per-project set round-trips through one workbook
+        rows = [r for r in grid["rows"] if r["project_id"]]
+        label = "%s / all projects" % _company_name(company_id)
+        suffix = "_all_projects"
+    elif project_id:
         pid = int(project_id)
         prow = project_in_company(pid, company_id)
         rows = [r for r in grid["rows"] if r["project_id"] == pid]
         label = "%s / %s" % (_company_name(company_id), prow["code"])
+        suffix = "_%s" % re.sub(r"[^A-Za-z0-9_-]+", "_", prow["code"])
     else:
         rows = [r for r in grid["rows"] if not r["project_id"]]
         label = _company_name(company_id)
     pcodes = {r["id"]: r["code"] for r in db().execute(
         "SELECT id, code FROM projects WHERE company_id=?", (company_id,))}
     return _xlsx(excel_io.export_budget_grid(rows, label, year, pcodes),
-                 "budget_%d.xlsx" % year)
+                 "budget_%d%s.xlsx" % (year, suffix))
 
 
 @app.get("/api/export/journals")
@@ -2115,7 +2154,18 @@ def download_template(kind):
     if kind == "coa":
         return _xlsx(excel_io.template_coa(), "coa_import_template.xlsx")
     if kind == "budget":
-        return _xlsx(excel_io.template_budget(year_param()), "budget_import_template.xlsx")
+        # the template carries the company's project codes, so column B can be
+        # filled by copying rather than by guessing
+        projects, pcode = [], None
+        if request.args.get("company_id"):
+            cid = int(request.args["company_id"])
+            check_company_access(cid)
+            projects = [dict(r) for r in db().execute(
+                "SELECT code, name FROM projects WHERE company_id=? ORDER BY code", (cid,))]
+            if request.args.get("project_id"):
+                pcode = project_in_company(int(request.args["project_id"]), cid)["code"]
+        return _xlsx(excel_io.template_budget(year_param(), projects, pcode),
+                     "budget_import_template.xlsx")
     raise ValueError("Unknown template")
 
 
@@ -2156,8 +2206,13 @@ def import_budget():
     company_id = int(request.form.get("company_id"))
     check_company_access(company_id)
     year = int(request.form.get("year", 2026))
-    saved, errors = excel_io.import_budget(db(), company_id, year, _import_file())
-    return jsonify({"saved_rows": saved, "errors": errors})
+    project_id = request.form.get("project_id")
+    project_id = int(project_id) if project_id else None
+    if project_id:
+        project_in_company(project_id, company_id)      # tenant guard, same as the grid
+    saved, errors, by_project = excel_io.import_budget(
+        db(), company_id, year, _import_file(), project_id)
+    return jsonify({"saved_rows": saved, "errors": errors, "by_project": by_project})
 
 
 # --------------------------------------------------------------------------
@@ -2267,6 +2322,86 @@ def parse_cc():
     _flag_duplicates(company_id, txs)
     _resolve_suggested_accounts(company_id, txs)
     return jsonify({"transactions": txs, "warnings": warnings, "meta": meta})
+
+
+@app.post("/api/bank/parse-grab")
+@role_required("admin", "finance")
+def parse_grab():
+    """Grab for Business company-billing CSVs. Several files (Express,
+    Transport, Food) may be sent together; they come back as one list."""
+    company_id = int(request.form.get("company_id"))
+    check_company_access(company_id)
+    files = [f for f in request.files.getlist("file") if f and f.filename]
+    if not files:
+        raise ValueError("No file uploaded")
+    txs, warnings, reports = [], [], []
+    for f in files:
+        if not f.filename.lower().endswith((".csv", ".txt")):
+            raise ValueError("%s is not a .csv file - upload the CSV Grab for Business emails you"
+                             % f.filename)
+        rows, warns, meta = bank_import.parse_grab_csv(f.read(), f.filename)
+        txs += rows
+        warnings += ["%s: %s" % (f.filename, w) for w in warns]
+        reports.append(dict(meta, file=f.filename))
+    # the same booking in two files is booked once
+    seen, unique = set(), []
+    for t in txs:
+        if t["reference"] in seen:
+            continue
+        seen.add(t["reference"])
+        unique.append(t)
+    unique.sort(key=lambda t: (t["date"], t.get("time") or ""))
+    _flag_duplicates(company_id, unique)
+    _resolve_grab_accounts(company_id, unique)
+    acc = _grab_account(company_id)
+    return jsonify({"transactions": unique, "warnings": warnings, "meta": {
+        "rows": len(unique), "files": reports,
+        "grab_account_id": acc["id"] if acc else None,
+        "grab_account": ("%s %s" % (acc["code"], acc["name"])) if acc else None}})
+
+
+def _grab_account(company_id):
+    return db().execute(
+        "SELECT id, code, name FROM accounts WHERE company_id=? AND UPPER(TRIM(name))=?",
+        (company_id, database.GRAB_ACCOUNT_NAME)).fetchone()
+
+
+def _resolve_grab_accounts(company_id, txs):
+    """Food to Food & Beverage, rides and deliveries to Transportation - the first
+    of each hint list that exists in this company's chart wins."""
+    have = {r["code"]: r["id"] for r in db().execute(
+        "SELECT id, code FROM accounts WHERE company_id=? AND is_active=1", (company_id,))}
+    for t in txs:
+        for code in t.get("suggested_codes") or [t.get("suggested_code")]:
+            if code in have:
+                t["suggested_code"], t["suggested_account_id"] = code, have[code]
+                break
+
+
+@app.post("/api/bank/grab-account")
+@role_required("admin", "finance")
+def make_grab_account():
+    """Create the CORP PAY - GRAB cash account in a company that has none yet."""
+    company_id = int((request.get_json(force=True) or {}).get("company_id"))
+    check_company_access(company_id)
+    row = database.ensure_grab_account(db(), company_id)
+    db().commit()
+    return jsonify({"id": row["id"], "code": row["code"], "name": row["name"]})
+
+
+# --------------------------------------------------------------------------
+# Expense Breakdown - the devil in the detail (Petty Cash Monit + Grab)
+# --------------------------------------------------------------------------
+
+@app.get("/api/expense-detail")
+@login_required
+def get_expense_detail():
+    ids, label = scope_from_request()
+    month = request.args.get("month")
+    month = int(month) if month and month.isdigit() and 1 <= int(month) <= 12 else None
+    out = expense_detail.expense_detail(db(), ids, year_param(), month)
+    out["scope"] = label
+    return jsonify(out)
 
 
 @app.get("/api/bank/wallet-template")
@@ -2381,7 +2516,9 @@ def _investment_query(where, params):
               COALESCE((SELECT SUM(amount) FROM investment_events
                         WHERE investment_id=i.id AND kind='outflow'), 0) AS invested,
               COALESCE((SELECT SUM(amount) FROM investment_events
-                        WHERE investment_id=i.id AND kind='benefit'), 0) AS benefit
+                        WHERE investment_id=i.id AND kind='benefit'), 0) AS benefit,
+              (SELECT updated_at FROM entity_images
+                WHERE kind='investment' AND entity_id=i.id) AS image_v
            FROM investments i
            JOIN companies c ON c.id = i.company_id
            LEFT JOIN projects p ON p.id = i.linked_project_id
@@ -2407,6 +2544,11 @@ def get_investment(iid):
     events = db().execute(
         "SELECT * FROM investment_events WHERE investment_id=? ORDER BY date, id", (iid,)).fetchall()
     inv["events"] = [dict(e) for e in events]
+    inv["milestones"] = _investment_milestones(iid)
+    inv["progress"] = _investment_progress(inv["milestones"])
+    inv["commitments_total"] = db().execute(
+        "SELECT COALESCE(SUM(amount),0) FROM investment_commitments WHERE investment_id=?",
+        (iid,)).fetchone()[0]
     return jsonify(inv)
 
 
@@ -2457,6 +2599,7 @@ def delete_investment(iid):
     if not row:
         raise ValueError("Investment not found")
     check_company_access(row["company_id"])
+    db().execute("DELETE FROM entity_images WHERE kind='investment' AND entity_id=?", (iid,))
     db().execute("DELETE FROM investments WHERE id=?", (iid,))
     db().commit()
     return jsonify({"ok": True})
@@ -3432,13 +3575,16 @@ def list_products():
     ids = accessible_company_ids()
     database.ensure_product_tables(db())
     rows = db().execute(
-        "SELECT p.*, c.code AS company_code FROM products p JOIN companies c ON c.id=p.company_id"
+        "SELECT p.*, c.code AS company_code,"
+        " (SELECT updated_at FROM entity_images WHERE kind='product' AND entity_id=p.id) AS image_v"
+        " FROM products p JOIN companies c ON c.id=p.company_id"
         " WHERE p.company_id IN (%s) ORDER BY p.sort, p.id" % ",".join("?" * len(ids)),
         ids).fetchall() if ids else []
     out = []
     for r in rows:
         d = dict(r)
         d.pop("assumptions", None)
+        d.pop("report", None)
         try:
             ctx = product_fa.load_context(db(), r["id"], ids)
             sm = product_fa.summarise(ctx, product_fa.simulate(ctx))
@@ -3501,6 +3647,7 @@ def _product_detail(pid):
     out["categories"] = [{"key": c, "label": product_fa.CATEGORY_LABELS[c]}
                          for c in product_fa.CATEGORIES]
     out["stages"] = list(PRODUCT_STAGES)
+    out["image_v"] = _image_version("product", pid)
     return out
 
 
@@ -3724,9 +3871,123 @@ def delete_product(pid):
     _product_access(pid)
     for t in ("product_cost_lines", "product_oneoffs", "product_capex", "product_projects"):
         db().execute("DELETE FROM %s WHERE product_id=?" % t, (pid,))
+    db().execute("DELETE FROM entity_images WHERE kind='product' AND entity_id=?", (pid,))
     db().execute("DELETE FROM products WHERE id=?", (pid,))
     db().commit()
     return jsonify({"ok": True})
+
+
+# --------------------------------------------------------------------------
+# Pictures for an SBU or an investment initiative (shown beside the name)
+# --------------------------------------------------------------------------
+
+IMAGE_MAX_BYTES = 1500000
+# decided from the file's own first bytes, never from what the browser claims:
+# anything else (SVG, HTML) could run script when served back
+_IMAGE_MAGIC = ((b"\x89PNG\r\n\x1a\n", "image/png"), (b"\xff\xd8\xff", "image/jpeg"),
+                (b"GIF87a", "image/gif"), (b"GIF89a", "image/gif"))
+
+
+def _image_mime(data):
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    for magic, mime in _IMAGE_MAGIC:
+        if data.startswith(magic):
+            return mime
+    return None
+
+
+def _image_owner(kind, eid):
+    """The same access rule as the thing the picture belongs to."""
+    if kind == "product":
+        _product_access(eid)
+    elif kind == "investment":
+        row = db().execute("SELECT company_id FROM investments WHERE id=?", (eid,)).fetchone()
+        if not row:
+            raise ValueError("Investment not found")
+        check_company_access(row["company_id"])
+    else:
+        raise ValueError("Pictures are only kept for SBUs and investments")
+
+
+def _image_version(kind, eid):
+    row = db().execute("SELECT updated_at FROM entity_images WHERE kind=? AND entity_id=?",
+                       (kind, eid)).fetchone()
+    return row[0] if row else None
+
+
+@app.get("/api/images/<kind>/<int:eid>")
+@login_required
+def get_entity_image(kind, eid):
+    _image_owner(kind, eid)
+    row = db().execute("SELECT mime, data FROM entity_images WHERE kind=? AND entity_id=?",
+                       (kind, eid)).fetchone()
+    if not row:
+        return jsonify({"error": "No picture"}), 404
+    # the list asks with ?v=<updated_at>, so a replaced picture is a new URL
+    resp = send_file(io.BytesIO(row["data"]), mimetype=row["mime"], max_age=30 * 86400)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
+
+
+@app.post("/api/images/<kind>/<int:eid>")
+@role_required("admin", "finance")
+def put_entity_image(kind, eid):
+    _image_owner(kind, eid)
+    f = request.files.get("file")
+    if f is None:
+        raise ValueError("No picture uploaded")
+    data = f.read(IMAGE_MAX_BYTES + 1)
+    if len(data) > IMAGE_MAX_BYTES:
+        raise ValueError("The picture is larger than 1.5 MB")
+    mime = _image_mime(data)
+    if not mime:
+        raise ValueError("That file is not a PNG, JPG, WebP or GIF picture")
+    db().execute("INSERT OR REPLACE INTO entity_images (kind, entity_id, mime, data, updated_at)"
+                 " VALUES (?,?,?,?, strftime('%Y-%m-%d %H:%M:%f','now'))", (kind, eid, mime, data))
+    db().commit()
+    return jsonify({"ok": True, "v": _image_version(kind, eid)})
+
+
+@app.delete("/api/images/<kind>/<int:eid>")
+@role_required("admin", "finance")
+def delete_entity_image(kind, eid):
+    _image_owner(kind, eid)
+    db().execute("DELETE FROM entity_images WHERE kind=? AND entity_id=?", (kind, eid))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/products/<int:pid>/report")
+@login_required
+def product_report(pid):
+    """The SBU finance report - the NX-Sentimind workbook's six views, from the
+    ledger and the SBU's report settings."""
+    _product_access(pid)
+    return jsonify(sbu_report.build(db(), pid, accessible_company_ids(), year_param()))
+
+
+@app.put("/api/products/<int:pid>/report")
+@role_required("admin", "finance")
+def save_product_report(pid):
+    """Save the Report settings tab. Linked projects must already be linked."""
+    _product_access(pid)
+    clean = sbu_report.clean_settings(request.get_json(force=True) or {})
+    linked = {str(r[0]) for r in db().execute(
+        "SELECT project_id FROM product_projects WHERE product_id=?", (pid,))}
+    clean["projects"] = {k: v for k, v in clean["projects"].items() if k in linked}
+    db().execute("UPDATE products SET report=? WHERE id=?", (json.dumps(clean), pid))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/products/<int:pid>/report.xlsx")
+@login_required
+def product_report_xlsx(pid):
+    row = _product_access(pid)
+    rep = sbu_report.build(db(), pid, accessible_company_ids(), year_param())
+    name = re.sub(r"[^A-Za-z0-9_-]+", "_", row["code"] or row["name"] or "SBU").strip("_") or "SBU"
+    return _xlsx(excel_io.export_sbu_report(rep), "finance_report_%s_%d.xlsx" % (name, rep["year"]))
 
 
 @app.get("/api/products/<int:pid>/analysis")
@@ -4106,12 +4367,405 @@ def switch_database_api():
     return jsonify({"ok": True, "active": name})
 
 
+def _iso_or_none(v):
+    """A date typed into a form -> ISO, or None. DD/MM/YYYY is accepted."""
+    s = (v or "").strip()
+    if not s:
+        return None
+    iso = excel_io._iso_date(s)
+    if not iso:
+        raise ValueError("'%s' is not a date - use DD/MM/YYYY" % s)
+    return iso
+
+
+# --------------------------------------------------------------------------
+# Cashflow projection workbook -> a new Oracle scenario
+# --------------------------------------------------------------------------
+
+def _cf_account(company_id, kind, given=None):
+    """The account an imported cash line sits on. The sheet names no accounts, so
+    money in lands on 'other revenue' and money out on 'miscellaneous' unless the
+    importer picks better ones - the direction is what the Oracle actually reads."""
+    want = "revenue" if kind == "in" else "expense"
+    if given:
+        row = db().execute("SELECT id, code, name, type FROM accounts WHERE id=? AND company_id=?",
+                           (int(given), company_id)).fetchone()
+        if not row:
+            raise ValueError("That account is not in the chosen company")
+        if row["type"] != want:
+            raise ValueError("Money %s must sit on a %s account — %s %s is %s"
+                             % (kind, want, row["code"], row["name"], row["type"]))
+        return row
+    for code in (("4900", "4100") if kind == "in" else ("6900", "6600")):
+        row = db().execute("SELECT id, code, name, type FROM accounts"
+                           " WHERE company_id=? AND code=? AND is_active=1",
+                           (company_id, code)).fetchone()
+        if row:
+            return row
+    row = db().execute("SELECT id, code, name, type FROM accounts WHERE company_id=? AND type=?"
+                       " AND is_active=1 ORDER BY code", (company_id, want)).fetchone()
+    if not row:
+        raise ValueError("This company has no %s account to book imported money %s on" % (want, kind))
+    return row
+
+
+def _project_budget_stats(company_id, year):
+    """Per project: what it is budgeted to earn and spend, and what the ledger
+    has actually booked. Context for planning cash against a project."""
+    out = {}
+
+    def slot(code, name):
+        return out.setdefault(code, {"code": code, "name": name, "budget_revenue": 0.0,
+                                     "budget_cost": 0.0, "actual_revenue": 0.0, "actual_cost": 0.0})
+
+    for r in db().execute(
+            "SELECT p.code AS code, p.name AS name, a.type AS type, SUM(b.amount) AS amt"
+            " FROM budgets b JOIN accounts a ON a.id=b.account_id"
+            " JOIN projects p ON p.id=b.project_id"
+            " WHERE b.company_id=? AND b.year=? AND a.type IN ('revenue','expense')"
+            " GROUP BY p.code, p.name, a.type", (company_id, year)):
+        d = slot(r["code"], r["name"])
+        d["budget_revenue" if r["type"] == "revenue" else "budget_cost"] += r["amt"] or 0
+    for r in db().execute(
+            "SELECT p.code AS code, p.name AS name, a.type AS type,"
+            " SUM(jl.debit - jl.credit) AS dr FROM journal_lines jl"
+            " JOIN journal_entries je ON je.id=jl.entry_id"
+            " JOIN accounts a ON a.id=jl.account_id JOIN projects p ON p.id=jl.project_id"
+            " WHERE je.status='posted' AND strftime('%Y', je.date)=? AND p.company_id=?"
+            " AND a.type IN ('revenue','expense') GROUP BY p.code, p.name, a.type",
+            (str(year), company_id)):
+        d = slot(r["code"], r["name"])
+        amt = (r["dr"] or 0) * (-1 if r["type"] == "revenue" else 1)
+        d["actual_revenue" if r["type"] == "revenue" else "actual_cost"] += amt
+    for d in out.values():
+        for k in ("budget_revenue", "budget_cost", "actual_revenue", "actual_cost"):
+            d[k] = round(d[k], 2)
+    return sorted(out.values(), key=lambda x: x["code"])
+
+
+@app.get("/api/templates/oracle-plan")
+@login_required
+def oracle_plan_template():
+    """The Oracle's plan template, written from this company's own data: every
+    account and project is a drop-down, and the budget already in the system is
+    written out as rows to scroll through and edit."""
+    company_id = int(request.args.get("company_id") or 0)
+    check_company_access(company_id)
+    year = year_param()
+    project_id = request.args.get("project_id")
+    project_id = int(project_id) if project_id else None
+    if project_id:
+        project_in_company(project_id, company_id)
+    accounts = [dict(r) for r in db().execute(
+        "SELECT code, name, type, cash_flow_class FROM accounts"
+        " WHERE company_id=? AND is_active=1 ORDER BY code", (company_id,))]
+    projects = [dict(r) for r in db().execute(
+        "SELECT code, name FROM projects WHERE company_id=? ORDER BY code", (company_id,))]
+    sql = ("SELECT a.code AS account_code, a.name AS account_name, a.type AS account_type,"
+           " a.cash_flow_class AS acct_cf, p.code AS project_code, b.year, b.month, b.week,"
+           " b.amount, b.certainty, b.cf_class, COALESCE(b.note,'') AS note"
+           " FROM budgets b JOIN accounts a ON a.id=b.account_id"
+           " LEFT JOIN projects p ON p.id=b.project_id"
+           " WHERE b.company_id=? AND b.year=? AND b.amount<>0")
+    params = [company_id, year]
+    if project_id:
+        sql += " AND b.project_id=?"
+        params.append(project_id)
+    sql += " ORDER BY p.code, a.code, b.month, b.week"
+    rows = [{"account_code": r["account_code"], "account_name": r["account_name"],
+             "project_code": r["project_code"] or "", "year": r["year"], "month": r["month"],
+             "week": r["week"], "flow": "in" if r["account_type"] == "revenue" else "out",
+             "amount": r["amount"], "certainty": r["certainty"] or "planned",
+             "cf_class": r["cf_class"] or r["acct_cf"] or "", "note": r["note"]}
+            for r in db().execute(sql, params)]
+    return _xlsx(excel_io.export_plan_template(
+        year, _company_name(company_id), accounts, projects, rows,
+        _project_budget_stats(company_id, year)), "oracle_plan_template_%d.xlsx" % year)
+
+
+def _plan_items_from_template(company_id, plan, cert_in, cert_out):
+    """Resolve the template's codes against THIS company -> (items, errors).
+
+    Codes are resolved here, never in the parser: the same account code exists in
+    every company, and a row booked against the wrong one would still look right.
+    """
+    accounts = {r["code"]: dict(r) for r in db().execute(
+        "SELECT id, code, name, type, cash_flow_class FROM accounts WHERE company_id=?",
+        (company_id,))}
+    projects = {r["code"]: r["id"] for r in db().execute(
+        "SELECT id, code FROM projects WHERE company_id=?", (company_id,))}
+    items, errors = [], []
+    for r in plan["rows"]:
+        acc = accounts.get(r["account_code"])
+        if not acc:
+            errors.append("Row %d: account '%s' is not in this company."
+                          % (r["row"], r["account_code"]))
+            continue
+        pid = None
+        if r["project_code"]:
+            pid = projects.get(r["project_code"])
+            if not pid:
+                errors.append("Row %d: project '%s' is not in this company."
+                              % (r["row"], r["project_code"]))
+                continue
+        flow = r["flow"] or ("in" if acc["type"] == "revenue" else "out")
+        cert = r["certainty"] or (cert_in if flow == "in" else cert_out)
+        if cert not in fpa_cash.CERTAINTIES:
+            errors.append("Row %d: certainty '%s' is not one of %s."
+                          % (r["row"], cert, ", ".join(fpa_cash.CERTAINTIES)))
+            continue
+        cls = r["cf_class"] or acc["cash_flow_class"] or ""
+        if cls and cls not in database.CASH_FLOW_CLASSES:
+            errors.append("Row %d: cash class '%s' is not one of %s."
+                          % (r["row"], cls, ", ".join(database.CASH_FLOW_CLASSES)))
+            continue
+        if not fpa_cash.week_dates(r["year"], r["month"], r["week"]):
+            errors.append("Row %d: W%d of %02d/%d has no days - nothing can be planned in it."
+                          % (r["row"], r["week"], r["month"], r["year"]))
+            continue
+        items.append({"account_id": acc["id"], "account_code": acc["code"],
+                      "account_name": acc["name"], "project_id": pid,
+                      "project_code": r["project_code"], "year": r["year"], "month": r["month"],
+                      "week": r["week"], "flow": flow, "amount": r["amount"], "certainty": cert,
+                      "cf_class": cls, "note": r["note"] or ("%s %s" % (acc["code"], acc["name"]))})
+    return items, errors
+
+
+def _plan_by_account(items):
+    """What the file does per account - the check a finance reader actually makes."""
+    by = {}
+    for it in items:
+        key = (it["account_code"], it.get("project_code") or "")
+        d = by.setdefault(key, {"code": it["account_code"], "name": it["account_name"],
+                                "project": it.get("project_code") or "", "in": 0.0, "out": 0.0,
+                                "rows": 0})
+        d[it["flow"]] = round(d[it["flow"]] + it["amount"], 2)
+        d["rows"] += 1
+    return sorted(by.values(), key=lambda d: -(d["in"] + d["out"]))
+
+
+def _plan_summary(sheet, items, warnings=None, extra=None):
+    """The same shape the cashflow preview uses, so one screen reads both."""
+    buckets = {}
+    for it in items:
+        key = (it["year"], it["month"], it["week"])
+        b = buckets.get(key)
+        if b is None:
+            b = buckets[key] = {
+                "label": "W%d %s %d" % (it["week"], excel_io.CF_MON3[it["month"] - 1], it["year"]),
+                "year": it["year"], "month": it["month"], "week": it["week"],
+                "opening": None, "closing": None, "items": [], "in": 0.0, "out": 0.0}
+        b["items"].append({"label": it["note"], "amount": it["amount"], "flow": it["flow"]})
+        b[it["flow"]] = round(b[it["flow"]] + it["amount"], 2)
+    out = {"sheet": sheet, "count": len(items),
+           "year": items[0]["year"] if items else year_param(),
+           "total_in": round(sum(i["amount"] for i in items if i["flow"] == "in"), 2),
+           "total_out": round(sum(i["amount"] for i in items if i["flow"] == "out"), 2),
+           "months": sorted({"%04d-%02d" % (i["year"], i["month"]) for i in items}),
+           "weeks": [buckets[k] for k in sorted(buckets)],
+           "warnings": list(warnings or []), "ignored": [], "checks": [],
+           "reconciled": None, "opening": None}
+    out.update(extra or {})
+    return out
+
+
+@app.post("/api/plan/import-cashflow")
+@role_required("admin", "finance")
+def import_cashflow_plan():
+    """Read a cash plan into a NEW Oracle scenario.
+
+    Two shapes are accepted: this system's plan template, where every row names
+    its own account and project, and a hand-kept weekly cash sheet, where they
+    are not written down at all. With preview=1 nothing is written.
+    """
+    company_id = int(request.form.get("company_id") or 0)
+    check_company_access(company_id)
+    year_hint = int(request.form.get("year") or year_param())
+    cert_in = request.form.get("certainty_in") or "planned"
+    cert_out = request.form.get("certainty_out") or "committed"
+    for c in (cert_in, cert_out):
+        if c not in fpa_cash.CERTAINTIES:
+            raise ValueError("Unknown certainty '%s'" % c)
+
+    raw = _import_file().read()
+    if excel_io.has_plan_sheet(io.BytesIO(raw)):
+        plan, errors = excel_io.parse_plan_template(io.BytesIO(raw), year_hint)
+        if plan is None:
+            return jsonify({"ok": False, "errors": errors})
+        items, more = _plan_items_from_template(company_id, plan, cert_in, cert_out)
+        errors = errors + more
+        if errors:
+            return jsonify({"ok": False, "errors": errors})
+        summary = _plan_summary(plan["sheet"], items,
+                                extra={"kind": "plan", "by_account": _plan_by_account(items)})
+    else:
+        plan, errors = excel_io.parse_cashflow_workbook(io.BytesIO(raw), year_hint)
+        if errors:
+            return jsonify({"ok": False, "errors": errors})
+        acc_in = _cf_account(company_id, "in", request.form.get("account_in"))
+        acc_out = _cf_account(company_id, "out", request.form.get("account_out"))
+        items = [{"account_id": (acc_in if it["flow"] == "in" else acc_out)["id"],
+                  "account_code": (acc_in if it["flow"] == "in" else acc_out)["code"],
+                  "account_name": (acc_in if it["flow"] == "in" else acc_out)["name"],
+                  "project_id": None, "project_code": "", "year": b["year"], "month": b["month"],
+                  "week": b["week"], "flow": it["flow"], "amount": it["amount"],
+                  "certainty": cert_in if it["flow"] == "in" else cert_out,
+                  "cf_class": "operating", "note": it["label"]}
+                 for b in plan["weeks"] for it in b["items"]]
+        summary = {k: plan[k] for k in ("sheet", "year", "count", "total_in", "total_out",
+                                        "opening", "warnings", "ignored", "checks", "reconciled")}
+        summary["kind"] = "cash"
+        summary["months"] = ["%04d-%02d" % (y, m) for y, m in plan["months"]]
+        summary["weeks"] = [{"label": b["label"], "year": b["year"], "month": b["month"],
+                             "week": b["week"], "opening": b["opening"], "closing": b["closing"],
+                             "in": round(sum(i["amount"] for i in b["items"] if i["flow"] == "in"), 2),
+                             "out": round(sum(i["amount"] for i in b["items"] if i["flow"] == "out"), 2),
+                             "items": b["items"]} for b in plan["weeks"]]
+        summary["accounts"] = {"in": "%s %s" % (acc_in["code"], acc_in["name"]),
+                               "out": "%s %s" % (acc_out["code"], acc_out["name"])}
+        if plan["opening"] is not None:
+            ledger_open = fpa_cash.opening_cash(db(), [company_id], "%d-01-01" % plan["year"],
+                                                get_cash_codes())
+            summary["ledger_opening"] = ledger_open
+            summary["warnings"] = summary["warnings"] + [
+                "The file opens with %s of cash. The Oracle does not use that — it starts from the "
+                "cash your ledger actually holds (%s) and applies these movements to it."
+                % (fpa_cash._rp(plan["opening"]), fpa_cash._rp(ledger_open))]
+
+    if request.form.get("preview"):
+        return jsonify({"ok": True, "preview": True, **summary})
+
+    name = (request.form.get("name") or "").strip() or "Cash plan import %s" % _dmy(
+        datetime.now().date().isoformat())
+    vid = db().execute(
+        "INSERT INTO plan_versions (company_id, year, name, kind, status) VALUES (?,?,?,?,'draft')",
+        (company_id, summary["year"], name, "scenario")).lastrowid
+    for it in items:
+        db().execute(
+            "INSERT INTO plan_weeks (version_id, company_id, project_id, account_id, year,"
+            " month, week, flow, amount, certainty, cf_class, note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (vid, company_id, it["project_id"], it["account_id"], it["year"], it["month"],
+             it["week"], it["flow"], it["amount"], it["certainty"], it["cf_class"], it["note"]))
+    db().commit()
+    return jsonify({"ok": True, "version_id": vid, "name": name, **summary}), 201
+
+
+# --------------------------------------------------------------------------
+# Investment progress: milestones, and the project it pays for
+# --------------------------------------------------------------------------
+
+def _investment_milestones(iid):
+    return [dict(r) for r in db().execute(
+        "SELECT * FROM investment_milestones WHERE investment_id=? ORDER BY sort, id", (iid,))]
+
+
+def _investment_progress(milestones):
+    """Progress is weighted by milestone, so 'design done' and 'rollout done'
+    need not count the same. No milestones = no claim about progress."""
+    total = sum(float(m["weight"] or 1) for m in milestones)
+    done = sum(float(m["weight"] or 1) for m in milestones if m["done_at"])
+    return {"milestones": len(milestones), "done": sum(1 for m in milestones if m["done_at"]),
+            "weight_total": round(total, 2), "weight_done": round(done, 2),
+            "pct": round(100.0 * done / total, 1) if total else None}
+
+
+@app.get("/api/investments/<int:iid>/milestones")
+@login_required
+def list_investment_milestones(iid):
+    _investment_access(iid)
+    ms = _investment_milestones(iid)
+    return jsonify({"milestones": ms, "progress": _investment_progress(ms)})
+
+
+@app.post("/api/investments/<int:iid>/milestones")
+@role_required("admin", "finance")
+def add_investment_milestone(iid):
+    _investment_access(iid)
+    d = request.get_json(force=True)
+    title = (d.get("title") or "").strip()
+    if not title:
+        raise ValueError("A milestone needs a name")
+    nxt = db().execute("SELECT COALESCE(MAX(sort),0)+1 FROM investment_milestones"
+                       " WHERE investment_id=?", (iid,)).fetchone()[0]
+    cur = db().execute(
+        "INSERT INTO investment_milestones (investment_id, title, due_date, weight, sort)"
+        " VALUES (?,?,?,?,?)",
+        (iid, title, _iso_or_none(d.get("due_date")), max(0.0, float(d.get("weight") or 1)), nxt))
+    db().commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.put("/api/investments/<int:iid>/milestones/<int:mid>")
+@role_required("admin", "finance")
+def update_investment_milestone(iid, mid):
+    _investment_access(iid)
+    row = db().execute("SELECT * FROM investment_milestones WHERE id=? AND investment_id=?",
+                       (mid, iid)).fetchone()
+    if not row:
+        raise ValueError("Milestone not found")
+    d = request.get_json(force=True)
+    done_at = row["done_at"]
+    if "done" in d:
+        done_at = (datetime.now().date().isoformat() if d.get("done") else None)
+    db().execute(
+        "UPDATE investment_milestones SET title=?, due_date=?, weight=?, done_at=? WHERE id=?",
+        ((d.get("title") or row["title"]).strip(),
+         _iso_or_none(d["due_date"]) if "due_date" in d else row["due_date"],
+         max(0.0, float(d.get("weight", row["weight"]) or 1)), done_at, mid))
+    db().commit()
+    return jsonify({"ok": True, "done_at": done_at})
+
+
+@app.delete("/api/investments/<int:iid>/milestones/<int:mid>")
+@role_required("admin", "finance")
+def delete_investment_milestone(iid, mid):
+    _investment_access(iid)
+    db().execute("DELETE FROM investment_milestones WHERE id=? AND investment_id=?", (mid, iid))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/projects/<int:pid>/investment")
+@login_required
+def project_investment(pid):
+    """The investment this project IS, with the cash it is committed to pay.
+
+    A project funded by an investment is not ordinary project work: the money is
+    a commitment the Oracle already counts, so the project screen shows the same
+    schedule rather than a second, disagreeing one.
+    """
+    row = db().execute("SELECT company_id FROM projects WHERE id=?", (pid,)).fetchone()
+    if not row:
+        raise ValueError("Project not found")
+    check_company_access(row["company_id"])
+    inv = db().execute(
+        "SELECT i.*, c.code AS company_code,"
+        " COALESCE((SELECT SUM(amount) FROM investment_events"
+        "           WHERE investment_id=i.id AND kind='outflow'), 0) AS invested,"
+        " COALESCE((SELECT SUM(amount) FROM investment_events"
+        "           WHERE investment_id=i.id AND kind='benefit'), 0) AS benefit"
+        " FROM investments i JOIN companies c ON c.id=i.company_id"
+        " WHERE i.linked_project_id=? ORDER BY i.id", (pid,)).fetchone()
+    if not inv:
+        return jsonify({"investment": None})
+    out = dict(inv)
+    ms = _investment_milestones(out["id"])
+    out["milestones"], out["progress"] = ms, _investment_progress(ms)
+    out["commitments"] = [dict(r) for r in db().execute(
+        "SELECT * FROM investment_commitments WHERE investment_id=? ORDER BY year, month, week",
+        (out["id"],))]
+    out["commitments_total"] = round(sum(c["amount"] for c in out["commitments"]), 2)
+    out["unscheduled"] = round(max(0.0, (out["committed_amount"] or 0)
+                                   - max(out["commitments_total"], out["invested"])), 2)
+    return jsonify({"investment": out})
+
+
 # --------------------------------------------------------------------------
 # Users (admin)
 # --------------------------------------------------------------------------
 
 # left-nav routes a user may be granted; kept in sync with the frontend NAV_ITEMS
-MENU_ROUTES = {"dashboard", "projecthv", "journals", "bank", "receivables", "payables",
+MENU_ROUTES = {"dashboard", "projecthv", "journals", "expenses", "bank", "receivables", "payables",
                "budgets", "investments", "oracle", "product", "projects", "money", "reports",
                "accountant", "settings"}
 

@@ -702,6 +702,259 @@ def parse_cc_card(data):
 
 
 # ---------------------------------------------------------------------------
+# Grab for Business — company-billing CSV reports (Express / Transport / Food)
+# ---------------------------------------------------------------------------
+# Every report opens with a key/value preamble (Company, Date Range, Bookings or
+# Orders, Total Amount or Company Pays), a blank row, then one row per booking.
+# The three services share Date & Time, Employee Name and Booking ID but not the
+# money columns, so the amount is the right-most total the report carries: what
+# the COMPANY is billed after any refund. Tips are not part of it.
+#
+# Dates come two ways: "22 Sep 2026 12:57:22 PM" (Express) and "9/22/2026 17:01"
+# (Transport, Food - month first). An all-numeric date is read month-first unless
+# that cannot be a date, and the report's own Date Range settles the rest.
+
+GRAB_SERVICES = ("Express", "Transport", "Food")
+GRAB_ACCOUNT_NAME = "CORP PAY - GRAB"
+# first code that exists in the company's chart of accounts wins
+GRAB_ACCOUNT_HINTS = {
+    "Food": ("6620", "6600", "6900"),
+    "Transport": ("6630", "6600", "6900"),
+    "Express": ("6630", "6600", "6900"),
+}
+_GRAB_AMOUNT_COLS = ("revised company pays (after refund)", "company pays",
+                     "revised total (after refund)", "total fare", "total")
+_EN_MONTHS = {m: i for i, m in enumerate(
+    ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"), 1)}
+
+
+def _grab_clock(hh, mm, ampm):
+    h = int(hh)
+    if ampm:
+        ampm = ampm.upper()
+        if ampm == "PM" and h < 12:
+            h += 12
+        elif ampm == "AM" and h == 12:
+            h = 0
+    return "%02d:%02d" % (h, int(mm))
+
+
+def _valid_day(y, m, d):
+    try:
+        return datetime(y, m, d).strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def grab_datetime(raw, date_range=None):
+    """-> (ISO date, 'HH:MM') or (None, '')."""
+    s = str(raw or "").strip()
+    m = re.match(r"(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\s+(\d{4})"
+                 r"(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?)?", s)
+    if m:
+        mon = _EN_MONTHS.get(m.group(2).lower()) or CC_MONTHS.get(m.group(2).lower())
+        day = _valid_day(int(m.group(3)), mon, int(m.group(1))) if mon else None
+        return day, (_grab_clock(m.group(4), m.group(5), m.group(6)) if m.group(4) else "")
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?", s)
+    if m:
+        return (_valid_day(int(m.group(1)), int(m.group(2)), int(m.group(3))),
+                _grab_clock(m.group(4), m.group(5), None) if m.group(4) else "")
+    m = re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})"
+                 r"(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])?)?", s)
+    if not m:
+        return None, ""
+    a, b, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    month_first, day_first = _valid_day(y, a, b), _valid_day(y, b, a)
+    day = month_first or day_first
+    if month_first and day_first and date_range and month_first != day_first:
+        lo, hi = date_range
+        if not lo <= month_first <= hi and lo <= day_first <= hi:
+            day = day_first
+    return day, (_grab_clock(m.group(4), m.group(5), m.group(6)) if m.group(4) else "")
+
+
+def _grab_place(addr):
+    """The last comma segment of a Grab address is the place name people use."""
+    parts = [p.strip() for p in str(addr or "").split(",") if p.strip()]
+    if not parts or parts[-1] in ("-",):
+        return ""
+    return parts[-1]
+
+
+def _grab_items(raw):
+    import json as _json
+    try:
+        items = _json.loads(raw)
+    except (TypeError, ValueError):
+        return ""
+    out = []
+    for it in items if isinstance(items, list) else []:
+        if isinstance(it, dict) and it.get("item"):
+            q = str(it.get("quantity") or "1").strip()
+            out.append("%s× %s" % (q, str(it["item"]).strip()))
+    return ", ".join(out)
+
+
+def parse_grab_csv(data, filename=""):
+    """Parse one Grab for Business company-billing CSV (Express, Transport or
+    Food). Returns (records, warnings, meta). Every usable booking is money OUT
+    of the CORP PAY - GRAB account, one journal each, referenced by its Booking
+    ID so a re-upload flags the booked ones as duplicates."""
+    text = _decode(data)
+    rows = list(csv.reader(io.StringIO(text)))
+    preamble, header_idx = {}, None
+    for i, row in enumerate(rows[:40]):
+        cells = [c.strip() for c in row]
+        if cells and cells[0] == "No." and any(c == "Employee Name" for c in cells):
+            header_idx = i
+            break
+        if len(cells) >= 2 and cells[0]:
+            preamble[cells[0].lower()] = cells[1]
+    if header_idx is None:
+        return [], ["This does not look like a Grab for Business report — no 'No., Date & Time, "
+                    "Employee Name' header row was found."], {}
+    header = [c.strip() for c in rows[header_idx]]
+    hl = [h.lower() for h in header]
+    idx = {h: i for i, h in enumerate(hl)}
+
+    def col(*names):
+        for n in names:
+            if n in idx:
+                return idx[n]
+        return None
+
+    c_dt = col("date & time (gmt+7)", "date & time")
+    c_emp = col("employee name")
+    c_grp = col("employee group")
+    c_mail = col("employee email")
+    c_type = col("service type")
+    c_pick = col("pick-up address")
+    c_drop = col("drop-off address", "delivery address")
+    c_merch = col("merchant")
+    c_book = col("booking id", "booking / order id")
+    c_city = col("city")
+    c_dist = col("distance")
+    c_code = col("trip / cost code", "order / cost code")
+    c_desc = col("trip description", "order description")
+    c_pay = col("payment status")
+    c_order = col("order status")
+    c_items = col("items")
+    c_tips = col("tips")
+    c_amts = [idx[n] for n in _GRAB_AMOUNT_COLS if n in idx]
+    if c_dt is None or c_emp is None or not c_amts:
+        return [], ["The Grab report is missing its Date & Time, Employee Name or Total column."], {}
+
+    if c_merch is not None or c_items is not None:
+        service = "Food"
+    elif "sender name" in idx:
+        service = "Express"
+    elif "booking type" in idx or "total fare" in idx:
+        service = "Transport"
+    else:
+        service = next((s for s in GRAB_SERVICES if s.lower() in (filename or "").lower()), "Transport")
+
+    date_range = None
+    rng = re.findall(r"\d{1,2}\s+[A-Za-z]{3}\s+\d{4}", preamble.get("date range", ""))
+    if len(rng) == 2:
+        lo, hi = grab_datetime(rng[0])[0], grab_datetime(rng[1])[0]
+        if lo and hi:
+            date_range = (lo, hi)
+
+    def cell(row, c):
+        return row[c].strip() if c is not None and c < len(row) and row[c] is not None else ""
+
+    records, warnings, skipped = [], [], []
+    for n, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
+        if not row or not any(c.strip() for c in row):
+            continue
+        emp = cell(row, c_emp)
+        if not emp and not cell(row, c_book):
+            continue
+        pay = cell(row, c_pay)
+        order = cell(row, c_order)
+        if (pay and pay.lower() not in ("success", "successful", "paid")) or \
+           (order and order.lower() not in ("completed", "complete", "delivered")):
+            skipped.append("row %d (%s: %s)" % (n, emp or "?", pay or order))
+            continue
+        amount, used = None, None
+        for c in c_amts:
+            v = cell(row, c)
+            if v == "":
+                continue
+            amount, used = parse_amount(v), header[c]
+            break
+        if not amount:
+            skipped.append("row %d (%s: amount %s)" % (n, emp or "?", "0 after refund" if used else "missing"))
+            continue
+        day, clock = grab_datetime(cell(row, c_dt), date_range)
+        if not day:
+            warnings.append("Row %d: unreadable date '%s'" % (n, cell(row, c_dt)[:25]))
+            continue
+        booking = cell(row, c_book)
+        stype = cell(row, c_type)
+        merchant = cell(row, c_merch)
+        pick, drop = _grab_place(cell(row, c_pick)), _grab_place(cell(row, c_drop))
+        code, tdesc = cell(row, c_code), cell(row, c_desc)
+        code = "" if code in ("-", "") else code
+        tdesc = "" if tdesc in ("-", "") else tdesc
+        tips = parse_amount(cell(row, c_tips)) if c_tips is not None else 0.0
+        items = _grab_items(cell(row, c_items)) if c_items is not None else ""
+        if service == "Food":
+            route = merchant
+        else:
+            route = " → ".join(x for x in (pick, drop) if x)
+        detail = " · ".join(x for x in (
+            stype, route, items,
+            ("%s km" % cell(row, c_dist)) if cell(row, c_dist) not in ("", "-") and service != "Food" else "",
+            ("cost code %s" % code) if code else "", tdesc) if x)
+        if tips:
+            detail += " · tip %s not billed here" % ("{:,.0f}".format(tips))
+        reference = "GRAB-" + (booking or hashlib.sha1(
+            ("%s|%s|%s|%s" % (day, clock, emp, amount)).encode()).hexdigest()[:12].upper())
+        records.append({
+            "date": day, "time": clock, "tx_type": "Grab " + service,
+            "from_account": "", "va_number": "", "name": emp, "merchant": merchant,
+            "amount": round(abs(amount), 2), "transfer_type": "",
+            "reference": reference, "status": pay or order or "Success", "note": detail, "ok": True,
+            "description": "%s — Grab %s" % (emp or "?", service),
+            "direction": "out", "internal": False,
+            "suggested_code": GRAB_ACCOUNT_HINTS[service][0],
+            "suggested_codes": list(GRAB_ACCOUNT_HINTS[service]),
+            "balance": None,
+            "grab": {
+                "service": service, "service_type": stype, "employee": emp,
+                "employee_group": cell(row, c_grp), "employee_email": cell(row, c_mail),
+                "booking_id": booking, "city": cell(row, c_city),
+                "pickup": pick, "dropoff": drop, "merchant": merchant, "items": items,
+                "cost_code": code, "trip_description": tdesc, "amount_column": used,
+                "tips": round(tips, 2), "detail": detail, "time": clock,
+            },
+        })
+    if skipped:
+        warnings.append("%d booking(s) skipped — not successful or refunded to zero: %s"
+                        % (len(skipped), "; ".join(skipped[:6]) + ("…" if len(skipped) > 6 else "")))
+    reported = None
+    for key in ("company pays", "total amount"):
+        if key in preamble:
+            reported = parse_amount(preamble[key])
+            break
+    parsed_total = round(sum(r["amount"] for r in records), 2)
+    meta = {"grab_company": preamble.get("company", ""), "service": service,
+            "date_range": list(date_range) if date_range else None,
+            "reported_bookings": preamble.get("bookings") or preamble.get("orders") or "",
+            "reported_total": reported, "parsed_total": parsed_total,
+            "reconciled": (reported is not None and abs(reported - parsed_total) < 0.5 and not skipped),
+            "rows": len(records)}
+    if reported is not None and abs(reported - parsed_total) >= 0.5 and not skipped:
+        warnings.append("The report says the company pays %s but the rows add up to %s — "
+                        "check for a row the parser could not read."
+                        % ("{:,.0f}".format(reported), "{:,.0f}".format(parsed_total)))
+    if not records:
+        warnings.append("No billable Grab bookings found in %s." % (filename or "the file"))
+    return records, warnings, meta
+
+
+# ---------------------------------------------------------------------------
 # Custom, user-definable tabular formats (CSV / Excel) via a JSON "profile"
 # ---------------------------------------------------------------------------
 # A profile maps the columns of an arbitrary bank export onto the fields we

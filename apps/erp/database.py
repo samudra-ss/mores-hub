@@ -327,6 +327,19 @@ CREATE TABLE IF NOT EXISTS investment_events (
     amount REAL NOT NULL DEFAULT 0
 );
 
+-- What an investment promised to deliver, so progress is tracked rather than
+-- guessed from how much money has left. Weighted: 'pilot done' and 'rolled out
+-- everywhere' are not the same fraction of the job.
+CREATE TABLE IF NOT EXISTS investment_milestones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,
+    title TEXT NOT NULL DEFAULT '',
+    due_date TEXT,
+    done_at TEXT,
+    weight REAL NOT NULL DEFAULT 1,
+    sort INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL DEFAULT ''
@@ -908,6 +921,35 @@ def ensure_product_tables(conn):
     already exists is touched."""
     for ddl in PRODUCT_DDL:
         conn.execute(ddl)
+    # the SBU finance report's own settings (targets, SaaS actuals, project
+    # tracker notes, director actions) - JSON on the SBU row, so an Excel model
+    # import, which replaces lines and projects, can never wipe it
+    _add_column(conn, "products", "report", "TEXT NOT NULL DEFAULT '{}'")
+
+
+GRAB_ACCOUNT_NAME = "CORP PAY - GRAB"
+
+
+def ensure_grab_account(conn, company_id):
+    """The cash-side account Grab for Business bookings are charged to.
+
+    Grab bills the company later, so every ride or order is money out of this
+    account; paying Grab's invoice from the bank brings it back to zero. It sits
+    under 1100 Cash & Bank at the first free code from 1160. Idempotent: an
+    account already carrying the name is returned as it is."""
+    row = conn.execute(
+        "SELECT * FROM accounts WHERE company_id=? AND UPPER(TRIM(name))=?",
+        (company_id, GRAB_ACCOUNT_NAME)).fetchone()
+    if row:
+        return row
+    taken = {r[0] for r in conn.execute("SELECT code FROM accounts WHERE company_id=?", (company_id,))}
+    code = next(c for c in ["1160", "1180", "1190"] + ["11%02d" % n for n in range(61, 100)]
+                if c not in taken)
+    parent = "1100" if "1100" in taken else None
+    conn.execute("INSERT INTO accounts (company_id, code, name, type, parent_code)"
+                 " VALUES (?,?,?,'asset',?)", (company_id, code, GRAB_ACCOUNT_NAME, parent))
+    return conn.execute("SELECT * FROM accounts WHERE company_id=? AND code=?",
+                        (company_id, code)).fetchone()
 
 
 def apply_product_template(conn, product_id, template, company_ids=None, link_code=None):
@@ -1386,6 +1428,24 @@ def _add_column(conn, table, column, decl):
         conn.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, column, decl))
 
 
+def _ensure_menu_routes(conn, routes):
+    """Give every restricted menu the routes listed here.
+
+    A user granted an explicit list of menus keeps that exact list forever, so a
+    section added later is invisible to them and looks like a permissions bug —
+    the BOD account could not open the Oracle or SBU for that reason.
+    """
+    for r in conn.execute("SELECT id, menu_access FROM users").fetchall():
+        val = (r["menu_access"] or "all").strip()
+        if val in ("", "all"):
+            continue
+        have = {x.strip() for x in val.split(",") if x.strip()}
+        merged = have | set(routes)
+        if merged != have:
+            conn.execute("UPDATE users SET menu_access=? WHERE id=?",
+                         (",".join(sorted(merged)), r["id"]))
+
+
 def migrate_database(conn):
     """Bring a single database to the current schema/data baseline. Idempotent —
     safe to run on every database on every startup."""
@@ -1503,6 +1563,9 @@ def migrate_database(conn):
     _add_column(conn, "receivables", "paid_date", "TEXT")
     # 5 buckets a month -> 4: nothing may be stranded in a week that no longer exists
     _fold_week5_into_week4(conn)
+    # what the project was sold for - the contract number finance quotes, which
+    # is not the same as the revenue budget and not derivable from the ledger
+    _add_column(conn, "projects", "contract_value", "REAL NOT NULL DEFAULT 0")
     # per-user menu visibility (which left-nav items a user may see); 'all' = every menu
     _add_column(conn, "users", "menu_access", "TEXT NOT NULL DEFAULT 'all'")
     # Investment Center — contribution-margin manual inputs per investment
@@ -1515,6 +1578,48 @@ def migrate_database(conn):
         "investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,"
         "author TEXT NOT NULL DEFAULT '', body TEXT NOT NULL DEFAULT '',"
         "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    # Investment Center (v1.09) - milestones behind the progress figure
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS investment_milestones ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "investment_id INTEGER NOT NULL REFERENCES investments(id) ON DELETE CASCADE,"
+        "title TEXT NOT NULL DEFAULT '', due_date TEXT, done_at TEXT,"
+        "weight REAL NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_im_inv "
+                 "ON investment_milestones(investment_id, sort)")
+    # Grab for Business (v1.10) - who took which ride or order, kept beside the
+    # journal it was booked as. The ledger holds the money; this holds the
+    # person, the service and the route, which the Expense Breakdown reads.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS grab_transactions ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "entry_id INTEGER NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,"
+        "company_id INTEGER NOT NULL REFERENCES companies(id),"
+        "booking_id TEXT NOT NULL DEFAULT '', service TEXT NOT NULL DEFAULT '',"
+        "service_type TEXT NOT NULL DEFAULT '', employee TEXT NOT NULL DEFAULT '',"
+        "employee_group TEXT NOT NULL DEFAULT '', employee_email TEXT NOT NULL DEFAULT '',"
+        "time TEXT NOT NULL DEFAULT '', city TEXT NOT NULL DEFAULT '',"
+        "pickup TEXT NOT NULL DEFAULT '', dropoff TEXT NOT NULL DEFAULT '',"
+        "merchant TEXT NOT NULL DEFAULT '', items TEXT NOT NULL DEFAULT '',"
+        "cost_code TEXT NOT NULL DEFAULT '', trip_description TEXT NOT NULL DEFAULT '',"
+        "amount REAL NOT NULL DEFAULT 0, tips REAL NOT NULL DEFAULT 0,"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_grab_entry ON grab_transactions(entry_id)")
+    # the MORES entity Grab bills (PT MORES DATA ANALITIK) gets its account now;
+    # any other company gets one the first time it imports a Grab report
+    for r in conn.execute("SELECT id FROM companies WHERE code='MDA'").fetchall():
+        ensure_grab_account(conn, r["id"])
+    # (v1.10) a picture for an SBU or an investment initiative, shown beside its
+    # name in the lists. Stored in the database it belongs to, so switching
+    # databases and backups carry it; one row per entity, replaced on upload.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS entity_images ("
+        "kind TEXT NOT NULL, entity_id INTEGER NOT NULL,"
+        "mime TEXT NOT NULL, data BLOB NOT NULL,"
+        "updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
+        "PRIMARY KEY (kind, entity_id))")
+    # sections added after a user's menu was set must still reach them
+    _ensure_menu_routes(conn, ("oracle", "product", "expenses"))
     # Product Finance Analysis (v1.08)
     ensure_product_tables(conn)
     # drop the legacy holding first so the COA top-up only touches survivors

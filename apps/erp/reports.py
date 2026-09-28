@@ -697,7 +697,8 @@ def project_performance(conn, company_ids, year):
     rows = conn.execute(
         """
         SELECT p.id AS project_id, p.code, p.name, p.status, c.code AS company_code,
-               a.type, SUM(jl.credit - jl.debit) AS cr_net
+               a.type, a.code AS account_code, MIN(a.name) AS account_name,
+               SUM(jl.credit - jl.debit) AS cr_net
         FROM journal_lines jl
         JOIN journal_entries je ON je.id = jl.entry_id
         JOIN accounts a ON a.id = jl.account_id
@@ -705,7 +706,7 @@ def project_performance(conn, company_ids, year):
         JOIN companies c ON c.id = p.company_id
         WHERE je.status='posted' AND p.company_id IN (%s)
           AND strftime('%%Y', je.date) = ? AND a.type IN ('revenue','expense')
-        GROUP BY p.id, a.type
+        GROUP BY p.id, a.type, a.code
         """ % ph,
         ids + [str(year)],
     ).fetchall()
@@ -728,11 +729,27 @@ def project_performance(conn, company_ids, year):
             "project_id": r["project_id"], "code": r["code"], "name": r["name"],
             "status": r["status"], "company": r["company_code"],
             "revenue": 0, "expense": 0, "budget_revenue": 0, "budget_expense": 0,
+            # cost_by is EVERY expense account tagged to the project - what the
+            # project screen calls its expense. cogs/opex additionally split the
+            # 5xxx direct-cost family from the rest, for readers who want it.
+            "cogs": 0, "opex": 0, "cogs_by": {}, "cost_by": {},
         })
         if r["type"] == "revenue":
-            p["revenue"] = round(r["cr_net"] or 0, 2)
+            p["revenue"] = round(p["revenue"] + (r["cr_net"] or 0), 2)
         else:
-            p["expense"] = round(-(r["cr_net"] or 0), 2)
+            amt = round(-(r["cr_net"] or 0), 2)
+            code = str(r["account_code"])
+            p["expense"] = round(p["expense"] + amt, 2)
+            slot = p["cost_by"].setdefault(code, {
+                "code": code, "name": r["account_name"], "amount": 0})
+            slot["amount"] = round(slot["amount"] + amt, 2)
+            if code.startswith("5"):
+                p["cogs"] = round(p["cogs"] + amt, 2)
+                cslot = p["cogs_by"].setdefault(code, {
+                    "code": code, "name": r["account_name"], "amount": 0})
+                cslot["amount"] = round(cslot["amount"] + amt, 2)
+            else:
+                p["opex"] = round(p["opex"] + amt, 2)
     for r in budgets:
         if r["project_id"] in projects:
             key = "budget_revenue" if r["type"] == "revenue" else "budget_expense"

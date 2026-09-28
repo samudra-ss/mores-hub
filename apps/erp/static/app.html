@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MORES HV — Console</title>
-<script>document.documentElement.dataset.theme = localStorage.getItem("erp.theme") || "light";</script>
+<script>document.documentElement.dataset.theme = localStorage.getItem("erp.theme") || "light";
+document.documentElement.dataset.fontsize = localStorage.getItem("erp.fontsize") || "normal";</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -31,6 +32,7 @@
       <a href="#/product" data-route="product" data-sec="hv">&#x25C7; SBU</a>
       <div class="nav-sec" data-sec="detail">Devil in Detail</div>
       <a href="#/journals" data-route="journals" data-sec="detail">&#x2630; Journal Entries</a>
+      <a href="#/expenses" data-route="expenses" data-sec="detail">&#x25D4; Expense Breakdown</a>
       <a href="#/bank" data-route="bank" data-sec="detail">&#x21C4; Account Parsing</a>
       <a href="#/receivables" data-route="receivables" data-sec="detail">&#x25F0; Receivables</a>
       <a href="#/payables" data-route="payables" data-sec="detail">&#x25F1; Payables</a>
