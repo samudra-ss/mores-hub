@@ -925,9 +925,21 @@ def ensure_product_tables(conn):
     # tracker notes, director actions) - JSON on the SBU row, so an Excel model
     # import, which replaces lines and projects, can never wipe it
     _add_column(conn, "products", "report", "TEXT NOT NULL DEFAULT '{}'")
+    # (v1.11) the painted scene that stands for the SBU when no picture is uploaded
+    _add_column(conn, "products", "art", "TEXT")
+    # (v1.11) what kind of SBU it is - SaaS / Event Based (INTEL) / Media Owned
+    # (Creative) / SEAL - SECTIONS (server.SBU_TYPES); blank = not typed yet
+    _add_column(conn, "products", "sbu_type", "TEXT")
 
 
 GRAB_ACCOUNT_NAME = "CORP PAY - GRAB"
+
+# the starting list of project types (sectors); renamed, recoloured or removed in Settings
+DEFAULT_PROJECT_TYPES = (
+    ("Infrastructure", "#c87a08"), ("Consulting & Research", "#00a2b6"),
+    ("Technology & SaaS", "#6b46e5"), ("Media & Advertising", "#bd362f"),
+    ("Event & Creative", "#1f9d57"), ("Other", "#5b6b80"),
+)
 
 
 def ensure_grab_account(conn, company_id):
@@ -1618,6 +1630,37 @@ def migrate_database(conn):
         "mime TEXT NOT NULL, data BLOB NOT NULL,"
         "updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
         "PRIMARY KEY (kind, entity_id))")
+    # (v1.11) project types: the sector a project belongs to, managed in Settings
+    # and flaggable from the Money Tracker. The starting list is written ONCE -
+    # a flag remembers it, so a list the user empties stays empty.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS project_types ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "name TEXT NOT NULL UNIQUE COLLATE NOCASE,"
+        "color TEXT NOT NULL DEFAULT '#00a2b6',"
+        "sort INTEGER NOT NULL DEFAULT 0,"
+        "is_active INTEGER NOT NULL DEFAULT 1)")
+    if not conn.execute("SELECT 1 FROM app_settings WHERE key='project_types_seeded'").fetchone():
+        if not conn.execute("SELECT COUNT(*) FROM project_types").fetchone()[0]:
+            for i, (name, color) in enumerate(DEFAULT_PROJECT_TYPES):
+                conn.execute("INSERT INTO project_types (name, color, sort) VALUES (?,?,?)", (name, color, i))
+        conn.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('project_types_seeded', '1')")
+    _add_column(conn, "projects", "type_id", "INTEGER REFERENCES project_types(id)")
+    # a prospect tracked before it has a project carries its own sector flag
+    _add_column(conn, "money_tracker", "type_id", "INTEGER REFERENCES project_types(id)")
+    # (v1.11) a journal line - and an Oracle scenario row - can be charged to an
+    # investment instead of a project; the Account Parsing and journal screens
+    # offer both, and a line carries one or the other, never both
+    _add_column(conn, "journal_lines", "investment_id", "INTEGER REFERENCES investments(id)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_jl_investment ON journal_lines(investment_id)")
+    _add_column(conn, "plan_weeks", "investment_id", "INTEGER REFERENCES investments(id)")
+    # a starred (HOT) investment is pinned to the top of the CEO dashboard
+    _add_column(conn, "investments", "is_hot", "INTEGER NOT NULL DEFAULT 0")
+    # the painted scene that stands for an initiative when no picture is uploaded
+    _add_column(conn, "investments", "art", "TEXT")
+    # ... and for a project (Project Details) and an invoice track (Money Tracker)
+    _add_column(conn, "projects", "art", "TEXT")
+    _add_column(conn, "money_tracker", "art", "TEXT")
     # sections added after a user's menu was set must still reach them
     _ensure_menu_routes(conn, ("oracle", "product", "expenses"))
     # Product Finance Analysis (v1.08)

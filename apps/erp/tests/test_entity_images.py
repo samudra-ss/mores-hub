@@ -75,7 +75,7 @@ bad = up("/api/images/product/%d" % pid, b"<html><script>x</script></html>", "x.
 check("HTML", bad.status_code == 400, "an HTML page is refused")
 bad = up("/api/images/product/%d" % pid, b"\x89PNG\r\n\x1a\n" + b"0" * 1600000)
 check("SIZE", bad.status_code == 400 and "1.5 MB" in bad.get_json().get("error", ""), "over 1.5 MB is refused")
-check("KIND", up("/api/images/project/1", png()).status_code == 400, "only SBUs and investments keep pictures")
+check("KIND", up("/api/images/journal/1", png()).status_code == 400, "only SBUs, investments, projects and invoice tracks keep pictures")
 check("KEPT", c.get("/api/images/product/%d" % pid).data == png(3, 3, (1, 2, 3)), "a refused upload changes nothing")
 
 print("=== an initiative picture ===")

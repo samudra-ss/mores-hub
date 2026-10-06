@@ -1330,3 +1330,81 @@ def dashboard(conn, company_ids, year, thresholds=None, project_attribution=True
         "cash_budget_set": cash_budget_set,
         "per_company": sorted(comp.values(), key=lambda c: -c["revenue"]),
     }
+
+
+def project_closeout(conn, project_id):
+    """Everything the close-out report prints for one project, over its WHOLE
+    life - every year it has lines in - attributed by project like the rest of
+    Project Details, so lines booked in another entity's books still count.
+
+    Cost is every expense account tagged to the project (5000 and 6000 alike),
+    the same rule Project HV uses, so the report's gross profit is the one the
+    screens already show."""
+    p = conn.execute(
+        "SELECT p.*, c.code AS company_code, c.name AS company_name, pt.name AS type_name,"
+        " pt.color AS type_color FROM projects p JOIN companies c ON c.id = p.company_id"
+        " LEFT JOIN project_types pt ON pt.id = p.type_id WHERE p.id = ?", (project_id,)).fetchone()
+    if not p:
+        raise ValueError("Project not found")
+    lines = conn.execute(
+        """SELECT je.id AS entry_id, je.date, je.entry_no, je.description AS entry_desc,
+                  jl.description AS line_desc, c.code AS company_code,
+                  a.code, a.name, a.type, jl.debit, jl.credit
+           FROM journal_lines jl
+           JOIN journal_entries je ON je.id = jl.entry_id
+           JOIN accounts a ON a.id = jl.account_id
+           JOIN companies c ON c.id = je.company_id
+           WHERE je.status = 'posted' AND jl.project_id = ? AND a.type IN ('revenue', 'expense')
+           ORDER BY je.date, je.entry_no, jl.id""", (project_id,)).fetchall()
+    budgets = conn.execute(
+        """SELECT a.code, MIN(a.name) AS name, a.type, SUM(b.amount) AS amount
+           FROM budgets b JOIN accounts a ON a.id = b.account_id
+           WHERE b.project_id = ? AND a.type IN ('revenue', 'expense')
+           GROUP BY a.code, a.type""", (project_id,)).fetchall()
+    accs = {}
+
+    def slot(code, name, typ):
+        key = (typ, code)
+        if key not in accs:
+            accs[key] = {"code": code, "name": name, "type": typ, "actual": 0.0, "budget": 0.0,
+                         "debit": 0.0, "credit": 0.0, "lines": []}
+        return accs[key]
+
+    for r in lines:
+        a = slot(r["code"], r["name"], r["type"])
+        amt = ((r["credit"] or 0) - (r["debit"] or 0)) if r["type"] == "revenue" \
+            else ((r["debit"] or 0) - (r["credit"] or 0))
+        a["actual"] += amt
+        a["debit"] += r["debit"] or 0
+        a["credit"] += r["credit"] or 0
+        a["lines"].append({"date": r["date"], "entry_no": r["entry_no"], "company_code": r["company_code"],
+                           "description": (r["line_desc"] or r["entry_desc"] or ""),
+                           "debit": round(r["debit"] or 0, 2), "credit": round(r["credit"] or 0, 2)})
+    for b in budgets:
+        slot(b["code"], b["name"], b["type"])["budget"] += b["amount"] or 0
+    rows = []
+    for a in accs.values():
+        a.update({k: round(a[k], 2) for k in ("actual", "budget", "debit", "credit")})
+        rows.append(a)
+    revenue = sorted([a for a in rows if a["type"] == "revenue"], key=lambda a: (-a["actual"], a["code"]))
+    cost = sorted([a for a in rows if a["type"] == "expense"], key=lambda a: (-a["actual"], a["code"]))
+    tr = round(sum(a["actual"] for a in revenue), 2)
+    tc = round(sum(a["actual"] for a in cost), 2)
+    br = round(sum(a["budget"] for a in revenue), 2)
+    bc = round(sum(a["budget"] for a in cost), 2)
+    contract = p["contract_value"] or 0
+    dates = [r["date"] for r in lines]
+    return {
+        "project": {"id": p["id"], "code": p["code"], "name": p["name"], "status": p["status"],
+                    "company_code": p["company_code"], "company_name": p["company_name"],
+                    "type_name": p["type_name"] or "", "type_color": p["type_color"] or "",
+                    "start_date": p["start_date"], "end_date": p["end_date"],
+                    "description": p["description"] or ""},
+        "contract_value": round(contract or br, 2), "contract_from_budget": not contract and bool(br),
+        "revenue": revenue, "cost": cost,
+        "total_revenue": tr, "total_cost": tc, "budget_revenue": br, "budget_cost": bc,
+        "gross_profit": round(tr - tc, 2), "budget_gross_profit": round(br - bc, 2),
+        "gross_margin": round((tr - tc) / tr, 4) if tr else None,
+        "first_date": min(dates) if dates else None, "last_date": max(dates) if dates else None,
+        "line_count": len(lines),
+    }

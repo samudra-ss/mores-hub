@@ -511,6 +511,308 @@ const TR = {
   "unchanged, as it must be.": "tidak berubah, sebagaimana mestinya.",
   "THESE DO NOT MATCH. Do not trust this result.": "TIDAK COCOK. Jangan percayai hasil ini.",
   "How to use": "Cara pakai",
+  "Use this painted scene instead of the uploaded picture? The uploaded picture is removed.": "Pakai lukisan ini menggantikan gambar yang diunggah? Gambar yang diunggah akan dihapus.",
+  "The Raising": "Pembangunan",
+  "stone by stone, the work goes up.": "batu demi batu, pekerjaan berdiri.",
+  "The Aqueduct": "Akuaduk",
+  "public works that carry a city for a hundred years.": "pekerjaan umum yang menopang kota seratus tahun.",
+  "The Academy": "Akademi",
+  "where the research is written and the advice is weighed.": "tempat riset ditulis dan nasihat ditimbang.",
+  "The Signal Towers": "Menara Sinyal",
+  "systems that carry the message from hill to hill.": "sistem yang membawa pesan dari bukit ke bukit.",
+  "The Festival": "Festival",
+  "a night the whole town remembers.": "malam yang diingat seluruh kota.",
+  "The Herald's Square": "Alun-alun Bentara",
+  "the message, written large where everyone passes.": "pesan, ditulis besar di tempat semua orang lewat.",
+  "The Quarry": "Tambang Batu",
+  "raw material, cut to the plan.": "bahan mentah, dipotong sesuai rencana.",
+  "The Town Hall": "Balai Kota",
+  "the client's house, where the contract is signed.": "rumah klien, tempat kontrak ditandatangani.",
+  "The Courier Road": "Jalan Kurir",
+  "the invoice rides out to the client.": "tagihan berangkat menuju klien.",
+  "The Toll Gate": "Gerbang Tol",
+  "every gate wants its stamp before it opens.": "setiap gerbang minta cap sebelum terbuka.",
+  "The Treasury": "Perbendaharaan",
+  "where the SPM and the SP2D are signed.": "tempat SPM dan SP2D ditandatangani.",
+  "The Market": "Pasar",
+  "where the deal was struck.": "tempat kesepakatan dibuat.",
+  "The Customs House": "Rumah Pabean",
+  "papers checked, cargo cleared.": "dokumen diperiksa, muatan lolos.",
+  "The Ferry": "Penyeberangan",
+  "the money crossing back to our bank.": "uang menyeberang kembali ke bank kita.",
+  "— not typed yet —": "— belum ada tipe —",
+  "SBU type": "Tipe SBU",
+  "All types": "Semua tipe",
+  "Not typed": "Tanpa tipe",
+  "SaaS": "SaaS",
+  "Event Based (INTEL)": "Berbasis Event (INTEL)",
+  "Media Owned (Creative)": "Media Milik Sendiri (Kreatif)",
+  "SEAL - SECTIONS": "SEAL - SECTIONS",
+  "Edit SBU & picture": "Ubah SBU & gambar",
+  "Edit SBU": "Ubah SBU",
+  "SBU saved": "SBU tersimpan",
+  "Drivers, cost lines and linked projects stay in Model settings & drivers.": "Driver, baris biaya dan proyek tertaut tetap di Pengaturan model & driver.",
+  "Choose a project:": "Pilih proyek:",
+  "DONE": "SELESAI",
+  "fixed in Project Details": "ditetapkan di Detail Proyek",
+  "No contract value yet — the Money Tracker has nothing to follow": "Belum ada nilai kontrak — Money Tracker tidak punya acuan",
+  "of its cost budget": "dari anggaran biayanya",
+  "Revenue invoicing": "Penagihan pendapatan",
+  "Edit project & picture": "Ubah proyek & gambar",
+  "Not planned for invoicing in the Money Tracker yet": "Belum direncanakan penagihannya di Money Tracker",
+  "No invoices in the Money Tracker yet": "Belum ada tagihan di Money Tracker",
+  "Invoiced": "Ditagihkan",
+  "termin(s)": "termin",
+  "received": "diterima",
+  "In the Money Tracker now": "Di Money Tracker sekarang",
+  "Project Details is the mother: the contract value is fixed on the project, and its invoices in the Money Tracker are planned from it.": "Detail Proyek adalah induknya: nilai kontrak ditetapkan di proyek, dan tagihannya di Money Tracker direncanakan dari situ.",
+  "ledger revenue": "pendapatan di buku besar",
+  "Left to plan": "Sisa untuk direncanakan",
+  "Set the contract value first": "Isi nilai kontrak dulu",
+  "Save on the project": "Simpan di proyek",
+  "Termins in the Money Tracker": "Termin di Money Tracker",
+  "Termin": "Termin",
+  "No termin yet.": "Belum ada termin.",
+  "Plan the remaining": "Rencanakan sisa",
+  "Split into": "Bagi menjadi",
+  "Create in the Money Tracker": "Buat di Money Tracker",
+  "Back to the harmonization check": "Kembali ke pengecekan harmonisasi",
+  "Contract value saved on the project": "Nilai kontrak tersimpan di proyek",
+  "Title": "Judul",
+  "Invoice No": "No. Invoice",
+  "Amount (Rp)": "Jumlah (Rp)",
+  "termin(s) created in the Money Tracker": "termin dibuat di Money Tracker",
+  "invoicing process per project — Project Details sets the amounts": "proses penagihan per proyek — nilainya dari Detail Proyek",
+  "Is every invoice in line with its project in Project Details?": "Apakah setiap tagihan selaras dengan proyeknya di Detail Proyek?",
+  "Harmonization check": "Cek harmonisasi",
+  "invoice(s)": "tagihan",
+  "No invoice matches these filters.": "Tidak ada tagihan yang cocok dengan filter.",
+  "No invoice tracks yet — plan them from a project's Revenue invoicing in Project Details.": "Belum ada tagihan — rencanakan dari Penagihan pendapatan di Detail Proyek.",
+  "Click a picture to open the invoice's phases — Pre-administration → Contract → Ongoing → Reports → SPM → SPP → Approval → KASDA → SP2D → Done. The bar under each picture is its 12 phases.": "Klik gambar untuk membuka fase tagihan — Pra-administrasi → Kontrak → Berjalan → Laporan → SPM → SPP → Persetujuan → KASDA → SP2D → Selesai. Bilah di bawah gambar adalah 12 fasenya.",
+  "Disharmonized": "Tidak harmonis",
+  "Needs attention": "Perlu perhatian",
+  "Not set up for invoicing yet": "Belum disiapkan untuk penagihan",
+  "Use the project's sector": "Pakai sektor proyek",
+  "Move it to the project's company": "Pindahkan ke perusahaan proyek",
+  "Mark the project Done": "Tandai proyek Selesai",
+  "invoice": "tagihan",
+  "Open invoice": "Buka tagihan",
+  "Harmonized": "Harmonis",
+  "invoice tracks checked": "tagihan dicek",
+  "disharmonized": "tidak harmonis",
+  "need attention": "perlu perhatian",
+  "not set up yet": "belum disiapkan",
+  "Project Details is the mother: its contract value is fixed, and the Money Tracker's invoices must add up to it, sit in the project's company, carry its sector and close with it.": "Detail Proyek adalah induknya: nilai kontraknya tetap, dan tagihan di Money Tracker harus berjumlah sama, berada di perusahaan proyek, membawa sektornya dan selesai bersamanya.",
+  "project(s) with no contract value and no invoice": "proyek tanpa nilai kontrak dan tanpa tagihan",
+  "Every invoice is in line with its project.": "Setiap tagihan selaras dengan proyeknya.",
+  "Harmonization check — Project Details vs Money Tracker": "Cek harmonisasi — Detail Proyek vs Money Tracker",
+  "Mark this project Done in Project Details?": "Tandai proyek ini Selesai di Detail Proyek?",
+  "Fixed": "Diperbaiki",
+  "Invoiced, but no contract value": "Ditagihkan, tapi tanpa nilai kontrak",
+  "No contract value, no invoices": "Tanpa nilai kontrak, tanpa tagihan",
+  "Contract not planned for invoicing": "Kontrak belum direncanakan penagihannya",
+  "Part of the contract has no invoice": "Sebagian kontrak belum ada tagihannya",
+  "Invoices exceed the contract": "Tagihan melebihi kontrak",
+  "Project Done, invoices still open": "Proyek selesai, tagihan masih berjalan",
+  "Fully received, project still open": "Sudah diterima penuh, proyek masih terbuka",
+  "Received but not booked": "Diterima tapi belum dibukukan",
+  "Invoice without a project": "Tagihan tanpa proyek",
+  "Billed by another company": "Ditagih oleh perusahaan lain",
+  "Sector flag differs from the project": "Sektor berbeda dari proyek",
+  "contract": "kontrak",
+  "this invoice is": "tagihan ini",
+  "no contract value set on the project": "proyek belum punya nilai kontrak",
+  "Contract": "Kontrak",
+  "in Project Details": "di Detail Proyek",
+  "other invoices": "tagihan lain",
+  "room": "sisa",
+  "This project has no contract value in Project Details yet.": "Proyek ini belum punya nilai kontrak di Detail Proyek.",
+  "Jakarta Cost Office": "Biaya Kantor Jakarta",
+  "Safe": "Aman",
+  "Watch": "Perhatian",
+  "Not safe": "Tidak aman",
+  "checking…": "memeriksa…",
+  "over 90 days": "lebih dari 90 hari",
+  "net margin": "margin bersih",
+  "as of": "per",
+  "minimum": "minimum",
+  "the Oracle's cash policy": "kebijakan kas Oracle",
+  "no minimum set in the Oracle": "belum ada minimum di Oracle",
+  "Every other tile is switched off in Settings → Dashboard.": "Kotak lain dimatikan di Pengaturan → Dasbor.",
+  "Monthly revenue tracker": "Pelacak pendapatan bulanan",
+  "OPERATING EXPENSES (6000) · REALIZATION VS BUDGET": "BEBAN OPERASIONAL (6000) · REALISASI VS ANGGARAN",
+  "Office cost": "Biaya kantor",
+  "rent · utilities · admin": "sewa · utilitas · admin",
+  "No operating expenses": "Tidak ada beban operasional",
+  "Click an account to see its month-by-month realization vs budget.": "Klik akun untuk melihat realisasi vs anggaran per bulan.",
+  "Reading…": "Membaca…",
+  "budget used": "anggaran terpakai",
+  "report error": "laporan galat",
+  "no cost budget": "tanpa anggaran biaya",
+  "Budget used = the SBU's cost so far this year (COGS, operating cost, depreciation) against its cost budget for the whole year. Amber = ahead of the budget's pace, red = over the year's budget. Click a picture to open the SBU.": "Anggaran terpakai = biaya SBU tahun ini sejauh ini (HPP, biaya operasional, penyusutan) dibanding anggaran biaya setahun penuh. Kuning = lebih cepat dari laju anggaran, merah = melewati anggaran setahun. Klik gambar untuk membuka SBU.",
+  "allocated": "dialokasikan",
+  "more in the Investment Center": "lainnya di Investment Center",
+  "Each picture: budget used (paid — entries plus journal lines charged to it) per budget allocated (the committed amount).": "Setiap gambar: anggaran terpakai (dibayar — entri ditambah baris jurnal yang dibebankan) per anggaran dialokasikan (jumlah komitmen).",
+  "The Watchtower": "Menara Pengawas",
+  "sees every signal before the market does.": "melihat setiap sinyal sebelum pasar melihatnya.",
+  "The Forge": "Bengkel Tempa",
+  "where the product is hammered into shape.": "tempat produk ditempa menjadi bentuk.",
+  "The Harbor": "Pelabuhan",
+  "where the goods leave and the money comes home.": "tempat barang berangkat dan uang pulang.",
+  "The Citadel": "Benteng",
+  "stone by stone, the infrastructure that holds a region up.": "batu demi batu, infrastruktur yang menopang sebuah wilayah.",
+  "The Observatory": "Observatorium",
+  "reads the sky of data and charts the course.": "membaca langit data dan memetakan arah.",
+  "The Caravan": "Kafilah",
+  "carries the offer to new markets across the sand.": "membawa penawaran ke pasar baru melintasi gurun.",
+  "The Orchard": "Kebun Buah",
+  "plant today, harvest leaders in five years.": "tanam hari ini, panen pemimpin lima tahun lagi.",
+  "The Bridge": "Jembatan",
+  "two banks, one road — a partnership carries both sides.": "dua tepi, satu jalan — kemitraan menopang kedua sisi.",
+  "The Alchemist's Tower": "Menara Alkemis",
+  "research that turns lead into a new line of business.": "riset yang mengubah timah menjadi lini bisnis baru.",
+  "The Village Well": "Sumur Desa",
+  "money that comes back as goodwill.": "uang yang kembali sebagai niat baik.",
+  "The Banner Keep": "Benteng Panji",
+  "ground taken, and held.": "wilayah direbut, dan dipertahankan.",
+  "The Windmill": "Kincir Angin",
+  "the reserve that keeps on grinding.": "cadangan yang terus berputar.",
+  "Picture": "Gambar",
+  "a painted scene, or a picture of its own": "lukisan pemandangan, atau gambar sendiri",
+  "Change my picture": "Ganti gambar saya",
+  "Upload my own picture": "Unggah gambar sendiri",
+  "Remove my picture": "Hapus gambar saya",
+  "An uploaded picture is shown instead of the scene. PNG, JPG, WebP or GIF — resized to 1280 px.": "Gambar yang diunggah tampil menggantikan lukisan. PNG, JPG, WebP atau GIF — diperkecil ke 1280 px.",
+  "Remove this picture? The painted scene is shown again.": "Hapus gambar ini? Lukisan pemandangan tampil kembali.",
+  "Previous": "Sebelumnya",
+  "Pictures": "Gambar",
+  "List": "Daftar",
+  "pick one on the right, double-click or press Open to go in": "pilih di kanan, klik dua kali atau tekan Buka untuk masuk",
+  "Choose your Special Business Unit:": "Pilih Special Business Unit Anda:",
+  "Open SBU": "Buka SBU",
+  "Launched": "Diluncurkan",
+  "Not launched yet": "Belum diluncurkan",
+  "must be profitable by": "harus untung paling lambat",
+  "Open the SBU dashboard": "Buka dasbor SBU",
+  "Model verdict": "Putusan model",
+  "Breaks even in": "Balik modal pada",
+  "No break-even inside the model's horizon": "Tidak balik modal dalam horizon model",
+  "Needs": "Butuh",
+  "of funding before it pays back": "pendanaan sebelum balik modal",
+  "of the year's cost budget used": "anggaran biaya setahun terpakai",
+  "No cost budget on this SBU's projects yet": "Belum ada anggaran biaya pada proyek SBU ini",
+  "Special Business Unit · is it good, and does it make real profit?": "Special Business Unit · apakah bagus, dan benar-benar untung?",
+  "long-horizon initiatives that mature into projects": "inisiatif jangka panjang yang tumbuh menjadi proyek",
+  "Choose an initiative:": "Pilih inisiatif:",
+  "Open detail": "Buka detail",
+  "Detail": "Detail",
+  "Edit": "Ubah",
+  "Budget used": "Anggaran terpakai",
+  "No budget allocated yet — set the committed amount": "Belum ada anggaran dialokasikan — isi jumlah komitmen",
+  "of the commitment has no payment date — the Oracle cannot see when it leaves": "dari komitmen belum punya tanggal bayar — Oracle tidak tahu kapan uang keluar",
+  "Every rupiah of the commitment has a payment date": "Setiap rupiah komitmen sudah punya tanggal bayar",
+  "Paid back": "Sudah balik modal",
+  "benefits cover": "manfaat menutup",
+  "Benefits so far": "Manfaat sejauh ini",
+  "payback": "pengembalian",
+  "Matures into project": "Tumbuh menjadi proyek",
+  "Horizon": "Horizon",
+  "years": "tahun",
+  "since": "sejak",
+  "Show or hide the budget path": "Tampilkan atau sembunyikan jalur anggaran",
+  "By": "Sampai",
+  "the budget planned": "anggaran merencanakan",
+  "CEO Dashboard": "Dasbor CEO",
+  "Reading cash, projects, SBUs and investments…": "Membaca kas, proyek, SBU dan investasi…",
+  "Cash control": "Kontrol kas",
+  "all forecast": "semua proyeksi",
+  "CLOSING CASH · RP BILLION": "KAS AKHIR · RP MILIAR",
+  "Above minimum": "Di atas minimum",
+  "Below minimum": "Di bawah minimum",
+  "Inspect accounts": "Periksa akun",
+  "Actual": "Aktual",
+  "Forecast": "Proyeksi",
+  "Minimum": "Minimum",
+  "Year-end forecast": "Proyeksi akhir tahun",
+  "below the minimum from": "di bawah minimum mulai",
+  "Actual = cash & bank in the ledger; forecast = the last actual closing plus the Budget Center's net for each month; minimum = the Oracle's cash policy.": "Aktual = kas & bank di buku besar; proyeksi = saldo aktual terakhir ditambah selisih anggaran (Budget Center) tiap bulan; minimum = kebijakan kas Oracle.",
+  "Balances before": "Saldo sebelum",
+  "Month by month": "Per bulan",
+  "Budget net": "Selisih anggaran",
+  "Minimum per company": "Minimum per perusahaan",
+  "Cash & bank accounts": "Akun kas & bank",
+  "Project highlights": "Sorotan proyek",
+  "Delayed": "Terlambat",
+  "In SPM process": "Dalam proses SPM",
+  "days late": "hari terlambat",
+  "due": "jatuh tempo",
+  "Nothing here.": "Tidak ada.",
+  "more in the Money Tracker": "lainnya di Money Tracker",
+  "Delayed = a track past its phase's planned days. In SPM process = between SPM and SP2D, the payment stretch. Done = paid, or the project is marked Done.": "Terlambat = track melewati rencana hari fasenya. Dalam proses SPM = antara SPM dan SP2D, tahap pembayaran. Selesai = sudah dibayar, atau proyek ditandai Selesai.",
+  "SBU tracker": "Pelacak SBU",
+  "Health": "Kesehatan",
+  "No SBU yet.": "Belum ada SBU.",
+  "Health = the SBU report's indicators: KRITIS · PERHATIAN · AMAN. Click an SBU to open its dashboard.": "Kesehatan = indikator laporan SBU: KRITIS · PERHATIAN · AMAN. Klik SBU untuk membuka dasbornya.",
+  "HOT — click to unstar": "HOT — klik untuk melepas bintang",
+  "Star as HOT": "Tandai HOT",
+  "Budget (scheduled)": "Anggaran (terjadwal)",
+  "Paid": "Dibayar",
+  "Initiative": "Inisiatif",
+  "milestones": "milestone",
+  "No investments yet.": "Belum ada investasi.",
+  "Budget = the payment schedule set on each investment. Paid = entries plus every journal line charged to the investment. Starred HOT items stay on top.": "Anggaran = jadwal pembayaran tiap investasi. Dibayar = entri ditambah setiap baris jurnal yang dibebankan ke investasi. Item HOT berbintang selalu di atas.",
+  "no project / investment": "tanpa proyek / investasi",
+  "Project / Investment": "Proyek / Investasi",
+  "HOT investments are pinned on the CEO Dashboard": "Investasi HOT disematkan di Dasbor CEO",
+  "entries": "entri",
+  "Charged in the ledger": "Dibebankan di buku besar",
+  "journal lines tagged to this investment (Account Parsing or a journal)": "baris jurnal yang ditandai ke investasi ini (Account Parsing atau jurnal)",
+  "Main company": "Perusahaan utama",
+  "Account Parsing opens on it, and it is the default company wherever All is selected.": "Account Parsing dibuka pada perusahaan ini, dan menjadi perusahaan bawaan saat Semua dipilih.",
+  "Quarterly sheet": "Lembar kuartalan",
+  "— your Q4 cash-drive layout: per week NAME | KODE | VALUE. NAME is the project or investment, KODE the account number, VALUE positive for revenue and negative for cost. Filled with the quarter's budget.": "— format cash drive Q4 Anda: per minggu NAMA | KODE | NILAI. NAMA = proyek atau investasi, KODE = nomor akun, NILAI positif untuk pendapatan dan negatif untuk biaya. Terisi anggaran kuartal tersebut.",
+  "Quarter": "Kuartal",
+  "Download quarterly sheet": "Unduh lembar kuartalan",
+  "row(s) book on their own KODE": "baris dibukukan pada KODE-nya sendiri",
+  "the rest": "sisanya",
+  "money in books to": "uang masuk dibukukan ke",
+  "row(s) named a project or investment and are tagged to it": "baris menyebut proyek atau investasi dan ditandai ke sana",
+  "project": "proyek",
+  "by sector": "per sektor",
+  "All sectors": "Semua sektor",
+  "Unassigned": "Belum ditentukan",
+  "— unassigned —": "— belum ditentukan —",
+  "projects": "proyek",
+  "active": "aktif",
+  "on hold": "ditahan",
+  "Sector": "Sektor",
+  "Sector — saved at once": "Sektor — langsung tersimpan",
+  "Sector saved": "Sektor disimpan",
+  "Cost": "Biaya",
+  "Close-out report: gross profit, then every account's lines": "Laporan penutupan: laba kotor, lalu baris setiap akun",
+  "Close-out report (PDF)": "Laporan penutupan (PDF)",
+  "Page 1: gross profit with its chart and table · page 2 on: every account and its lines.": "Halaman 1: laba kotor dengan grafik dan tabelnya · halaman 2 dst.: setiap akun beserta barisnya.",
+  "The close-out report (PDF) is made once this project is marked Done.": "Laporan penutupan (PDF) dibuat setelah proyek ini ditandai Selesai.",
+  "Sector (project type)": "Sektor (jenis proyek)",
+  "saved on the project, so Project Details shows the same sector": "disimpan pada proyeknya, jadi Detail Proyek menampilkan sektor yang sama",
+  "kept on this track until it is linked to a project": "disimpan di track ini sampai ditautkan ke proyek",
+  "Project types": "Jenis proyek",
+  "the sector each project belongs to": "sektor tiap proyek",
+  "Project Details groups its projects by these, and the Money Tracker can flag a track with one. Changes save as you make them.": "Detail Proyek mengelompokkan proyek menurut jenis ini, dan Money Tracker bisa menandai track dengannya. Perubahan langsung tersimpan.",
+  "Colour": "Warna",
+  "Name": "Nama",
+  "Tracks without a project": "Track tanpa proyek",
+  "In use": "Dipakai",
+  "Move up": "Naik",
+  "Move down": "Turun",
+  "Still in use — switch it off instead": "Masih dipakai — nonaktifkan saja",
+  "No project types yet.": "Belum ada jenis proyek.",
+  "e.g. Infrastructure": "mis. Infrastruktur",
+  "Add project type": "Tambah jenis proyek",
+  "Saved": "Tersimpan",
+  "Delete this project type?": "Hapus jenis proyek ini?",
+  "Deleted": "Dihapus",
+  "Project type added": "Jenis proyek ditambahkan",
   "Add picture": "Tambah gambar",
   "Change picture": "Ganti gambar",
   "Remove": "Hapus",
@@ -1146,12 +1448,12 @@ function fmtInputStamp(ts) {
 
 const NAV_ITEMS = [
   // HV sections
-  ["dashboard", "▦", "Dashboard"], ["projecthv", "◉", "Project HV"],
+  ["dashboard", "▦", "CEO Dashboard"], ["projecthv", "◉", "Project HV"],
   ["projects", "△", "Project Details"], ["money", "◈", "Money Tracker"],
-  ["investments", "✦", "Investment Center"], ["oracle", "☾", "The Oracle"],
-  ["product", "◇", "SBU"],
+  ["product", "◇", "SBU"], ["investments", "✦", "Investment Center"],
+  ["oracle", "☾", "The Oracle"],
   // Devil in Detail
-  ["journals", "☰", "Journal Entries"], ["expenses", "◔", "Expense Breakdown"], ["bank", "⇄", "Account Parsing"],
+  ["journals", "☰", "Journal Entries"], ["expenses", "◔", "Jakarta Cost Office"], ["bank", "⇄", "Account Parsing"],
   ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
   ["budgets", "◎", "Budget Center"], ["reports", "▤", "Reports"],
   ["accountant", "⚖", "Accountant Section"],
@@ -1198,6 +1500,9 @@ const canWrite = () => state.me && state.me.role !== "viewer";
 const isAdmin = () => state.me && state.me.role === "admin";
 const scopeQS = () => `company_id=${state.companyId}&year=${state.year}`;
 function firstCompanyId() {
+  // the main company (MDA unless Settings -> Companies says otherwise) comes first
+  const main = state.me.main_company_id && state.me.companies.find(c => c.id === state.me.main_company_id);
+  if (main) return main.id;
   const c = state.me.companies.find(c => !c.is_holding) || state.me.companies[0];
   return c ? c.id : null;
 }
@@ -1305,6 +1610,238 @@ async function render() {
   try { await fn(el); } catch (e) { el.innerHTML = `<div class="card"><div class="empty">${esc(e.message)}</div></div>`; }
 }
 
+/* ---- CEO Dashboard ------------------------------------------------------------ */
+// Cash control, project highlights, the SBU tracker and the Investment Center -
+// loaded after the KPI tiles, so a slow SBU never holds the page up.
+function niceStep(raw) {
+  if (!(raw > 0)) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 2.5, 5, 10]) if (raw <= m * mag) return m * mag;
+  return 10 * mag;
+}
+const ceoB = v => v == null ? "—" : `Rp ${(v / 1e9).toFixed(2)}B`;
+
+function ceoCashChart(c) {
+  const W = 600, H = 236, padL = 44, padR = 16, padT = 14, padB = 30;
+  // the scale follows actual, forecast and the minimum; the budget path joins it
+  // only when switched on, so a budget far from reality cannot flatten the lines
+  const showBudget = !!state.ceoBudgetLine;
+  const vals = [c.minimum, 0];
+  c.months.forEach(m => [m.actual, m.forecast, showBudget ? m.budget : null].forEach(v => { if (v != null) vals.push(v); }));
+  const step = niceStep((Math.max(...vals) - Math.min(...vals)) / 3);
+  const lo = Math.floor(Math.min(...vals) / step) * step, hi = Math.ceil(Math.max(...vals) / step) * step || step;
+  const x = i => padL + i * (W - padL - padR) / 11;
+  const y = v => padT + (hi - v) / (hi - lo || 1) * (H - padT - padB);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" class="ceo-cash-svg" xmlns="http://www.w3.org/2000/svg">`;
+  for (let v = lo; v <= hi + step / 2; v += step) {
+    svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--border);stroke-width:1"/>
+      <text x="${padL - 8}" y="${y(v) + 4}" text-anchor="end" style="fill:var(--muted);font-size:11px">${(v / 1e9).toFixed(1)}</text>`;
+  }
+  c.months.forEach((m, i) => {
+    svg += `<text x="${x(i)}" y="${H - 9}" text-anchor="middle" style="fill:var(--muted);font-size:10.5px;opacity:${i % 2 ? .55 : 1}">${esc(t(m.label))}</text>`;
+  });
+  const pts = key => c.months.map((m, i) => m[key] == null ? null : [x(i), y(m[key]), i]).filter(Boolean);
+  const path = p => p.map((q, i) => `${i ? "L" : "M"}${q[0].toFixed(1)},${q[1].toFixed(1)}`).join(" ");
+  // the budget path for the whole year: what the plan said cash would be
+  const bp = showBudget ? pts("budget") : [];
+  if (bp.length) svg += `<path d="${path(bp)}" style="fill:none;stroke:var(--muted);stroke-width:1.2;opacity:.45"/>`;
+  // minimum cash from the Oracle's policy
+  svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(c.minimum)}" y2="${y(c.minimum)}" style="stroke:#e9b25c;stroke-width:1.4;stroke-dasharray:2 4"/>`;
+  const ap = pts("actual"), fp = pts("forecast");
+  if (ap.length > 1) svg += `<path d="${path(ap)} L${ap[ap.length - 1][0]},${y(lo)} L${ap[0][0]},${y(lo)} Z" style="fill:var(--ceo-area);stroke:none"/>`;
+  if (fp.length > 1) svg += `<path d="${path(fp)}" style="fill:none;stroke:#e9b25c;stroke-width:2.2;stroke-dasharray:6 5"/>`;
+  if (ap.length > 1) svg += `<path d="${path(ap)}" style="fill:none;stroke:#e9b25c;stroke-width:2.6"/>`;
+  ap.forEach((q, i) => { const m = c.months[q[2]];
+    svg += `<circle cx="${q[0]}" cy="${q[1]}" r="${i === ap.length - 1 ? 6 : 3}" style="fill:#e9b25c"><title>${esc(t(m.label))}: ${fmtRp(m.actual)}</title></circle>`; });
+  fp.forEach((q, i) => { if (!i && ap.length) return;
+    const m = c.months[q[2]];
+    svg += `<circle cx="${q[0]}" cy="${q[1]}" r="3" style="fill:#e9b25c"><title>${esc(t(m.label))} · ${t("forecast")}: ${fmtRp(m.forecast)}</title></circle>`; });
+  return svg + "</svg>";
+}
+
+function ceoCashCard(c) {
+  if (c.error) return `<div class="card ceo-card"><h3>${t("Cash control")}</h3><p class="neg">${esc(c.error)}</p></div>`;
+  const above = c.status === "above";
+  return `<div class="card ceo-card ceo-cash">
+    <div class="ceo-head"><b><span class="ceo-dot"></span>${t("Cash control")}</b>
+      <span class="muted">${c.through ? `${esc(t(c.months[c.through - 1].label))} ${c.year} → ${t("forecast")}` : t("all forecast")}</span></div>
+    <div class="ceo-sub">${t("CLOSING CASH · RP BILLION")}</div>
+    <div class="ceo-big"><span>Rp</span> <b>${(c.latest / 1e9).toFixed(2)}B</b>
+      <em class="${above ? "pos" : "neg"}">${above ? t("Above minimum") : t("Below minimum")}</em>
+      <a href="#" id="ceoInspect" class="ceo-link">${t("Inspect accounts")} &#8599;</a></div>
+    ${ceoCashChart(c)}
+    <div class="ceo-legend"><span><i class="ln"></i>${t("Actual")}</span><span><i class="ln dash"></i>${t("Forecast")}</span>
+      <button type="button" class="ceo-lg-btn ${state.ceoBudgetLine ? "on" : ""}" id="ceoBudgetToggle" title="${t("Show or hide the budget path")}"><i class="ln grey"></i>${t("Budget")}</button>
+      <span><i class="ln dot"></i>${t("Minimum")} ${ceoB(c.minimum)}</span></div>
+    ${c.through ? (() => { const m = c.months[c.through - 1], gap = m.actual - m.budget;
+      return `<p class="ceo-vs">${t("By")} ${esc(t(m.label))} ${t("the budget planned")} <b>${ceoB(m.budget)}</b>; ${t("actual")} <b>${ceoB(m.actual)}</b>
+        <span class="${gap < 0 ? "neg" : "pos"}">(${gap < 0 ? "−" : "+"}${ceoB(Math.abs(gap)).replace("Rp ", "Rp ")})</span></p>`; })() : ""}
+    <p class="muted ceo-note">${t("Year-end forecast")} <b>${ceoB(c.year_end)}</b>${c.first_below_month ? ` · <span class="neg">${t("below the minimum from")} ${esc(t(MONTH_NAMES[c.first_below_month - 1]))}</span>` : ""}.
+      ${t("Actual = cash & bank in the ledger; forecast = the last actual closing plus the Budget Center's net for each month; minimum = the Oracle's cash policy.")}</p>
+  </div>`;
+}
+
+function ceoInspectModal(c) {
+  const total = c.accounts.reduce((a, r) => a + (r.balance || 0), 0);
+  openModal(`<p class="muted" style="margin-top:0">${t("Balances before")} ${fmtDate(c.accounts_as_of)}.</p>
+    <table class="tbl"><thead><tr><th>Co.</th><th>${t("Account")}</th><th class="num">${t("Balance")}</th></tr></thead>
+      <tbody>${c.accounts.map(r => `<tr><td>${esc(r.company_code)}</td><td>${esc(r.code)} ${esc(r.name)}</td>
+        <td class="num ${r.balance < 0 ? "neg" : ""}">${fmt(r.balance)}</td></tr>`).join("") || `<tr><td colspan="3" class="empty">—</td></tr>`}
+        <tr class="total"><td colspan="2">${t("TOTAL")}</td><td class="num">${fmt(total)}</td></tr></tbody></table>
+    <h4 class="ex-h4 mt">${t("Month by month")}</h4>
+    <div class="pf-scroll"><table class="tbl"><thead><tr><th>${t("Month")}</th><th class="num">${t("Actual")}</th>
+      <th class="num">${t("Forecast")}</th><th class="num">${t("Budget")}</th><th class="num">${t("Budget net")}</th></tr></thead>
+      <tbody>${c.months.map(m => `<tr><td>${esc(fmtYM(m.month))}</td><td class="num">${m.actual == null ? "" : fmt(m.actual)}</td>
+        <td class="num muted">${m.forecast == null ? "" : fmt(m.forecast)}</td><td class="num muted">${fmt(m.budget)}</td>
+        <td class="num ${m.budget_net < 0 ? "neg" : "pos"}">${fmt(m.budget_net)}</td></tr>`).join("")}</tbody></table></div>
+    ${(c.floors || []).length ? `<p class="muted mt" style="font-size:12px">${t("Minimum per company")}: ${c.floors.map(f => `${esc(f.company_code)} ${fmtShortRp(f.floor)}`).join(" · ")}</p>` : ""}`,
+    { title: t("Cash & bank accounts") });
+}
+
+function ceoHighlightsCard(h) {
+  if (h.error) return `<div class="card ceo-card"><h3>${t("Project highlights")}</h3><p class="neg">${esc(h.error)}</p></div>`;
+  if (!state.ceoHl) state.ceoHl = h.delayed.count ? "delayed" : "spm";
+  const tabs = [["delayed", t("Delayed"), h.delayed], ["spm", t("In SPM process"), h.spm], ["done", t("Done"), h.done]];
+  const cur = (tabs.find(x => x[0] === state.ceoHl) || tabs[0])[2];
+  const row = r => {
+    const name = r.project_code ? `<b>${esc(r.project_code)}</b> ${esc(r.project_name)}` : `<b>${esc(r.title || "—")}</b>`;
+    const when = state.ceoHl === "delayed" ? `<span class="neg">${r.days_late} ${t("days late")}</span> <span class="muted">· ${t("due")} ${fmtDate(r.due)}</span>`
+      : state.ceoHl === "spm" ? (r.days_late ? `<span class="neg">${r.days_late} ${t("days late")}</span>` : `<span class="muted">${t("due")} ${fmtDate(r.due)}</span>`)
+      : `<span class="muted">${esc(t(r.phase_name || ""))}</span>`;
+    return `<div class="ceo-hl-row" ${r.id ? `data-track="${r.id}"` : `data-project="${r.project_id}" data-name="${esc(r.project_name)}"`}>
+      <div><div>${name}${r.is_hot ? " &#128293;" : ""}</div>
+        <div class="muted" style="font-size:12px">${esc(r.client || r.title || "")}${r.company_code ? ` · ${esc(r.company_code)}` : ""}</div></div>
+      <div class="ceo-hl-mid"><span class="pill ${state.ceoHl === "done" ? "posted" : state.ceoHl === "delayed" ? "bad" : "active"}">${esc(r.phase_label)}</span><br>${when}</div>
+      <div class="num"><b>${r.amount ? fmtShortRp(r.amount) : "—"}</b></div></div>`;
+  };
+  return `<div class="card ceo-card">
+    <div class="ceo-head"><b>${t("Project highlights")}</b><a href="#/money" class="muted">${t("Money Tracker")} &rarr;</a></div>
+    <div class="seg-group ceo-hl-tabs">${tabs.map(([k, l, v]) => `<button class="seg ${state.ceoHl === k ? "active" : ""}" data-k="${k}">
+      ${l} <b>${v.count}</b><span class="muted"> · ${fmtShortRp(v.amount)}</span></button>`).join("")}</div>
+    <div class="ceo-hl-list">${cur.rows.map(row).join("") || `<div class="empty">${t("Nothing here.")}</div>`}</div>
+    ${cur.count > cur.rows.length ? `<p class="muted" style="font-size:12px">${t("and")} ${cur.count - cur.rows.length} ${t("more in the Money Tracker")}</p>` : ""}
+    <p class="muted ceo-note">${t("Delayed = a track past its phase's planned days. In SPM process = between SPM and SP2D, the payment stretch. Done = paid, or the project is marked Done.")}</p>
+  </div>`;
+}
+
+const ceoLoading = title => `<div class="card ceo-card"><div class="ceo-head"><b>${esc(title)}</b></div><div class="empty">${t("Reading…")}</div></div>`;
+
+// Each SBU as its picture with one number on it: how much of the year's cost
+// budget is already used. Amber = spending ahead of the budget's pace so far.
+function ceoSbuCard(list) {
+  if (list.error) return `<div class="card ceo-card"><h3>${t("SBU tracker")}</h3><p class="neg">${esc(list.error)}</p></div>`;
+  return `<div class="card ceo-card">
+    <div class="ceo-head"><b>${t("SBU tracker")}</b><a href="#/product" class="muted">SBU &rarr;</a></div>
+    ${list.length ? `<div class="ceo-pics">${list.map(s => {
+      const p = s.budget_used_pct;
+      const tone = p == null ? "" : s.cost_ytd > s.cost_budget ? "bad" : s.cost_ytd > s.cost_budget_ytd ? "watch" : "ok";
+      return `<button type="button" class="ceo-pic ceo-sbu ${tone}" data-id="${s.id}" title="${esc(s.title || s.name)}">
+        <img src="${entPic("product", s)}" alt="" loading="lazy" style="object-position:${artFocus("product", s)}">
+        <span class="ceo-pic-pct"><b>${p == null ? "—" : Math.round(p) + "%"}</b><small>${t("budget used")}</small></span>
+        ${s.sbu_type ? `<span class="ceo-pic-type">${esc(sbuTypeLabel(s.sbu_type))}</span>` : ""}
+        <span class="ceo-pic-cap"><b>${esc(s.title || s.name)}</b><small>SBU ${s.n} · ${s.error ? esc(t("report error"))
+          : p == null ? t("no cost budget") : `${fmtShortRp(s.cost_ytd)} / ${fmtShortRp(s.cost_budget)}`}</small></span>
+        <span class="ceo-pic-bar"><i style="width:${Math.min(100, p || 0)}%"></i></span></button>`; }).join("")}</div>`
+      : `<div class="empty">${t("No SBU yet.")}</div>`}
+    <p class="muted ceo-note">${t("Budget used = the SBU's cost so far this year (COGS, operating cost, depreciation) against its cost budget for the whole year. Amber = ahead of the budget's pace, red = over the year's budget. Click a picture to open the SBU.")}</p>
+  </div>`;
+}
+
+// Each initiative as its picture: budget used (paid) per budget allocated
+// (committed). HOT ones are starred and come first.
+function ceoInvestCard(iv) {
+  if (iv.error) return `<div class="card ceo-card"><h3>Investment Center</h3><p class="neg">${esc(iv.error)}</p></div>`;
+  const rows = iv.rows.slice(0, 6);
+  const all = iv.committed ? Math.round(100 * iv.invested / iv.committed) : null;
+  const star = r => canWrite()
+    ? `<button type="button" class="ceo-star ${r.is_hot ? "on" : ""}" data-id="${r.id}" title="${r.is_hot ? t("HOT — click to unstar") : t("Star as HOT")}">${r.is_hot ? "&#9733;" : "&#9734;"}</button>`
+    : (r.is_hot ? `<span class="ceo-star on">&#9733;</span>` : "");
+  return `<div class="card ceo-card ceo-inv-card">
+    <div class="ceo-head"><b>Investment Center</b><a href="#/investments" class="muted">${t("Open")} &rarr;</a></div>
+    <div class="ceo-inv-sum">${t("Used")} <b>${fmtShortRp(iv.invested)}</b> ${t("of")} <b>${fmtShortRp(iv.committed)}</b> ${t("allocated")}${all == null ? "" : ` · <b>${all}%</b>`}
+      <span class="muted"> · &#9733; ${iv.hot} HOT</span></div>
+    ${rows.length ? `<div class="ceo-pics ceo-pics-inv">${rows.map(r => {
+      const c = r.committed_amount || 0, p = c ? Math.round(100 * r.invested / c) : null;
+      return `<div class="ceo-pic ${r.is_hot ? "hot" : ""} ${p != null && p > 100 ? "bad" : "ok"}" role="button" tabindex="0" data-inv="${r.id}" title="${esc(r.name)}">
+        <img src="${entPic("investment", r)}" alt="" loading="lazy" style="object-position:${artFocus("investment", r)}">${star(r)}
+        <span class="ceo-pic-pct"><b>${p == null ? "—" : p + "%"}</b></span>
+        <span class="ceo-pic-cap"><b>${esc(r.name)}</b><small>${fmtShortRp(r.invested)} / ${fmtShortRp(c)}</small></span>
+        <span class="ceo-pic-bar"><i style="width:${Math.min(100, p || 0)}%"></i></span></div>`; }).join("")}</div>`
+      : `<div class="empty">${t("No investments yet.")}</div>`}
+    ${iv.rows.length > rows.length ? `<p class="muted" style="font-size:12px;margin:8px 0 0">${t("and")} ${iv.rows.length - rows.length} ${t("more in the Investment Center")}</p>` : ""}
+    <p class="muted ceo-note">${t("Each picture: budget used (paid — entries plus journal lines charged to it) per budget allocated (the committed amount).")}</p>
+  </div>`;
+}
+
+async function renderCeoBlock(box, reload, onData) {
+  let d;
+  const put = (id, html) => { const s = $("#" + id, box); if (s) s.innerHTML = html; };
+  try { d = await api(`/api/dashboard/ceo?${scopeQS()}`); }
+  catch (e) { put("ceoSlotCash", `<div class="card"><p class="neg">${esc(e.message)}</p></div>`); return; }
+  if (!document.body.contains(box)) return;
+  // the 70% column holds cash control, the SBU tracker and the monthly revenue
+  // tracker; the 30% column beside them the highlights, investments and office cost
+  put("ceoSlotCash", ceoCashCard(d.cash));
+  put("ceoSlotHl", ceoHighlightsCard(d.highlights));
+  put("ceoSlotSbu", ceoSbuCard(d.sbu));
+  put("ceoSlotInv", ceoInvestCard(d.investments));
+  renderCeoBlockWire(box, d, reload);
+  if (onData) onData(d);
+}
+
+function renderCeoBlockWire(box, d, reload) {
+  if ($("#ceoInspect")) $("#ceoInspect").onclick = e => { e.preventDefault(); ceoInspectModal(d.cash); };
+  if ($("#ceoBudgetToggle")) $("#ceoBudgetToggle").onclick = () => {
+    state.ceoBudgetLine = !state.ceoBudgetLine;
+    const card = $(".ceo-cash", box);
+    card.outerHTML = ceoCashCard(d.cash);
+    renderCeoBlockWire(box, d, reload);
+  };
+  $$(".ceo-hl-tabs .seg", box).forEach(b => b.onclick = () => { state.ceoHl = b.dataset.k; renderCeoBlock(box, reload); });
+  $$(".ceo-hl-row", box).forEach(r => r.onclick = () => r.dataset.track
+    ? moneyTrackerDetail(r.dataset.track, () => renderCeoBlock(box, reload))
+    : projectDetail(r.dataset.project, r.dataset.name, "completed"));
+  $$(".ceo-sbu", box).forEach(r => r.onclick = () => { state.pfId = parseInt(r.dataset.id, 10); state.pfTab = "dash"; location.hash = "#/product"; });
+  $$(".ceo-pic[data-inv]", box).forEach(p => {
+    const go = () => investmentDetail(p.dataset.inv, () => renderCeoBlock(box, reload));
+    p.onclick = e => { if (!e.target.closest(".ceo-star")) go(); };
+    p.onkeydown = e => { if (e.key === "Enter" && !e.target.closest(".ceo-star")) go(); };
+  });
+  $$(".ceo-star[data-id]", box).forEach(b => b.onclick = async e => {
+    e.stopPropagation();
+    try {
+      await api(`/api/investments/${b.dataset.id}/hot`, { json: { is_hot: !b.classList.contains("on") } });
+      renderCeoBlock(box, reload);
+    } catch (e) { toast(e.message, true); }
+  });
+}
+
+// One picker for who a journal line belongs to: a project (any company), or an
+// investment from the Investment Center - flagged, so the two never blur.
+function ownerOptions(projects, investments, sel, entryCo) {
+  const groups = new Map();
+  (projects || []).forEach(p => {
+    const k = String(p.company_id);
+    if (!groups.has(k)) groups.set(k, { code: p.company_code, name: p.company_name || "", items: [] });
+    groups.get(k).items.push(p);
+  });
+  const keys = [...groups.keys()].sort((x, y) => x === String(entryCo) ? -1 : y === String(entryCo) ? 1
+    : String(groups.get(x).code).localeCompare(groups.get(y).code));
+  const s = String(sel || "");
+  return `<option value="">— ${t("no project / investment")} —</option>` + keys.map(k => {
+    const g = groups.get(k);
+    return `<optgroup label="${t("Project")} · ${esc(g.code)}${g.name ? " — " + esc(g.name) : ""}">${g.items.map(p =>
+      `<option value="p:${p.id}" ${s === "p:" + p.id ? "selected" : ""}>${esc(p.code)} — ${esc(p.name)}</option>`).join("")}</optgroup>`;
+  }).join("") + ((investments || []).length ? `<optgroup label="&#9733; ${t("Investment Center")}">${investments.map(i =>
+      `<option value="i:${i.id}" ${s === "i:" + i.id ? "selected" : ""}>&#9733; ${esc(i.name)} (${esc(i.company_code)}) — ${t("INVESTMENT")}</option>`).join("")}</optgroup>` : "");
+}
+const ownerValue = l => l && l.investment_id ? "i:" + l.investment_id : l && l.project_id ? "p:" + l.project_id : "";
+function ownerSplit(v) {
+  v = String(v || "");
+  if (v.startsWith("i:")) return { project_id: null, investment_id: parseInt(v.slice(2), 10) || null };
+  return { project_id: parseInt(v.replace(/^p:/, ""), 10) || null, investment_id: null };
+}
+
 /* ------------------------------------------------------------------ dashboard */
 async function pageDashboard(el) {
   if (!state.dashAttr) state.dashAttr = "project";
@@ -1339,35 +1876,64 @@ async function pageDashboard(el) {
   const caktActual = round2(caktRows.reduce((a, r) => a + r.actual, 0));
   const caktBudget = round2(caktRows.reduce((a, r) => a + r.budget, 0));
   const caktUsed = caktBudget ? Math.round(100 * caktActual / caktBudget) : null;
-  // company-information resume tiles — admins choose which show (Settings →
-  // Dashboard). d.kpi_visible is the allow-list of keys; null/empty = show all.
-  const KPI_TILES = [
-    ["revenue_ytd", kpi(t("Revenue YTD"), k.revenue_ytd)],
-    ["net_profit", kpi(t("Net Profit"), k.net_profit_ytd, k.net_profit_ytd >= 0 ? "green" : "red", `Margin ${k.margin_pct}%`)],
-    ["gross_margin", kpiv(t("Gross Margin"), fmtPct(k.gross_margin), st("gross_margin"), `target ≥ ${fmtPct((hb.gross_margin || {}).target)}`)],
-    ["operating_profit", kpi(t("Operating Profit"), k.operating_profit, k.operating_profit >= 0 ? "green" : "red")],
-    ["cash_buffer", kpiv(t("Cash Buffer"), fmtMonths(k.cash_buffer_months), st("cash_buffer_months"), `target ≥ ${fmtMonths((hb.cash_buffer_months || {}).target)}`)],
-    ["dso", kpiv(t("DSO"), fmtDays(k.dso_days), st("dso_days"), `target ≤ ${fmtDays((hb.dso_days || {}).target)}`)],
-    ["current_ratio", kpiv(t("Current Ratio"), fmtRatio(k.current_ratio), st("current_ratio"), `target ≥ ${fmtRatio((hb.current_ratio || {}).target)}`)],
-    ["working_capital", kpi(t("Working Capital · Today"), k.working_capital, "", `as of ${fmtDate(d.as_of)} · CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`)],
-    ["cash_bank", kpi(t("Cash & Bank"), k.cash_balance, "hl")],
-    ["receivables", kpi(t("Receivables"), k.accounts_receivable)],
-    ["payables", kpi(t("Payables"), k.accounts_payable)],
-    // Active Loan is read from the Payables MODULE - the bills and loans people
-    // actually record and chase - not from the 2100 ledger balance beside it.
-    ["active_loan", `<div class="kpi ${k.active_loan_overdue > 0 ? "amber" : ""}">
-        <div class="kpi-label">${t("Active Loan")} <span class="muted" style="font-weight:500">· ${t("from Payables")}</span></div>
-        <div class="kpi-value" title="${fmtRp(k.active_loan)}">${fmtShortRp(k.active_loan)}</div>
-        <div class="kpi-sub">${k.active_loan_bills || 0} ${t("open bill(s)")}${k.active_loan_overdue ? ` · ${fmtShortRp(k.active_loan_overdue)} ${t("overdue")}` : ""}</div></div>`],
-    ["budget_used", `<div class="kpi ${bvaPct != null && bvaPct > 100 ? "red" : ""}">
-        <div class="kpi-label">${t("Budget Used")}</div>
-        <div class="kpi-value">${bvaPct == null ? "n/a" : bvaPct + "%"}</div>
-        <div class="kpi-sub">of ${fmtShortRp(k.budget_expense)} expense budget</div></div>`],
-  ];
+  // The three headline numbers stand on their own - Cash & Bank, then Revenue YTD
+  // and Gross Margin - and every other tile is one list, each line saying whether
+  // it is safe. Admins still choose which lines show (Settings → Dashboard).
   const kpiVisible = (d.kpi_visible && d.kpi_visible.length) ? new Set(d.kpi_visible) : null;
-  const kpiGrid = KPI_TILES.filter(([key]) => !kpiVisible || kpiVisible.has(key)).map(([, html]) => html).join("");
+  const SAFE = { safe: ["ceo-ok", t("Safe")], watch: ["ceo-watch", t("Watch")], danger: ["ceo-bad", t("Not safe")] };
+  const hs = key => ({ healthy: "safe", watch: "watch", danger: "danger" })[st(key)] || null;
+  const pill = s => s ? `<span class="ceo-safe ${SAFE[s][0]}">${SAFE[s][1]}</span>` : `<span class="ceo-safe ceo-na">—</span>`;
+  const pace = k.months_elapsed ? 100 * k.months_elapsed / 12 : null;
+  const aa0 = d.ar_ap || {};
+  const KPI_LIST = [
+    ["net_profit", t("Net Profit"), fmtShortRp(k.net_profit_ytd), `${t("margin")} ${k.margin_pct}%`, k.net_profit_ytd >= 0 ? "safe" : "danger"],
+    ["operating_profit", t("Operating Profit"), fmtShortRp(k.operating_profit), "", k.operating_profit >= 0 ? "safe" : "danger"],
+    ["cash_buffer", t("Cash Buffer"), fmtMonths(k.cash_buffer_months), `${t("target")} ≥ ${fmtMonths((hb.cash_buffer_months || {}).target)}`, hs("cash_buffer_months")],
+    ["dso", t("DSO"), fmtDays(k.dso_days), `${t("target")} ≤ ${fmtDays((hb.dso_days || {}).target)}`, hs("dso_days")],
+    ["current_ratio", t("Current Ratio"), fmtRatio(k.current_ratio), `${t("target")} ≥ ${fmtRatio((hb.current_ratio || {}).target)}`, hs("current_ratio")],
+    ["working_capital", t("Working Capital · Today"), fmtShortRp(k.working_capital), `CA ${fmtShortRp(k.current_assets)} − CL ${fmtShortRp(k.current_liabilities)}`, k.working_capital >= 0 ? "safe" : "danger"],
+    ["receivables", t("Receivables"), fmtShortRp(k.accounts_receivable), aa0.risky_ar ? `${fmtShortRp(aa0.risky_ar)} ${t("over 90 days")}` : "", aa0.risky_ar ? "watch" : null],
+    ["payables", t("Payables"), fmtShortRp(k.accounts_payable), aa0.risky_ap ? `${fmtShortRp(aa0.risky_ap)} ${t("over 90 days")}` : "", aa0.risky_ap ? "watch" : null],
+    // Active Loan is read from the Payables MODULE, not from the 2100 ledger balance
+    ["active_loan", `${t("Active Loan")} · ${t("from Payables")}`, fmtShortRp(k.active_loan),
+      `${k.active_loan_bills || 0} ${t("open bill(s)")}${k.active_loan_overdue ? ` · ${fmtShortRp(k.active_loan_overdue)} ${t("overdue")}` : ""}`,
+      k.active_loan_overdue > 0 ? "danger" : "safe"],
+    ["budget_used", t("Budget Used"), bvaPct == null ? "n/a" : bvaPct + "%", `${t("of")} ${fmtShortRp(k.budget_expense)} ${t("expense budget")}`,
+      bvaPct == null ? null : bvaPct > 100 ? "danger" : (pace != null && bvaPct > pace + 5) ? "watch" : "safe"],
+  ];
+  const kpiBand = `<div class="ceo-band">
+    <div class="kpi ceo-band-cash" id="ceoBandCash">
+      <div class="kpi-label">${t("Cash & Bank")}</div>
+      <div class="kpi-value" title="${fmtRp(k.cash_balance)}">${fmtShortRp(k.cash_balance)}</div>
+      <div class="ceo-band-st" id="ceoCashSafe"><span class="ceo-safe ceo-na">${t("checking…")}</span></div>
+      <div class="kpi-sub">${t("as of")} ${fmtDate(d.as_of)} · ${t("Cash Buffer")} ${fmtMonths(k.cash_buffer_months)}</div>
+    </div>
+    <div class="ceo-band-mid">
+      <div class="kpi"><div class="kpi-label">${t("Revenue YTD")}</div>
+        <div class="kpi-value" title="${fmtRp(k.revenue_ytd)}">${fmtShortRp(k.revenue_ytd)}</div>
+        <div class="kpi-sub">${k.months_elapsed ? `${k.months_elapsed} ${t("months")} · ` : ""}${t("net margin")} ${k.margin_pct}%</div></div>
+      <div class="kpi ${healthStatusCls(st("gross_margin"))}"><div class="kpi-label ceo-kl">${t("Gross Margin")} ${pill(hs("gross_margin"))}</div>
+        <div class="kpi-value">${fmtPct(k.gross_margin)}</div>
+        <div class="kpi-sub">${t("Gross profit")} ${fmtShortRp(k.gross_profit)} · ${t("target")} ≥ ${fmtPct((hb.gross_margin || {}).target)}</div></div>
+    </div>
+    <div class="card ceo-band-list">
+      ${KPI_LIST.filter(x => !kpiVisible || kpiVisible.has(x[0])).map(([key, label, val, sub, s]) => `<div class="ceo-li" data-k="${key}">
+        <span class="ceo-li-l">${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}</span>
+        <b class="ceo-li-v">${val}</b>${pill(s)}</div>`).join("") || `<div class="empty">${t("Every other tile is switched off in Settings → Dashboard.")}</div>`}
+    </div>
+  </div>`;
+  // the cash line is safe or not against the Oracle's minimum cash, which arrives
+  // with the CEO block; without a policy the cash buffer's own target decides
+  const setCashSafe = c => {
+    const box = $("#ceoCashSafe");
+    if (!box || !c || c.error) return;
+    const min = c.minimum || 0;
+    const s = min > 0 ? (k.cash_balance >= min ? "safe" : "danger") : hs("cash_buffer_months");
+    box.innerHTML = `${pill(s)} <span class="muted">${min > 0 ? `${t("minimum")} ${fmtShortRp(min)} · ${t("the Oracle's cash policy")}` : t("no minimum set in the Oracle")}</span>`;
+    $("#ceoBandCash").classList.toggle("bad", s === "danger");
+  };
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}${d.last_input ? ` · ${t("Last input")}: <b>${esc(fmtInputStamp(d.last_input.created_at))}</b>${d.last_input.ref ? ` (${esc(d.last_input.ref)})` : ""}` : ""}</span></h2>
+    <div class="page-head"><h2>${t("CEO Dashboard")} — ${state.year} <span class="muted" style="font-size:13px;font-weight:500">· ${t("all figures in IDR (Rp)")}${d.last_input ? ` · ${t("Last input")}: <b>${esc(fmtInputStamp(d.last_input.created_at))}</b>${d.last_input.ref ? ` (${esc(d.last_input.ref)})` : ""}` : ""}</span></h2>
       <div class="page-actions" style="gap:14px;flex-wrap:wrap">
         ${isAdmin() ? `<label class="seg-check" title="${t("Show or hide the Active Loan tile (taken from the Payables module)")}">
           <input type="checkbox" id="dashLoan" ${(!kpiVisible || kpiVisible.has("active_loan")) ? "checked" : ""}> ${t("Active loan")}</label>` : ""}
@@ -1386,34 +1952,40 @@ async function pageDashboard(el) {
         <span class="warn-ic">${w.level === "danger" ? "⚠" : "›"}</span>
         <span><b>${esc(w.title)}</b> — ${esc(w.detail)}${w.amount ? ` <b>${fmtRp(w.amount)}</b>` : ""}</span></div>`).join("")}
     </div>` : ""}
-    <div class="grid kpis">${kpiGrid}</div>
-    <div class="grid two-col">
-      <div class="card"><h3>${t("Monthly Revenue vs Expense — IDR")} (${state.year})</h3>
+    ${kpiBand}
+    <div class="ceo-7030" id="ceoBlock">
+      <div class="ceo-slot" id="ceoSlotCash">${ceoLoading(t("Cash control"))}</div>
+      <div class="ceo-slot" id="ceoSlotHl">${ceoLoading(t("Project highlights"))}</div>
+      <div class="ceo-slot" id="ceoSlotSbu">${ceoLoading(t("SBU tracker"))}</div>
+      <div class="ceo-slot" id="ceoSlotInv">${ceoLoading("Investment Center")}</div>
+      <div class="ceo-slot"><div class="card ceo-card"><div class="ceo-head"><b>${t("Monthly revenue tracker")}</b>
+          <span class="muted">${t("Monthly Revenue vs Expense — IDR")} (${state.year})</span></div>
         ${chartBars(MONTH_NAMES, [
           { name: "Revenue", color: C_REV, values: monthly.map(m => m.revenue) },
           { name: "Expense", color: C_EXP, values: monthly.map(m => m.expense) },
           { name: "Profit", color: C_PROFIT, values: monthly.map(m => m.profit), type: "line" },
-        ])}</div>
-      <div class="card"><h3>${t("Expense Breakdown — Realization vs Budget")} <span class="muted" style="font-weight:500;font-size:13px">· ${t("Operating Expenses (6000)")}</span>
-        <a href="#/expenses" class="btn btn-sm" style="float:right" title="${t("Petty Cash Monit and Grab, line by line")}">${t("Devil in detail")} &rarr;</a></h3>
-        ${chartDonut(opexRows.slice(0, 8).map((r, i) => ({
-          label: r.code + " " + r.name, value: r.actual, color: PALETTE[i % PALETTE.length] })))}
+        ], { height: 400 })}</div></div>
+      <div class="ceo-slot"><div class="card ceo-card ceo-jco">
+        <div class="ceo-head"><b>${t("Jakarta Cost Office")}</b>
+          <a href="#/expenses" class="muted" title="${t("Petty Cash Monit and Grab, line by line")}">${t("Devil in detail")} &rarr;</a></div>
+        <div class="ceo-sub">${t("OPERATING EXPENSES (6000) · REALIZATION VS BUDGET")}</div>
+        ${chartDonut(opexRows.slice(0, 6).map((r, i) => ({
+          label: r.code + " " + r.name, value: r.actual, color: PALETTE[i % PALETTE.length] })), { size: 160 })}
         <div class="office-total mt">
-          <span><b>${t("Jakarta Office Expense Breakdown")}</b> <span class="muted">(rent · utilities · admin)</span></span>
-          <span>Realization <b>${fmtRp(officeActual)}</b> · Budget <b>${fmtRp(officeBudget)}</b>
-            ${officeUsed == null ? "" : `· <span class="${officeUsed > 100 ? "neg" : "pos"}">${officeUsed}% used</span>`}</span>
+          <span><b>${t("Office cost")}</b> <span class="muted">(${t("rent · utilities · admin")})</span></span>
+          <span>${t("Realization")} <b>${fmtShortRp(officeActual)}</b> · ${t("Budget")} <b>${fmtShortRp(officeBudget)}</b>
+            ${officeUsed == null ? "" : `· <span class="${officeUsed > 100 ? "neg" : "pos"}">${officeUsed}% ${t("used")}</span>`}</span>
         </div>
-        <div style="max-height:240px;overflow:auto" class="mt"><table class="tbl">
-          <thead><tr><th>Account</th><th class="num">Realization</th><th class="num">Budget</th><th class="num">Used</th></tr></thead>
+        <div class="mt ceo-jco-scroll"><table class="tbl">
+          <thead><tr><th>${t("Account")}</th><th class="num">${t("Realization")}</th><th class="num">${t("Used")}</th></tr></thead>
           <tbody>${opexRows.map(r => {
             const used = r.budget ? Math.round(100 * r.actual / r.budget) : null;
-            return `<tr><td><a href="#" class="opex-code" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.code)} ${esc(r.name)}</a></td>
-              <td class="num">${fmt(r.actual)}</td>
-              <td class="num muted">${fmt(r.budget)}</td>
+            return `<tr title="${t("Budget")} ${fmt(r.budget)}"><td><a href="#" class="opex-code" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.code)} ${esc(r.name)}</a></td>
+              <td class="num">${fmtShortRp(r.actual)}</td>
               <td class="num ${used != null && used > 100 ? "neg" : ""}">${used == null ? "—" : used + "%"}</td></tr>`;
-          }).join("") || `<tr><td colspan="4" class="empty">No operating expenses</td></tr>`}</tbody></table>
-          <p class="muted mt" style="font-size:12px">Click an account to see its month-by-month realization vs budget.</p></div>
-      </div>
+          }).join("") || `<tr><td colspan="3" class="empty">${t("No operating expenses")}</td></tr>`}</tbody></table></div>
+        <p class="muted ceo-note">${t("Click an account to see its month-by-month realization vs budget.")}</p>
+      </div></div>
     </div>
     <div class="card mt"><h3>${t("C-AKUN (7300) — Budget vs Realization")}
         <span class="muted" style="font-weight:500;font-size:13px">· ${t("account 7300 & its sub-accounts")}</span></h3>
@@ -1508,6 +2080,7 @@ async function pageDashboard(el) {
           `<tr><td colspan="4" class="empty">No activity</td></tr>`}</tbody></table>
       </div>
     </div>`;
+  renderCeoBlock($("#ceoBlock"), () => pageDashboard(el), c => setCashSafe(c.cash));
   $$("#dashScope .seg").forEach(b => b.onclick = () => {
     state.companyId = b.dataset.scope;
     localStorage.setItem("erp.company", b.dataset.scope);
@@ -1965,7 +2538,7 @@ async function viewJournal(id, reload) {
     <table class="tbl mt"><thead><tr><th>Account</th><th>Project</th><th>Description</th>
       <th class="num">Debit</th><th class="num">Credit</th></tr></thead>
       <tbody>${j.lines.map(l => `<tr><td>${esc(l.account_code)} — ${esc(l.account_name)}</td>
-        <td>${esc(l.project_code || "")}</td><td>${esc(l.description)}</td>
+        <td>${l.investment_name ? `<span class="inv-tag">&#9733; ${esc(l.investment_name)}</span>` : esc(l.project_code || "")}</td><td>${esc(l.description)}</td>
         <td class="num">${l.debit ? fmt(l.debit) : ""}</td><td class="num">${l.credit ? fmt(l.credit) : ""}</td></tr>`).join("")}
       <tr class="total"><td colspan="3">Total</td>
         <td class="num">${fmt(j.lines.reduce((a, l) => a + l.debit, 0))}</td>
@@ -1994,9 +2567,10 @@ async function journalEditor(reload, existing) {
   // often paid out of another entity's books - NX-01 belongs to SBR-NX but is
   // paid from MDA - and reports attribute a project line to the project's own
   // company, so tagging across companies is how that is recorded properly.
-  const [fields, allProjects] = await Promise.all([
+  const [fields, allProjects, allInvestments] = await Promise.all([
     api("/api/custom-fields?entity=journal"),
     api("/api/projects?company_id=all").catch(() => []),
+    api("/api/investments?company_id=all").catch(() => []),
   ]);
   const root = openModal(`
     <div class="form-grid">
@@ -2010,7 +2584,7 @@ async function journalEditor(reload, existing) {
     <table class="tbl je-lines mt">
       <colgroup><col class="c-acc"><col class="c-prj"><col class="c-desc"><col class="c-amt"><col class="c-amt"><col class="c-del"></colgroup>
       <thead><tr><th>Account <span class="muted" style="font-weight:400">(this company)</span></th>
-        <th>Project <span class="muted" style="font-weight:400">(any company)</span></th>
+        <th>${t("Project / Investment")} <span class="muted" style="font-weight:400">(any company)</span></th>
         <th>Line description</th><th class="amt">Debit</th><th class="amt">Credit</th><th></th></tr></thead>
       <tbody id="jeLines"></tbody></table>
     <button class="btn btn-sm mt" id="addLine">+ Add line</button>
@@ -2033,22 +2607,9 @@ async function journalEditor(reload, existing) {
       `<option value="${a.id}" data-code="${esc(a.code)}" ${String(sel) === String(a.id) ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("");
   }
   function projectOpts(sel) {
-    const entryCo = String($("#jeCompany").value);
-    const groups = new Map();
-    allProjects.forEach(p => {
-      const k = String(p.company_id);
-      if (!groups.has(k)) groups.set(k, { code: p.company_code, name: p.company_name, items: [] });
-      groups.get(k).items.push(p);
-    });
-    // the entry's own company first, then the rest alphabetically
-    const keys = [...groups.keys()].sort((x, y) =>
-      x === entryCo ? -1 : y === entryCo ? 1 : String(groups.get(x).code).localeCompare(groups.get(y).code));
-    return `<option value="">— no project —</option>` + keys.map(k => {
-      const g = groups.get(k);
-      return `<optgroup label="${esc(g.code)} — ${esc(g.name)}${k === entryCo ? " · this entry's company" : ""}">${
-        g.items.map(p => `<option value="${p.id}" ${String(sel) === String(p.id) ? "selected" : ""}>${esc(p.code)} — ${esc(p.name)}</option>`).join("")
-      }</optgroup>`;
-    }).join("");
+    // projects from every company (the entry's own first) and the Investment
+    // Center's initiatives, flagged - a line carries one or the other
+    return ownerOptions(allProjects, allInvestments, sel, $("#jeCompany").value);
   }
 
   // Switching company swaps the chart of accounts. Every line keeps its account
@@ -2089,7 +2650,7 @@ async function journalEditor(reload, existing) {
   function addLine(line) {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td><select class="je-acc">${accountOpts(line ? line.account_id : "")}</select></td>
-      <td><select class="je-prj">${projectOpts(line ? line.project_id : "")}</select></td>
+      <td><select class="je-prj">${projectOpts(ownerValue(line))}</select></td>
       <td><textarea class="je-ldesc" rows="1" placeholder="What this line is">${line ? esc(line.description) : ""}</textarea></td>
       <td><input class="je-debit amt" type="number" min="0" step="any" placeholder="0" value="${line && line.debit ? line.debit : ""}"></td>
       <td><input class="je-credit amt" type="number" min="0" step="any" placeholder="0" value="${line && line.credit ? line.credit : ""}"></td>
@@ -2116,7 +2677,7 @@ async function journalEditor(reload, existing) {
     if (missing.length) { toast(`${missing.length} line(s) with an amount have no account — choose one before saving`, true); return; }
     const lines = rows.map(tr => ({
       account_id: parseInt($(".je-acc", tr).value, 10) || null,
-      project_id: parseInt($(".je-prj", tr).value, 10) || null,
+      ...ownerSplit($(".je-prj", tr).value),
       description: $(".je-ldesc", tr).value,
       debit: parseFloat($(".je-debit", tr).value) || 0,
       credit: parseFloat($(".je-credit", tr).value) || 0,
@@ -2212,7 +2773,9 @@ async function pageBank(el) {
     el.innerHTML = `<div class="card"><div class="empty">Account Parsing requires the Admin or Accountant role.</div></div>`;
     return;
   }
-  const cid = state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10);
+  // Account Parsing always opens on the main company (MDA): that is where the
+  // bank, wallet, card and Grab statements are booked
+  const cid = state.me.main_company_id || (state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10));
   el.innerHTML = `
     <div class="page-head"><h2>${t("Account Parsing")}</h2>
       <div class="page-actions"><label class="muted">Company <select id="bkCompany">${companyOptions(cid)}</select></label></div>
@@ -2334,15 +2897,16 @@ async function pageBank(el) {
       <div id="bkResults" class="mt"></div>
     </div>`;
 
-  let txs = [], accounts = [], projects = [], mode = "paste", bankCfg = { default_cash_code: "" };
+  let txs = [], accounts = [], projects = [], investments = [], mode = "paste", bankCfg = { default_cash_code: "" };
 
   async function loadCompanyData() {
     // accounts must belong to the import company; projects span the whole
     // database (a bank line can be tagged to any project, in any company)
-    [accounts, projects, bankCfg] = await Promise.all([
+    [accounts, projects, bankCfg, investments] = await Promise.all([
       api("/api/accounts?company_id=" + $("#bkCompany").value),
       api("/api/projects?company_id=all"),
       api("/api/settings/bank-config").catch(() => ({ default_cash_code: "" })),
+      api("/api/investments?company_id=all").catch(() => []),
     ]);
     accounts = accounts.filter(a => a.is_active);
     // CC-card mode also lets the "cash side" be a liability (a Credit Card
@@ -2404,13 +2968,9 @@ async function pageBank(el) {
       + grp("Liabilities", accounts.filter(a => a.type === "liability"));
   }
   function projectOpts(sel) {
-    // all projects in the database, grouped by company so the source is clear
-    const byCo = {};
-    projects.forEach(p => { (byCo[p.company_code] = byCo[p.company_code] || []).push(p); });
-    const groups = Object.keys(byCo).sort().map(co =>
-      `<optgroup label="${esc(co)}">` + byCo[co].map(p =>
-        `<option value="${p.id}" ${String(sel) === String(p.id) ? "selected" : ""}>${esc(p.code)} — ${esc(p.name)}</option>`).join("") + "</optgroup>").join("");
-    return `<option value="">—</option>` + groups;
+    // every project (grouped by company) and every Investment Center initiative,
+    // flagged, so a direct cost can be charged to an investment instead
+    return ownerOptions(projects, investments, sel, $("#bkCompany").value);
   }
 
   const balanceCell = t => {
@@ -2427,7 +2987,7 @@ async function pageBank(el) {
       <th class="num">Amount<br><span style="font-weight:400;text-transform:none">(Jumlah / Nominal)</span></th>
       <th class="num">Balance<br><span style="font-weight:400;text-transform:none">(Saldo)</span></th>
       <th>No Referensi<br><span style="font-weight:400;text-transform:none">(Ref. No.)</span></th><th>Status</th>
-      <th style="min-width:140px">Contra account<br><span style="font-weight:400;text-transform:none">(cost OUT / revenue IN)</span></th><th>Project</th></tr></thead>
+      <th style="min-width:140px">Contra account<br><span style="font-weight:400;text-transform:none">(cost OUT / revenue IN)</span></th><th>${t("Project / Investment")}</th></tr></thead>
       <tbody>${txs.map((t, i) => `<tr data-i="${i}" ${t.duplicate || t.internal ? 'style="opacity:.55"' : ""}>
         <td><input type="checkbox" class="bk-sel" ${t.ok && !t.duplicate && !t.internal && t.amount && t.date ? "checked" : ""}></td>
         <td>${esc(t.date ? fmtDate(t.date) : "?")}<br><span class="muted">${esc(t.time)}</span></td>
@@ -2617,7 +3177,7 @@ async function pageBank(el) {
       const t = txs[tr.dataset.i];
       const contra = {
         account_id: parseInt($(".bk-acc", tr).value, 10),
-        project_id: parseInt($(".bk-prj", tr).value, 10) || null,
+        ...ownerSplit($(".bk-prj", tr).value),
         description: t.tx_type || "transaction",
       };
       const bankLine = { account_id: bankAcc, description: (mode === "wallet" ? "Petty cash — ref " : mode === "cc" ? "Credit card — ref " : mode === "grab" ? "Grab — " : "Bank — ref ") + t.reference };
@@ -2703,7 +3263,7 @@ async function pageExpenses(el) {
   if (!state.exGrabBy) state.exGrabBy = "service";
   const qs = `${scopeQS()}${state.exMonth ? "&month=" + state.exMonth : ""}`;
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Expense Breakdown")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("Devil in Detail — Petty Cash Monit & Grab Business Input")}</span></h2>
+    <div class="page-head"><h2>${t("Jakarta Cost Office")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("Devil in Detail — Petty Cash Monit & Grab Business Input")}</span></h2>
       <div class="page-actions">
         <label class="muted">${t("Period")} <select id="exMonth">
           <option value="">${t("Whole year")} ${state.year}</option>
@@ -3139,9 +3699,13 @@ async function pageInvestments(el) {
   const benefit = rows.reduce((a, r) => a + r.benefit, 0);
   const roi = invested ? Math.round(100 * (benefit - invested) / invested) : null;
 
+  const view = localStorage.getItem("erp.invView") || "pics";
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Investment Center")}</h2>
+    <div class="page-head"><h2>${t("Investment Center")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("long-horizon initiatives that mature into projects")}</span></h2>
       <div class="page-actions">
+        <div class="seg-group" id="invView">
+          <button class="seg ${view === "pics" ? "active" : ""}" data-v="pics">${t("Pictures")}</button>
+          <button class="seg ${view === "list" ? "active" : ""}" data-v="list">${t("List")}</button></div>
         ${canWrite() ? `<button class="btn btn-primary" id="invNew">+ New Investment</button>` : ""}
       </div></div>
     <div class="grid kpis">
@@ -3155,15 +3719,18 @@ async function pageInvestments(el) {
         <div class="kpi-value">${fmtShort(benefit - invested)}</div>
         <div class="kpi-sub">${roi == null ? "" : "ROI " + roi + "%"}</div></div>
     </div>
-    <div class="card"><h3>Long-horizon initiatives <span class="muted">(scholarships, partnerships, R&D — investments that mature into projects)</span></h3>
-      <table class="tbl"><thead><tr><th style="width:52px"></th><th>Initiative</th><th>Category</th><th>Company</th><th>Linked project</th>
+    ${view === "pics" && rows.length ? `<div id="invChooser"></div>` : ""}
+    <div class="card" ${view === "pics" && rows.length ? "hidden" : ""}><h3>Long-horizon initiatives <span class="muted">(scholarships, partnerships, R&D — investments that mature into projects)</span></h3>
+      <table class="tbl"><thead><tr><th style="width:34px" title="${t("HOT investments are pinned on the CEO Dashboard")}">&#9733;</th><th style="width:52px"></th><th>Initiative</th><th>Category</th><th>Company</th><th>Linked project</th>
         <th class="num">Committed</th><th class="num">Invested</th><th>Progress</th>
         <th class="num">Benefits</th><th class="num">Payback</th><th>Status</th><th style="min-width:170px"></th></tr></thead>
       <tbody>${rows.map(r => {
         const prog = r.committed_amount ? Math.min(100, Math.round(100 * r.invested / r.committed_amount)) : 0;
         const payback = r.invested ? Math.round(100 * r.benefit / r.invested) : null;
-        return `<tr>
-          <td class="ent-cell">${entThumb("investment", r.id, r.image_v, r.name)}</td>
+        return `<tr class="${r.is_hot ? "ceo-hot" : ""}">
+          <td>${canWrite() ? `<button class="ceo-star ${r.is_hot ? "on" : ""}" data-star="${r.id}" title="${r.is_hot ? t("HOT — click to unstar") : t("Star as HOT")}">${r.is_hot ? "&#9733;" : "&#9734;"}</button>`
+                           : (r.is_hot ? `<span class="ceo-star on">&#9733;</span>` : "")}</td>
+          <td class="ent-cell">${entThumb("investment", r.id, r.image_v, r.name, 38, artKey("investment", r))}</td>
           <td><b>${esc(r.name)}</b><br><span class="muted">${esc((r.description || "").slice(0, 70))}${(r.description || "").length > 70 ? "…" : ""}</span></td>
           <td>${INV_CATEGORIES[r.category] || r.category}</td>
           <td>${esc(r.company_code)}</td><td>${esc(r.project_code || "—")}</td>
@@ -3177,12 +3744,41 @@ async function pageInvestments(el) {
             ${canWrite() ? `<button class="btn btn-sm" data-entry="${r.id}">+ Entry</button>
             <button class="btn btn-sm" data-edit="${r.id}">Edit</button>` : ""}
           </td></tr>`;
-      }).join("") || `<tr><td colspan="12" class="empty">No investments yet — add the first initiative</td></tr>`}</tbody></table>
+      }).join("") || `<tr><td colspan="13" class="empty">No investments yet — add the first initiative</td></tr>`}</tbody></table>
       <p class="muted mt"><b>Outflow</b> = money put in (e.g. scholarship paid out) · <b>Benefit</b> = value gained back
       (event talks converting to engagements, projects won via the program). Payback = benefits ÷ invested.</p>
     </div>`;
 
   const reload = () => pageInvestments(el);
+  $$("#invView .seg").forEach(b => b.onclick = () => {
+    try { localStorage.setItem("erp.invView", b.dataset.v); } catch (e) { /* private window */ }
+    reload();
+  });
+  if ($("#invChooser")) heroChooser($("#invChooser"), {
+    kind: "investment", title: "Investment Center", question: t("Choose an initiative:"), goLabel: t("Open detail"),
+    // HOT first, then active ones, then by size - the order the CEO Dashboard uses
+    items: [...rows].sort((a, b) => (b.is_hot || 0) - (a.is_hot || 0) || (a.status !== "active") - (b.status !== "active")
+      || (b.committed_amount || 0) - (a.committed_amount || 0)),
+    badge: r => r.is_hot ? `<em class="hc-hot">&#9733; HOT</em>` : "",
+    stage: r => ({
+      eyebrow: `${esc(t(INV_CATEGORIES[r.category] || r.category))} · ${esc(r.company_code)} · ${esc(t(r.status.replace("_", " ")))}${r.is_hot ? ` · <span class="hc-hot-t">&#9733; HOT</span>` : ""}`,
+      desc: r.description ? esc(r.description) : "",
+      traits: invTraits(r),
+      actions: `<button class="hc-btn primary" data-act="detail">${t("Detail")} &rarr;</button>
+        ${canWrite() ? `<button class="hc-btn" data-act="entry">+ ${t("Entry")}</button>
+        <button class="hc-btn" data-act="edit">${t("Edit")}</button>
+        <button class="hc-btn ${r.is_hot ? "on" : ""}" data-act="hot">${r.is_hot ? "&#9733; " + t("HOT — click to unstar") : "&#9734; " + t("Star as HOT")}</button>` : ""}`,
+    }),
+    wire: (r, stage) => $$("[data-act]", stage).forEach(b => b.onclick = async () => {
+      const act = b.dataset.act;
+      if (act === "detail") return investmentDetail(r.id, reload);
+      if (act === "entry") return investmentEntryModal(r.id, reload);
+      if (act === "edit") return investmentEditor(await api("/api/investments/" + r.id), reload);
+      try { await api(`/api/investments/${r.id}/hot`, { json: { is_hot: !r.is_hot } }); reload(); }
+      catch (e) { toast(e.message, true); }
+    }),
+    open: r => investmentDetail(r.id, reload),
+  });
   if ($("#invNew")) $("#invNew").onclick = () => investmentEditor(null, reload);
   $$("#content [data-view]").forEach(b => b.onclick = () => investmentDetail(b.dataset.view, reload));
   $$("#content [data-edit]").forEach(b => b.onclick = async () => {
@@ -3190,13 +3786,37 @@ async function pageInvestments(el) {
     investmentEditor(inv, reload);
   });
   $$("#content [data-entry]").forEach(b => b.onclick = () => investmentEntryModal(b.dataset.entry, reload));
+  $$("#content [data-star]").forEach(b => b.onclick = async () => {
+    try { await api(`/api/investments/${b.dataset.star}/hot`, { json: { is_hot: !b.classList.contains("on") } }); reload(); }
+    catch (e) { toast(e.message, true); }
+  });
+}
+
+// what the chooser says under an initiative: budget used per budget allocated,
+// whether the commitment has payment dates, payback so far and where it leads
+function invTraits(r) {
+  const c = r.committed_amount || 0, used = r.invested || 0, out = [];
+  out.push(c
+    ? { tone: used > c ? "bad" : "good", html: `${t("Budget used")}: <b>${fmtShortRp(used)}</b> ${t("of")} <b>${fmtShortRp(c)}</b> ${t("allocated")} (${Math.round(100 * used / c)}%)` }
+    : { tone: "watch", html: t("No budget allocated yet — set the committed amount") });
+  const unsched = round2(c - (r.scheduled || 0));
+  if (c && unsched > 0.5) out.push({ tone: "bad", html: `<b>${fmtShortRp(unsched)}</b> ${t("of the commitment has no payment date — the Oracle cannot see when it leaves")}` });
+  else if (c) out.push({ tone: "good", html: t("Every rupiah of the commitment has a payment date") });
+  if (used) {
+    const pb = Math.round(100 * (r.benefit || 0) / used);
+    out.push(pb >= 100 ? { tone: "good", html: `${t("Paid back")} — ${t("benefits cover")} <b>${pb}%</b>` }
+      : { tone: "info", html: `${t("Benefits so far")} <b>${fmtShortRp(r.benefit || 0)}</b> · ${t("payback")} ${pb}%` });
+  }
+  if (r.project_code) out.push({ tone: "info", html: `${t("Matures into project")} <b>${esc(r.project_code)}</b>` });
+  out.push({ tone: "info", html: `${t("Horizon")} ${r.horizon_years} ${t("years")}${r.start_date ? ` · ${t("since")} ${fmtDate(r.start_date)}` : ""}` });
+  return out;
 }
 
 async function investmentEditor(inv, reload) {
   const cid = inv ? inv.company_id : (state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10));
   const projects = await api("/api/projects?company_id=all");
   openModal(`
-    ${entImageField("investment", inv ? inv.id : null, inv ? inv.image_v : null, inv ? inv.name : "")}
+    ${entImageField("investment", inv || { category: Object.keys(INV_CATEGORIES)[0] })}
     <div class="form-grid">
       <label class="full">Name <input id="ivName" value="${esc(inv ? inv.name : "")}" placeholder="e.g. Scholarship Program — Future Leaders"></label>
       <label>Company <select id="ivCompany" ${inv ? "disabled" : ""}>${companyOptions(cid)}</select></label>
@@ -3230,6 +3850,7 @@ async function investmentEditor(inv, reload) {
       else {
         const made = await api("/api/investments", { json: body });
         if (imgBox && imgBox.pending) await entImageUpload("investment", made.id, imgBox.pending);
+        if (imgBox && imgBox.pendingArt) await api(`/api/images/investment/${made.id}/art`, { method: "PUT", json: { art: imgBox.pendingArt } });
       }
       toast("Investment saved"); closeModal(); reload();
     } catch (e) { toast(e.message, true); }
@@ -3293,7 +3914,8 @@ async function investmentDetail(iid, reload) {
     <p>${esc(inv.description)}</p>
     <div class="grid kpis">
       <div class="kpi"><div class="kpi-label">Committed</div><div class="kpi-value">${fmtShort(inv.committed_amount)}</div></div>
-      <div class="kpi"><div class="kpi-label">Invested</div><div class="kpi-value">${fmtShort(inv.invested)}</div></div>
+      <div class="kpi"><div class="kpi-label">Invested</div><div class="kpi-value">${fmtShort(inv.invested)}</div>
+        ${inv.invested_ledger ? `<div class="kpi-sub">${t("entries")} ${fmtShort(inv.invested_entered)} · ${t("ledger")} ${fmtShort(inv.invested_ledger)}</div>` : ""}</div>
       <div class="kpi"><div class="kpi-label">Benefits</div><div class="kpi-value">${fmtShort(inv.benefit)}</div></div>
       <div class="kpi ${inv.benefit - inv.invested >= 0 ? "green" : "red"}"><div class="kpi-label">Net</div>
         <div class="kpi-value">${fmtShort(inv.benefit - inv.invested)}</div></div>
@@ -3303,6 +3925,12 @@ async function investmentDetail(iid, reload) {
     ], { height: 170 })}
     <p class="mt">${analysis}</p>
     ${invProgressCard(inv)}
+    ${(inv.ledger_lines || []).length ? `<h3 style="margin-top:16px">${t("Charged in the ledger")} <span class="muted" style="font-weight:500;font-size:13px">· ${t("journal lines tagged to this investment (Account Parsing or a journal)")}</span></h3>
+      <div class="pf-scroll" style="max-height:34vh"><table class="tbl"><thead><tr><th>${t("Date")}</th><th>${t("Entry")}</th><th>Co.</th>
+        <th>${t("Account")}</th><th>${t("Description")}</th><th class="num">${t("Debit")}</th><th class="num">${t("Credit")}</th></tr></thead>
+        <tbody>${inv.ledger_lines.map(l => `<tr><td>${fmtDate(l.date)}</td><td style="font-size:12px">${esc(l.entry_no)}</td>
+          <td>${esc(l.company_code)}</td><td>${esc(l.account_code)} <span class="muted">${esc(l.account_name)}</span></td>
+          <td>${esc(l.description)}</td><td class="num">${l.debit ? fmt(l.debit) : ""}</td><td class="num">${l.credit ? fmt(l.credit) : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}
 
     <div class="card" style="margin-top:14px;background:var(--panel)">
       <div class="page-head"><h3 style="margin:0">${t("Contribution Margin")}</h3>
@@ -3741,40 +4369,139 @@ async function pageBudgets(el) {
 }
 
 /* ------------------------------------------------------------------ projects */
+/* ---- sectors (project types) ------------------------------------------------ */
+// A project's sector is one setting (Settings -> Project types) that Project
+// Details groups by and the Money Tracker can flag. Status "completed" reads
+// "done" everywhere a person sees it; the stored value does not change.
+const PRJ_STATUS_LABEL = { active: "active", completed: "done", on_hold: "on hold" };
+function sectorChip(name, color) {
+  return name ? `<span class="sector-chip" style="--sc:${esc(color || "#9aa6b1")}">${esc(name)}</span>`
+              : `<span class="sector-chip none">${t("Unassigned")}</span>`;
+}
+function sectorOptions(types, sel, { includeNone = true, noneLabel } = {}) {
+  const list = types.filter(x => x.is_active || String(x.id) === String(sel));
+  return (includeNone ? `<option value="">${esc(noneLabel || t("— unassigned —"))}</option>` : "")
+    + list.map(x => `<option value="${x.id}" ${String(x.id) === String(sel) ? "selected" : ""}>${esc(x.name)}</option>`).join("");
+}
+
 async function pageProjects(el) {
+  if (state.prjSector == null) state.prjSector = "";       // "" every sector, "none" unassigned, else a type id
+  let view = "pics";
+  try { view = localStorage.getItem("erp.prjView") || "pics"; } catch (e) { /* private window */ }
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Projects")} — ${t("Performance")} ${state.year}</h2>
+    <div class="page-head"><h2>${t("Projects")} — ${t("Performance")} ${state.year}
+      <span class="muted" style="font-size:13px;font-weight:500">· ${t("by sector")}</span></h2>
       <div class="page-actions">
+        <div class="seg-group" id="pView">
+          <button class="seg ${view === "pics" ? "active" : ""}" data-v="pics">${t("Pictures")}</button>
+          <button class="seg ${view === "list" ? "active" : ""}" data-v="list">${t("List")}</button></div>
         <a class="btn" href="/api/export/project-performance?${scopeQS()}">&#x2913; Export Excel</a>
         ${canWrite() ? `<button class="btn btn-primary" id="pNew">+ New Project</button>` : ""}
       </div></div>
-    <div class="card"><div id="pList"></div></div>`;
+    <div id="pSectors" class="sector-cards"></div>
+    ${view === "pics"
+      ? `<div class="hc-bar mt"><div class="seg-group sector-filter" id="pSecFilter"></div></div><div id="pChooser"></div>`
+      : `<div class="card mt"><div class="seg-group sector-filter" id="pSecFilter"></div><div id="pList"></div></div>`}`;
+  $$("#pView .seg").forEach(b => b.onclick = () => {
+    try { localStorage.setItem("erp.prjView", b.dataset.v); } catch (e) { /* private window */ }
+    pageProjects(el);
+  });
   const load = async () => {
-    const [perf, all] = await Promise.all([
+    const [perf, all, types] = await Promise.all([
       api(`/api/projects/performance?${scopeQS()}`),
       api(`/api/projects?company_id=${state.companyId}`),
+      api("/api/project-types").catch(() => []),
     ]);
+    if (!document.body.contains($("#pSectors"))) return;
     const perfBy = {}; perf.rows.forEach(p => perfBy[p.project_id] = p);
-    $("#pList").innerHTML = `<table class="tbl"><thead><tr>
-      <th>Project</th><th>Company</th><th>Status</th>
-      <th class="num">Revenue</th><th class="num">Expense</th><th class="num">Profit</th>
-      <th class="num">Margin</th><th class="num">Budget Rev</th><th class="num">Budget Exp</th><th></th></tr></thead>
-      <tbody>${all.map(p => {
-        const f = perfBy[p.id] || { revenue: 0, expense: 0, profit: 0, margin_pct: 0, budget_revenue: 0, budget_expense: 0 };
-        return `<tr><td class="clickable" data-id="${p.id}" data-name="${esc(p.name)}"><b>${esc(p.code)}</b> ${esc(p.name)}
+    const zero = { revenue: 0, expense: 0, profit: 0, margin_pct: 0, budget_revenue: 0, budget_expense: 0 };
+    const key = p => p.type_id ? String(p.type_id) : "none";
+    // the sectors that have projects in this scope, in the Settings order, unassigned last
+    const groups = types.map(x => ({ key: String(x.id), name: x.name, color: x.color }))
+      .concat([{ key: "none", name: t("Unassigned"), color: "#9aa6b1" }])
+      .map(g => {
+        const list = all.filter(p => key(p) === g.key);
+        const sum = k => list.reduce((a, p) => a + ((perfBy[p.id] || zero)[k] || 0), 0);
+        const rev = sum("revenue"), exp = sum("expense");
+        return Object.assign(g, { list, rev, exp, profit: rev - exp,
+          contract: list.reduce((a, p) => a + (p.contract_value || 0), 0),
+          done: list.filter(p => p.status === "completed").length });
+      }).filter(g => g.list.length);
+    if (state.prjSector && !groups.some(g => g.key === state.prjSector)) state.prjSector = "";
+
+    $("#pSectors").innerHTML = groups.map(g => `<div class="sector-card ${state.prjSector === g.key ? "active" : ""}" data-k="${g.key}" style="--sc:${esc(g.color)}">
+        <div class="sector-card-h"><b>${esc(g.name)}</b><span class="muted">${g.list.length} ${t(g.list.length === 1 ? "project" : "projects")}${g.done ? ` · ${g.done} ${t("done")}` : ""}</span></div>
+        <div class="sector-card-n"><span>${t("Revenue")}</span><b>${fmtShortRp(g.rev)}</b></div>
+        <div class="sector-card-n"><span>${t("Cost")}</span><b>${fmtShortRp(g.exp)}</b></div>
+        <div class="sector-card-n"><span>${t("Gross profit")}</span><b class="${g.profit < 0 ? "neg" : "pos"}">${fmtShortRp(g.profit)}</b>
+          <em>${g.rev ? Math.round(100 * g.profit / g.rev) + "%" : "—"}</em></div>
+        ${g.contract ? `<div class="sector-card-n"><span>${t("Contract value")}</span><b>${fmtShortRp(g.contract)}</b></div>` : ""}
+      </div>`).join("") || `<div class="card"><div class="empty">No projects</div></div>`;
+    $("#pSecFilter").innerHTML = `<button class="seg ${!state.prjSector ? "active" : ""}" data-k="">${t("All sectors")} (${all.length})</button>`
+      + groups.map(g => `<button class="seg ${state.prjSector === g.key ? "active" : ""}" data-k="${g.key}">
+          <span class="dot" style="background:${esc(g.color)}"></span>${esc(g.name)} (${g.list.length})</button>`).join("");
+
+    const row = p => {
+      const f = perfBy[p.id] || zero;
+      const done = p.status === "completed";
+      return `<tr><td class="clickable" data-id="${p.id}" data-name="${esc(p.name)}" data-status="${p.status}"><b>${esc(p.code)}</b> ${esc(p.name)}
           ${p.investment_id ? `<span class="pill posted" data-inv="${p.investment_id}" style="cursor:pointer"
             title="${t("Funded as an investment — click to open it")}">${t("INVESTMENT")}</span>` : ""}</td>
-          <td>${esc(p.company_code)}</td><td><span class="pill ${p.status}">${p.status.replace("_", " ")}</span></td>
-          <td class="num">${fmt(f.revenue)}</td><td class="num">${fmt(f.expense)}</td>
-          <td class="num ${f.profit >= 0 ? "pos" : "neg"}">${fmt(f.profit)}</td>
-          <td class="num">${f.margin_pct}%</td>
-          <td class="num muted">${fmt(f.budget_revenue)}</td><td class="num muted">${fmt(f.budget_expense)}</td>
-          <td>${canWrite() ? `<button class="btn btn-sm" data-edit="${p.id}">Edit</button>` : ""}</td></tr>`;
-      }).join("") || `<tr><td colspan="10" class="empty">No projects</td></tr>`}</tbody></table>`;
-    $$("#pList td.clickable").forEach(td => td.onclick = () => projectDetail(td.dataset.id, td.dataset.name));
+        <td>${canWrite() ? `<select class="p-sector" data-id="${p.id}" title="${t("Sector — saved at once")}">${sectorOptions(types, p.type_id)}</select>`
+                         : sectorChip(p.type_name, p.type_color)}</td>
+        <td>${esc(p.company_code)}</td><td><span class="pill ${p.status}">${esc(t(PRJ_STATUS_LABEL[p.status] || p.status))}</span></td>
+        <td class="num">${fmt(f.revenue)}</td><td class="num">${fmt(f.expense)}</td>
+        <td class="num ${f.profit >= 0 ? "pos" : "neg"}">${fmt(f.profit)}</td>
+        <td class="num">${f.margin_pct}%</td>
+        <td class="num muted">${fmt(f.budget_revenue)}</td><td class="num muted">${fmt(f.budget_expense)}</td>
+        <td style="white-space:nowrap">${done ? `<a class="btn btn-sm" href="/api/projects/${p.id}/closeout.pdf" target="_blank"
+              title="${t("Close-out report: gross profit, then every account's lines")}">&#128196; PDF</a> ` : ""}${canWrite() ? `<button class="btn btn-sm" data-edit="${p.id}">Edit</button>` : ""}</td></tr>`;
+    };
+    const shown = groups.filter(g => !state.prjSector || g.key === state.prjSector);
+    $$("#pSectors .sector-card").forEach(c => c.onclick = () => { state.prjSector = state.prjSector === c.dataset.k ? "" : c.dataset.k; load(); });
+    $$("#pSecFilter .seg").forEach(b => b.onclick = () => { state.prjSector = b.dataset.k; load(); });
+    if ($("#pChooser")) {
+      // Pictures: the chosen project large with its numbers, every project of the
+      // section(s) as a card on the right, grouped by sector
+      if (!shown.length) { $("#pChooser").innerHTML = `<div class="card"><div class="empty">No projects</div></div>`; return; }
+      heroChooser($("#pChooser"), {
+        kind: "project", title: t("Project Details"), question: t("Choose a project:"), goLabel: t("Open detail"),
+        groups: shown.map(g => ({ name: g.name, color: g.color, items: g.list })),
+        items: shown.flatMap(g => g.list),
+        badge: p => p.status === "completed" ? `<em class="hc-done">${t("DONE")}</em>` : "",
+        stage: p => prjStage(p, perfBy[p.id] || zero),
+        wire: (p, stage) => $$("[data-act]", stage).forEach(b => b.onclick = () => {
+          const a = b.dataset.act;
+          if (a === "detail") projectDetail(p.id, p.name, p.status);
+          else if (a === "invoicing") projectInvoicingModal(p.id, load);
+          else if (a === "edit") projectEditor(p, load);
+        }),
+        more: async p => prjInvoicingTraits(await api(`/api/projects/${p.id}/invoicing`)),
+        open: p => projectDetail(p.id, p.name, p.status),
+      });
+      return;
+    }
+    $("#pList").innerHTML = `<div style="overflow-x:auto"><table class="tbl prj-tbl"><thead><tr>
+      <th>Project</th><th>${t("Sector")}</th><th>Company</th><th>Status</th>
+      <th class="num">Revenue</th><th class="num">Expense</th><th class="num">Profit</th>
+      <th class="num">Margin</th><th class="num">Budget Rev</th><th class="num">Budget Exp</th><th></th></tr></thead>
+      <tbody>${shown.map(g => `<tr class="prj-group" style="--sc:${esc(g.color)}"><td colspan="4"><b>${esc(g.name)}</b>
+          <span class="muted">· ${g.list.length} ${t(g.list.length === 1 ? "project" : "projects")}</span></td>
+          <td class="num"><b>${fmt(g.rev)}</b></td><td class="num"><b>${fmt(g.exp)}</b></td>
+          <td class="num ${g.profit >= 0 ? "pos" : "neg"}"><b>${fmt(g.profit)}</b></td>
+          <td class="num"><b>${g.rev ? Math.round(1000 * g.profit / g.rev) / 10 + "%" : "—"}</b></td><td colspan="3"></td></tr>
+        ${g.list.map(row).join("")}`).join("") || `<tr><td colspan="11" class="empty">No projects</td></tr>`}</tbody></table></div>`;
+
+    $$("#pList td.clickable").forEach(td => td.onclick = () => projectDetail(td.dataset.id, td.dataset.name, td.dataset.status));
     $$("#pList [data-inv]").forEach(b => b.onclick = e => {
       e.stopPropagation();                       // the row opens the project, the pill the investment
       investmentDetail(b.dataset.inv, load);
+    });
+    $$("#pList .p-sector").forEach(s => s.onchange = async () => {
+      try {
+        await api(`/api/projects/${s.dataset.id}/type`, { method: "PUT", json: { type_id: s.value ? parseInt(s.value, 10) : null } });
+        toast(t("Sector saved")); load();
+      } catch (e) { toast(e.message, true); }
     });
     $$("#pList [data-edit]").forEach(b => b.onclick = () => projectEditor(all.find(p => p.id == b.dataset.edit), load));
   };
@@ -3782,8 +4509,129 @@ async function pageProjects(el) {
   await load();
 }
 
-async function projectDetail(pid, name) {
+// what the chooser says under a project: its contract (fixed in Project
+// Details), this year's revenue and cost, and - once read - its invoicing
+function prjStage(p, f) {
+  const cv = p.contract_value || 0, traits = [];
+  traits.push(cv ? { tone: "good", html: `${t("Contract value")} <b>${fmtShortRp(cv)}</b> · ${t("fixed in Project Details")}` }
+                 : { tone: "watch", html: t("No contract value yet — the Money Tracker has nothing to follow") });
+  traits.push({ tone: "info", html: `${t("Revenue")} ${state.year}: <b>${fmtShortRp(f.revenue)}</b>${f.budget_revenue ? ` · ${t("budget")} ${fmtShortRp(f.budget_revenue)}` : ""}` });
+  const used = f.budget_expense ? Math.round(100 * f.expense / f.budget_expense) : null;
+  traits.push({ tone: used != null && used > 100 ? "bad" : "info",
+    html: `${t("Cost")} ${state.year}: <b>${fmtShortRp(f.expense)}</b>${used != null ? ` · ${used}% ${t("of its cost budget")}` : ""}` });
+  if (f.revenue || f.expense) traits.push({ tone: f.profit >= 0 ? "good" : "bad",
+    html: `${t("Gross profit")} <b>${fmtShortRp(f.profit)}</b> · ${t("margin")} ${f.margin_pct}%` });
+  return {
+    eyebrow: `${esc(p.code)} · ${esc(p.company_code)} · ${p.type_name ? esc(p.type_name) : t("Unassigned")} · ${esc(t(PRJ_STATUS_LABEL[p.status] || p.status))}`,
+    desc: p.description ? esc(p.description) : "",
+    traits,
+    actions: `<button class="hc-btn primary" data-act="detail">${t("Open detail")} &rarr;</button>
+      <button class="hc-btn" data-act="invoicing">&#128176; ${t("Revenue invoicing")}</button>
+      ${canWrite() ? `<button class="hc-btn" data-act="edit">&#9998; ${t("Edit project & picture")}</button>` : ""}
+      ${p.status === "completed" ? `<a class="hc-btn" href="/api/projects/${p.id}/closeout.pdf" target="_blank">&#128196; PDF</a>` : ""}`,
+  };
+}
+function prjInvoicingTraits(v) {
+  const cv = v.project.contract_value, live = v.tracks.filter(x => x.status !== "cancelled");
+  if (!live.length) return [{ tone: cv ? "watch" : "info", html: cv ? t("Not planned for invoicing in the Money Tracker yet") : t("No invoices in the Money Tracker yet") }];
+  const out = [{ tone: !cv || v.invoiced > cv + 1 ? "bad" : v.invoiced < cv - 1 ? "watch" : "good",
+    html: `${t("Invoiced")} <b>${fmtShortRp(v.invoiced)}</b>${cv ? ` ${t("of")} ${fmtShortRp(cv)}` : ""} · ${live.length} ${t("termin(s)")} · ${t("received")} <b>${fmtShortRp(v.received)}</b>` }];
+  const open = live.filter(x => ["active", "on_hold", "prospectus"].includes(x.status));
+  if (open.length) out.push({ tone: "info", html: `${t("In the Money Tracker now")}: ${open.slice(0, 3).map(x =>
+    `${esc(x.title || x.invoice_no || "#" + x.id)} — ${esc(x.phase_label)}`).join(" · ")}${open.length > 3 ? " …" : ""}` });
+  return out;
+}
+
+// Revenue invoicing, set from Project Details (the mother): the contract value
+// lives on the project, and its termins become Money Tracker tracks.
+async function projectInvoicingModal(pid, reload, back) {
+  let v;
+  try { v = await api(`/api/projects/${pid}/invoicing`); } catch (e) { toast(e.message, true); return; }
+  const P = v.project, cv = P.contract_value, live = v.tracks.filter(x => x.status !== "cancelled");
+  const remaining = cv ? Math.max(0, round2(cv - v.invoiced)) : 0;
+  const again = () => projectInvoicingModal(pid, reload, back);
+  openModal(`
+    <p class="muted" style="margin-top:0">${esc(P.company_code)} · ${esc(t(PRJ_STATUS_LABEL[P.status] || P.status))} —
+      ${t("Project Details is the mother: the contract value is fixed on the project, and its invoices in the Money Tracker are planned from it.")}</p>
+    <div class="grid kpis">
+      <div class="kpi hl"><div class="kpi-label">${t("Contract value")}</div><div class="kpi-value">${cv ? fmtShortRp(cv) : "—"}</div>
+        <div class="kpi-sub">${t("Project Details")}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Invoiced")}</div><div class="kpi-value">${fmtShortRp(v.invoiced)}</div>
+        <div class="kpi-sub">${live.length} ${t("termin(s)")}${cv ? ` · ${Math.round(100 * v.invoiced / cv)}%` : ""}</div></div>
+      <div class="kpi green"><div class="kpi-label">${t("Received")}</div><div class="kpi-value">${fmtShortRp(v.received)}</div>
+        <div class="kpi-sub">${t("ledger revenue")} ${fmtShortRp(v.ledger_revenue)}</div></div>
+      <div class="kpi ${cv && v.invoiced > cv + 1 ? "red" : remaining > 1 ? "amber" : "green"}"><div class="kpi-label">${t("Left to plan")}</div>
+        <div class="kpi-value">${cv ? fmtShortRp(round2(cv - v.invoiced)) : "—"}</div></div>
+    </div>
+    ${!cv && canWrite() ? `<div class="card mt iv-box"><b>${t("Set the contract value first")}</b>
+      <div class="filters mt"><label>${t("Contract value (Rp)")} <input id="ivCv" inputmode="numeric" style="min-width:200px"></label>
+        <button class="btn btn-primary" id="ivCvSave">${t("Save on the project")}</button></div></div>` : ""}
+    <h3 class="mt">${t("Termins in the Money Tracker")}</h3>
+    <div class="pf-scroll"><table class="tbl"><thead><tr><th>${t("Termin")}</th><th>${t("Invoice")}</th><th class="num">${t("Amount")}</th>
+      <th class="num">%</th><th>${t("Current phase")}</th><th>${t("Status")}</th></tr></thead>
+      <tbody>${v.tracks.map(x => `<tr data-track="${x.id}" style="cursor:pointer;${x.status === "cancelled" ? "opacity:.5" : ""}">
+        <td><b>${esc(x.title || "—")}</b></td><td>${esc(x.invoice_no || "")}</td><td class="num">${fmt(x.amount)}</td>
+        <td class="num">${cv ? (Math.round(1000 * x.amount / cv) / 10).toString().replace(".", ",") + "%" : "—"}</td>
+        <td><span class="pill ${x.status === "done" ? "posted" : "active"}">${esc(x.phase_label)}</span> <span class="muted" style="font-size:11.5px">${esc(x.phase_name)}</span></td>
+        <td><span class="pill ${MT_STATUS_PILL[x.status] || "inactive"}">${esc(x.status.replace("_", " "))}</span></td></tr>`).join("")
+        || `<tr><td colspan="6" class="empty">${t("No termin yet.")}</td></tr>`}</tbody></table></div>
+    ${cv && remaining > 1 && canWrite() ? `<div class="card mt iv-box">
+      <b>${t("Plan the remaining")} ${fmtRp(remaining)}</b>
+      <div class="filters mt"><label>${t("Split into")} <input id="ivN" type="number" min="1" max="24" value="1" style="width:70px"></label>
+        <span class="muted">${t("termin(s)")}</span>
+        <label>${t("Client")} <input id="ivClient" value="${esc((live[0] || {}).client || "")}" style="min-width:220px"></label></div>
+      <div id="ivRows" class="mt"></div>
+      <div class="form-actions"><span class="muted" id="ivSum"></span><button class="btn btn-primary" id="ivCreate">${t("Create in the Money Tracker")}</button></div>
+    </div>` : ""}
+    ${back ? `<div class="form-actions"><button class="btn" id="ivBack">&#8592; ${t("Back to the harmonization check")}</button></div>` : ""}`,
+    { title: `${t("Revenue invoicing")} — ${P.code} ${P.name}`, wide: true });
+  const num = s => parseInt(String(s || "").replace(/[^\d-]/g, ""), 10) || 0;
+  $$("#modalRoot tr[data-track]").forEach(tr => tr.onclick = () => moneyTrackerDetail(tr.dataset.track, () => { reload && reload(); }));
+  if ($("#ivBack")) $("#ivBack").onclick = back;
+  if ($("#ivCvSave")) $("#ivCvSave").onclick = async () => {
+    try {
+      await api(`/api/projects/${pid}/invoicing`, { json: { contract_value: num($("#ivCv").value) } });
+      toast(t("Contract value saved on the project")); reload && reload(); again();
+    } catch (e) { toast(e.message, true); }
+  };
+  if ($("#ivN")) {
+    const sum = () => {
+      const tot = $$("#ivRows .iv-a").reduce((a, i) => a + num(i.value), 0);
+      $("#ivSum").innerHTML = `${t("Total")} <b>${fmtRp(tot)}</b> ${t("of")} ${fmtRp(remaining)}`;
+      $("#ivSum").className = tot > remaining + 1 ? "neg" : "muted";
+    };
+    const draw = () => {
+      const n = Math.max(1, Math.min(24, parseInt($("#ivN").value, 10) || 1)), base = Math.floor(remaining / n);
+      $("#ivRows").innerHTML = Array.from({ length: n }, (_, i) => `<div class="filters iv-row">
+        <label>${t("Title")} <input class="iv-t" value="Termin ${live.length + i + 1}" style="min-width:200px"></label>
+        <label>${t("Invoice No")} <input class="iv-no" style="width:150px"></label>
+        <label>${t("Amount (Rp)")} <input class="iv-a" inputmode="numeric" style="width:170px;text-align:right"
+          value="${fmt(i === n - 1 ? round2(remaining - base * (n - 1)) : base)}"></label></div>`).join("");
+      $$("#ivRows .iv-a").forEach(i => i.oninput = sum);
+      sum();
+    };
+    $("#ivN").oninput = draw;
+    draw();
+    $("#ivCreate").onclick = async () => {
+      const termins = $$("#ivRows .iv-row").map(r => ({ title: $(".iv-t", r).value, invoice_no: $(".iv-no", r).value, amount: num($(".iv-a", r).value) }));
+      try {
+        const r = await api(`/api/projects/${pid}/invoicing`, { json: { client: $("#ivClient").value, termins } });
+        toast(`${r.created.length} ${t("termin(s) created in the Money Tracker")}`); reload && reload(); again();
+      } catch (e) { toast(e.message, true); }
+    };
+  }
+}
+
+async function projectDetail(pid, name, status) {
   if (!state.prjScheme) state.prjScheme = "monthly";
+  if (status === undefined) {
+    const p = (await api("/api/projects?company_id=all").catch(() => [])).find(x => String(x.id) === String(pid));
+    status = p ? p.status : "";
+  }
+  const closeout = status === "completed"
+    ? `<div class="prj-closeout"><a class="btn btn-primary" href="/api/projects/${pid}/closeout.pdf" target="_blank">&#128196; ${t("Close-out report (PDF)")}</a>
+        <span class="muted">${t("Page 1: gross profit with its chart and table · page 2 on: every account and its lines.")}</span></div>`
+    : `<div class="prj-closeout muted">&#128196; ${t("The close-out report (PDF) is made once this project is marked Done.")}</div>`;
   const render = async () => {
     const monthly = state.prjScheme === "monthly"
       ? await api(`/api/projects/${pid}/monthly?year=${state.year}`) : null;
@@ -3855,11 +4703,11 @@ async function projectDetail(pid, name) {
           this project. <b>Click an account</b> to see the transactions behind it. Set this project&rsquo;s revenue &amp; cost budget in
           <b>Budgets &rarr; Per-project budget</b>.</p>`;
     }
-    openModal(invOnProjectCard(linked.investment) + body, { title: name });
+    openModal(closeout + invOnProjectCard(linked.investment) + body, { title: name });
     $$("#prjScheme .seg").forEach(b => b.onclick = () => { state.prjScheme = b.dataset.s; render(); });
     $$("#modalRoot #prjWf .seg").forEach(b => b.onclick = () => { state.prjWfView = b.dataset.w; render(); });
     if ($("#prjInvOpen")) $("#prjInvOpen").onclick = () =>
-      investmentDetail($("#prjInvOpen").dataset.inv, () => projectDetail(pid, name));
+      investmentDetail($("#prjInvOpen").dataset.inv, () => projectDetail(pid, name, status));
     $$("#modalRoot .prj-acc").forEach(a => a.onclick = e => {
       e.preventDefault(); projectAccountLedger(pid, a.dataset.code, a.dataset.name, name, render);
     });
@@ -3892,16 +4740,19 @@ async function projectAccountLedger(pid, code, accName, projName, back) {
 }
 
 async function projectEditor(p, reload, defaultCompanyId) {
-  const fields = await api("/api/custom-fields?entity=project");
+  const [fields, types] = await Promise.all([api("/api/custom-fields?entity=project"),
+                                             api("/api/project-types").catch(() => [])]);
   const cid = p ? p.company_id : (defaultCompanyId
     || (state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10)));
   const root = openModal(`
+    ${canWrite() ? entImageField("project", p || {}) : ""}
     <div class="form-grid">
       <label>Company <select id="pCompany" ${p ? "disabled" : ""}>${companyOptions(cid)}</select></label>
       <label>Code <input id="pCode" value="${esc(p ? p.code : "")}" ${p ? "disabled" : ""} placeholder="PRJ-XXX"></label>
       <label class="full">Name <input id="pName" value="${esc(p ? p.name : "")}"></label>
       <label>Status <select id="pStatus">${["active", "completed", "on_hold"].map(s =>
-        `<option ${p && p.status === s ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+        `<option value="${s}" ${p && p.status === s ? "selected" : ""}>${esc(t(PRJ_STATUS_LABEL[s]))}</option>`).join("")}</select></label>
+      <label>${t("Sector (project type)")} <select id="pType">${sectorOptions(types, p ? p.type_id : "")}</select></label>
       <label>Start date <input type="date" id="pStart" value="${esc(p ? p.start_date || "" : "")}"></label>
       <label>End date <input type="date" id="pEnd" value="${esc(p ? p.end_date || "" : "")}"></label>
       <label class="full">${t("Contract value (Rp)")} <input id="pContract" inputmode="numeric" value="${p && p.contract_value ? fmt(p.contract_value) : ""}"
@@ -3913,6 +4764,7 @@ async function projectEditor(p, reload, defaultCompanyId) {
       ${p && canWrite() ? `<button class="btn btn-danger" id="pDelete">Delete Project</button>` : ""}
       <button class="btn btn-primary" id="pSave">Save Project</button></div>`,
     { title: p ? "Edit Project" : "New Project", small: true });
+  const imgBox = wireEntImageField(root, p ? p.name : "", () => reload());
   $("#pSave").onclick = async () => {
     const custom = {};
     fields.forEach(f => { const inp = $("#cf_" + f.id, root); if (inp && inp.value) custom[f.id] = inp.value; });
@@ -3921,11 +4773,16 @@ async function projectEditor(p, reload, defaultCompanyId) {
       name: $("#pName").value, status: $("#pStatus").value,
       start_date: $("#pStart").value, end_date: $("#pEnd").value,
       contract_value: parseInt(($("#pContract").value || "0").replace(/[^\d]/g, ""), 10) || 0,
+      type_id: $("#pType").value ? parseInt($("#pType").value, 10) : null,
       description: $("#pDesc").value, custom,
     };
     try {
       if (p) await api("/api/projects/" + p.id, { method: "PUT", json: body });
-      else await api("/api/projects", { json: body });
+      else {
+        const made = await api("/api/projects", { json: body });
+        if (imgBox && imgBox.pending) await entImageUpload("project", made.id, imgBox.pending);
+        if (imgBox && imgBox.pendingArt) await api(`/api/images/project/${made.id}/art`, { method: "PUT", json: { art: imgBox.pendingArt } });
+      }
       toast("Project saved"); closeModal(); reload();
     } catch (e) { toast(e.message, true); }
   };
@@ -4842,6 +5699,11 @@ async function oraclePolicyModal(reload) {
 // looks healthy right up until it isn't.
 
 const PF_VERDICT_CLS = { PROFITABLE: "posted", PROFITABLE_NOT_PAID_BACK: "draft", NOT_PROFITABLE: "bad", NO_DATA: "inactive", ERROR: "bad" };
+// what kind of business an SBU is (server.SBU_TYPES holds the same keys)
+const SBU_TYPES = { saas: "SaaS", intel: "Event Based (INTEL)", creative: "Media Owned (Creative)", seal: "SEAL - SECTIONS" };
+const sbuTypeOptions = sel => `<option value="">${t("— not typed yet —")}</option>` + Object.entries(SBU_TYPES).map(([k, v]) =>
+  `<option value="${k}" ${sel === k ? "selected" : ""}>${esc(t(v))}</option>`).join("");
+const sbuTypeLabel = k => SBU_TYPES[k] ? t(SBU_TYPES[k]) : "";
 const PF_VERDICT_LABEL = {
   PROFITABLE: "PROFITABLE", PROFITABLE_NOT_PAID_BACK: "RUN-RATE PROFITABLE · NOT PAID BACK",
   NOT_PROFITABLE: "NOT PROFITABLE", NO_DATA: "NO DATA", ERROR: "ERROR",
@@ -4873,7 +5735,7 @@ async function pageProduct(el) {
                 ["server", t("Server cost")], ["target", t("Target & marketing")], ["settings", t("Model settings & drivers")]];
   el.innerHTML = `
     <div class="page-head"><h2>${cur ? `<button class="btn btn-sm" id="pfBack" title="${t("Back to all SBUs")}">&larr; ${t("All SBUs")}</button> ` : ""}${t("SBU")}${cur ? ` ${num(cur.id)}` : ""}
-      <span class="muted" style="font-size:13px;font-weight:500">· ${cur ? esc(cur.name) : t("Strategic Business Unit · is it good, and does it make real profit?")}</span></h2>
+      <span class="muted" style="font-size:13px;font-weight:500">· ${cur ? esc(cur.name) : t("Special Business Unit · is it good, and does it make real profit?")}</span></h2>
       <div class="page-actions">
         ${list.length ? `<select id="pfSwitch" title="${t("Switch SBU")}" style="min-width:240px">
             <option value="">${t("— all SBUs —")}</option>
@@ -4926,15 +5788,64 @@ async function pageProduct(el) {
 // Every SBU in one table. "Back" lands here, so going from SBU 1 to SBU 2 is one
 // click; the selector at the top jumps straight between SBUs from any tab.
 function pfPortfolio(body, list, open) {
-  body.innerHTML = `<div class="card">
+  const view = localStorage.getItem("erp.pfView") || "pics";
+  const toggle = `<div class="seg-group" id="pfView">
+    <button class="seg ${view === "pics" ? "active" : ""}" data-v="pics">${t("Pictures")}</button>
+    <button class="seg ${view === "list" ? "active" : ""}" data-v="list">${t("List")}</button></div>`;
+  const wireToggle = () => $$("#pfView .seg").forEach(b => b.onclick = () => {
+    try { localStorage.setItem("erp.pfView", b.dataset.v); } catch (e) { /* private window */ }
+    pfPortfolio(body, list, open);
+  });
+  if (view === "pics") {
+    // SBU type as sections you can toggle, like the sectors on Project Details
+    if (state.pfType == null) state.pfType = "";
+    const typed = list.map((p, i) => ({ ...p, n: i + 1 }));
+    const tKey = p => SBU_TYPES[p.sbu_type] ? p.sbu_type : "none";
+    const counts = {};
+    typed.forEach(p => { counts[tKey(p)] = (counts[tKey(p)] || 0) + 1; });
+    if (state.pfType && !counts[state.pfType]) state.pfType = "";
+    const shown = typed.filter(p => !state.pfType || tKey(p) === state.pfType);
+    const chips = `<div class="seg-group sector-filter" id="pfTypes">
+      <button class="seg ${!state.pfType ? "active" : ""}" data-k="">${t("All types")} (${typed.length})</button>
+      ${Object.keys(SBU_TYPES).map(k => `<button class="seg ${state.pfType === k ? "active" : ""}" data-k="${k}" ${counts[k] ? "" : "disabled"}>${esc(t(SBU_TYPES[k]))} (${counts[k] || 0})</button>`).join("")}
+      ${counts.none ? `<button class="seg ${state.pfType === "none" ? "active" : ""}" data-k="none">${t("Not typed")} (${counts.none})</button>` : ""}</div>`;
+    body.innerHTML = `<div class="hc-bar">${chips}${toggle}</div>
+      <p class="muted" style="margin:-4px 0 10px;font-size:12.5px">${list.length} SBU · ${t("pick one on the right, double-click or press Open to go in")}</p>
+      <div id="pfChooser"></div>`;
+    wireToggle();
+    $$("#pfTypes .seg").forEach(b => b.onclick = () => { state.pfType = b.dataset.k; pfPortfolio(body, list, open); });
+    heroChooser($("#pfChooser"), {
+      kind: "product", items: shown,
+      badge: p => SBU_TYPES[p.sbu_type] ? `<em class="hc-type">${esc(t(SBU_TYPES[p.sbu_type]))}</em>` : "",
+      title: "SBU", question: t("Choose your Special Business Unit:"), goLabel: t("Open SBU"),
+      stage: p => ({
+        eyebrow: `SBU ${p.n}${p.code ? " · " + esc(p.code) : ""}${p.sbu_type ? " · " + esc(sbuTypeLabel(p.sbu_type)) : ""} · ${esc(p.company_code || "")} · ${esc(t(p.stage || ""))}`,
+        desc: p.notes ? esc(p.notes) : `${p.launch_month ? `${t("Launched")} ${esc(pfMonth(p.launch_month))}` : t("Not launched yet")}${p.target_year ? ` · ${t("must be profitable by")} ${p.target_year}` : ""}.`,
+        traits: pfTraits(p),
+        actions: `<button class="hc-btn primary" data-act="open">${t("Open the SBU dashboard")} &rarr;</button>
+          ${canWrite() ? `<button class="hc-btn" data-act="edit">&#9998; ${t("Edit SBU & picture")}</button>` : ""}
+          <button class="hc-btn" data-act="model">${t("Model settings & drivers")}</button>`,
+      }),
+      wire: (p, stage) => $$("[data-act]", stage).forEach(b => b.onclick = () => {
+        if (b.dataset.act === "model") { state.pfTab = "settings"; open(p.id, true); }
+        else if (b.dataset.act === "edit") pfEditModal(p, () => open(null));
+        else open(p.id);
+      }),
+      more: async p => pfReportTraits(await api(`/api/products/${p.id}/report?year=${state.year}`)),
+      open: p => open(p.id),
+    });
+    return;
+  }
+  body.innerHTML = `<div class="hc-bar"><span></span>${toggle}</div><div class="card">
     <h3>${t("All SBUs")} <span class="muted" style="font-weight:500">· ${list.length}</span></h3>
     <p class="muted" style="margin-top:-6px">${t("Click an SBU to open it. The selector at the top switches SBU from any tab.")}</p>
     <div class="pf-scroll"><table class="tbl">
-      <thead><tr><th style="width:52px"></th><th>${t("SBU")}</th><th>${t("Company")}</th><th>${t("Stage")}</th><th>${t("Verdict")}</th>
+      <thead><tr><th style="width:52px"></th><th>${t("SBU")}</th><th>${t("SBU type")}</th><th>${t("Company")}</th><th>${t("Stage")}</th><th>${t("Verdict")}</th>
         <th>${t("Break-even month")}</th><th class="num">${t("Funding required")}</th><th></th></tr></thead>
       <tbody>${list.map((p, i) => `<tr class="pf-row" data-id="${p.id}" style="cursor:pointer">
-        <td class="ent-cell">${entThumb("product", p.id, p.image_v, p.name)}</td>
+        <td class="ent-cell">${entThumb("product", p.id, p.image_v, p.name, 38, artKey("product", p))}</td>
         <td><b>${esc(p.name)}</b><br><span class="muted"><b>SBU ${i + 1}</b>${p.code ? " · " + esc(p.code) : ""}</span></td>
+        <td>${esc(sbuTypeLabel(p.sbu_type)) || `<span class="muted">—</span>`}</td>
         <td>${esc(p.company_code || "")}</td>
         <td><span class="pf-stage">${esc(t(p.stage || ""))}</span></td>
         <td><span class="pill ${PF_VERDICT_CLS[p.verdict] || "inactive"}">${esc(t(PF_VERDICT_LABEL[p.verdict] || p.verdict || ""))}</span></td>
@@ -4942,6 +5853,66 @@ function pfPortfolio(body, list, open) {
         <td class="num">${pfRp(p.funding_required)}</td>
         <td class="num"><button class="btn btn-sm">${t("Open")} &rarr;</button></td></tr>`).join("")}</tbody></table></div></div>`;
   $$("#pfBody .pf-row").forEach(tr => tr.onclick = () => open(parseInt(tr.dataset.id, 10)));
+  wireToggle();
+}
+
+// The menu that changes an SBU's picture - like the Investment Center's editor:
+// the picture (a painted scene or an upload, saved at once) and the SBU's name,
+// type and stage. Drivers and cost lines stay in Model settings & drivers.
+function pfEditModal(p, onDone) {
+  openModal(`${entImageField("product", p)}
+    <div class="form-grid">
+      <label>${t("SBU name")} <input id="peName" value="${esc(p.name)}"></label>
+      <label>${t("Code")} <input id="peCode" value="${esc(p.code || "")}"></label>
+      <label>${t("SBU type")} <select id="peType">${sbuTypeOptions(p.sbu_type || "")}</select></label>
+      <label>${t("Stage")} <select id="peStage">${["idea", "build", "launch", "growth", "sunset"].map(x =>
+        `<option value="${x}" ${x === p.stage ? "selected" : ""}>${esc(t(x))}</option>`).join("")}</select></label>
+      <label class="full">${t("Notes")} <input id="peNotes" value="${esc(p.notes || "")}"></label>
+    </div>
+    <p class="muted" style="font-size:12px">${t("Drivers, cost lines and linked projects stay in Model settings & drivers.")}</p>
+    <div class="form-actions"><button class="btn btn-primary" id="peSave">${t("Save")}</button></div>`,
+    { title: `${t("Edit SBU")} — ${p.name}` });
+  // a picture is saved the moment it is picked, so the page behind follows at once
+  wireEntImageField($("#modalRoot"), p.name, () => onDone());
+  $("#peSave").onclick = async () => {
+    try {
+      await api(`/api/products/${p.id}`, { method: "PUT", json: {
+        name: $("#peName").value, code: $("#peCode").value, sbu_type: $("#peType").value || null,
+        stage: $("#peStage").value, notes: $("#peNotes").value } });
+      toast(t("SBU saved")); closeModal(); onDone();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+// what the chooser says under an SBU's name: the model's verdict first, then -
+// once its finance report is read - how much of the cost budget is used and the
+// indicators that are KRITIS or AMAN
+function pfTraits(p) {
+  const v = p.verdict || "NO_DATA", out = [];
+  const tone = { PROFITABLE: "good", PROFITABLE_NOT_PAID_BACK: "watch", NOT_PROFITABLE: "bad", ERROR: "bad" }[v] || "info";
+  out.push({ tone, html: `${t("Model verdict")}: <b>${esc(t(PF_VERDICT_LABEL[v] || v))}</b>` });
+  if (v !== "NO_DATA" && v !== "ERROR") out.push(p.break_even_month
+    ? { tone: "good", html: `${t("Breaks even in")} <b>${esc(pfMonth(p.break_even_month))}</b>` }
+    : { tone: "bad", html: t("No break-even inside the model's horizon") });
+  if (p.funding_required > 0) out.push({ tone: "info", html: `${t("Needs")} <b>${pfRp(p.funding_required)}</b> ${t("of funding before it pays back")}` });
+  return out;
+}
+function pfReportTraits(R) {
+  const cost = x => (x.cogs || 0) + (x.opex || 0) + (x.da || 0);
+  const spent = cost(R.pnl.ytd.actual), full = cost(R.pnl.full.budget), pace = cost(R.pnl.ytd.budget);
+  const out = [full
+    ? { tone: spent > full ? "bad" : spent > pace ? "watch" : "good",
+        html: `<b>${Math.round(100 * spent / full)}%</b> ${t("of the year's cost budget used")} (${fmtShortRp(spent)} / ${fmtShortRp(full)})` }
+    : { tone: "watch", html: t("No cost budget on this SBU's projects yet") }];
+  const measured = R.indicators.filter(i => i.value != null);
+  measured.filter(i => i.status === "critical").slice(0, 2).forEach(i =>
+    out.push({ tone: "bad", html: `${esc(i.label)}: <b>${sbuVal(i.value, i.unit, i.status)}</b>` }));
+  measured.filter(i => i.status === "safe").slice(0, 2).forEach(i =>
+    out.push({ tone: "good", html: `${esc(i.label)}: <b>${sbuVal(i.value, i.unit, i.status)}</b>` }));
+  const c = { safe: 0, watch: 0, critical: 0 };
+  R.indicators.forEach(i => { c[i.status] = (c[i.status] || 0) + 1; });
+  out.push({ tone: "info", html: `${c.critical} KRITIS · ${c.watch} PERHATIAN · ${c.safe} AMAN` });
+  return out;
 }
 
 // Set an SBU up from Excel. Into an open SBU the file REPLACES its model; with no
@@ -5002,6 +5973,7 @@ function pfLaunchModal(onDone, template = "") {
       <label>${t("SBU name")} <input id="plName" value="${nx ? "NX-01 Sentimind — Media Monitoring" : ""}" placeholder="Product 1"></label>
       <label>${t("Code")} <input id="plCode" placeholder="SBU-01"></label>
       <label>${t("Company")} <select id="plCo">${companyOptions(cid)}</select></label>
+      <label>${t("SBU type")} <select id="plType">${sbuTypeOptions(nx ? "saas" : "")}</select></label>
       <label>${t("Stage")} <select id="plStage">${["idea", "build", "launch", "growth", "sunset"].map(x =>
         `<option value="${x}" ${x === (nx ? "launch" : "build") ? "selected" : ""}>${esc(t(x))}</option>`).join("")}</select></label>
       <label>${t("Launch month")} <input type="month" id="plLaunch" value="${nx ? "2026-01" : new Date().toISOString().slice(0, 7)}"></label>
@@ -5017,7 +5989,7 @@ function pfLaunchModal(onDone, template = "") {
     try {
       const r = await api("/api/products", { json: {
         name: $("#plName").value, code: $("#plCode").value, company_id: parseInt($("#plCo").value, 10),
-        stage: $("#plStage").value, launch_month: $("#plLaunch").value,
+        stage: $("#plStage").value, launch_month: $("#plLaunch").value, sbu_type: $("#plType").value || null,
         target_year: parseInt($("#plYear").value, 10), template: $("#plTpl").value,
       }});
       toast($("#plTpl").value === "nx01"
@@ -5030,15 +6002,73 @@ function pfLaunchModal(onDone, template = "") {
 }
 
 /* ---- pictures beside an SBU or an initiative ------------------------------ */
-// The uploaded picture, or the name's initials in the same circle so the list
-// stays lined up when some rows have no picture yet.
-function entThumb(kind, id, v, name, size = 38) {
+// Painted scenes (static/assets/art) stand for an SBU or an initiative until a
+// picture of its own is uploaded. An SBU gets one by id unless one is chosen in
+// its settings; an initiative by its category. [key, title, story, focus-x]
+const ART = {
+  product: [
+    ["watchtower", "The Watchtower", "sees every signal before the market does.", "40%"],
+    ["forge", "The Forge", "where the product is hammered into shape.", "45%"],
+    ["harbor", "The Harbor", "where the goods leave and the money comes home.", "50%"],
+    ["citadel", "The Citadel", "stone by stone, the infrastructure that holds a region up.", "52%"],
+    ["observatory", "The Observatory", "reads the sky of data and charts the course.", "45%"],
+    ["caravan", "The Caravan", "carries the offer to new markets across the sand.", "50%"],
+  ],
+  investment: [
+    ["orchard", "The Orchard", "plant today, harvest leaders in five years.", "62%"],
+    ["bridge", "The Bridge", "two banks, one road — a partnership carries both sides.", "50%"],
+    ["laboratory", "The Alchemist's Tower", "research that turns lead into a new line of business.", "51%"],
+    ["village", "The Village Well", "money that comes back as goodwill.", "50%"],
+    ["keep", "The Banner Keep", "ground taken, and held.", "52%"],
+    ["windmill", "The Windmill", "the reserve that keeps on grinding.", "45%"],
+  ],
+  project: [
+    ["scaffold", "The Raising", "stone by stone, the work goes up.", "50%"],
+    ["aqueduct", "The Aqueduct", "public works that carry a city for a hundred years.", "50%"],
+    ["academy", "The Academy", "where the research is written and the advice is weighed.", "50%"],
+    ["signal", "The Signal Towers", "systems that carry the message from hill to hill.", "50%"],
+    ["festival", "The Festival", "a night the whole town remembers.", "50%"],
+    ["herald", "The Herald's Square", "the message, written large where everyone passes.", "50%"],
+    ["quarry", "The Quarry", "raw material, cut to the plan.", "50%"],
+    ["townhall", "The Town Hall", "the client's house, where the contract is signed.", "50%"],
+  ],
+  // an invoice's road from our desk to the client's treasury and back as money
+  money: [
+    ["courier", "The Courier Road", "the invoice rides out to the client.", "50%"],
+    ["tollgate", "The Toll Gate", "every gate wants its stamp before it opens.", "50%"],
+    ["treasury", "The Treasury", "where the SPM and the SP2D are signed.", "50%"],
+    ["market", "The Market", "where the deal was struck.", "50%"],
+    ["customs", "The Customs House", "papers checked, cargo cleared.", "50%"],
+    ["ferry", "The Ferry", "the money crossing back to our bank.", "50%"],
+  ],
+};
+const ART_PREFIX = { product: "sbu", investment: "inv", project: "prj", money: "bill" };
+const INV_ART = { scholarship: "orchard", partnership: "bridge", rnd: "laboratory", csr: "village", strategic: "keep", other: "windmill" };
+function artKey(kind, rec) {
+  const keys = ART[kind].map(a => a[0]);
+  if (rec && keys.includes(rec.art)) return rec.art;
+  if (kind === "investment") return INV_ART[rec && rec.category] || "windmill";
+  return keys[Math.max(0, ((rec && rec.id) || 1) - 1) % keys.length];
+}
+const artInfo = (kind, key) => ART[kind].find(a => a[0] === key) || ART[kind][0];
+const artUrl = (kind, key) => `/static/assets/art/${ART_PREFIX[kind]}-${key}.webp`;
+// what it looks like: its own upload, else (an invoice) its project's upload,
+// else its painted scene
+const ownPic = (kind, rec) => rec.image_v ? `/api/images/${kind}/${rec.id}?v=${encodeURIComponent(rec.image_v)}`
+  : kind === "money" && rec.project_image_v ? `/api/images/project/${rec.project_id}?v=${encodeURIComponent(rec.project_image_v)}` : null;
+const entPic = (kind, rec) => ownPic(kind, rec) || artUrl(kind, artKey(kind, rec));
+const artFocus = (kind, rec) => ownPic(kind, rec) ? "50% 50%" : `${artInfo(kind, artKey(kind, rec))[3]} 50%`;
+
+// The uploaded picture, else the painted scene, else the name's initials in the
+// same square so the list stays lined up.
+function entThumb(kind, id, v, name, size = 38, art = null) {
   if (v) return `<img class="ent-thumb" style="width:${size}px;height:${size}px" src="/api/images/${kind}/${id}?v=${encodeURIComponent(v)}" alt="" loading="lazy">`;
+  if (art) return `<img class="ent-thumb" style="width:${size}px;height:${size}px" src="${artUrl(kind, art)}" alt="" loading="lazy">`;
   const ini = String(name || "?").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "?";
   return `<span class="ent-thumb ent-ini" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .36)}px">${esc(ini)}</span>`;
 }
 // Shrink in the browser before sending: a phone photo becomes a few dozen KB.
-async function entImageBlob(file, max = 480) {
+async function entImageBlob(file, max = 1280) {
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error(t("That file is not a picture the browser can read"))); i.src = url; });
@@ -5047,24 +6077,32 @@ async function entImageBlob(file, max = 480) {
     c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
     c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
     let blob = await new Promise(r => c.toBlob(r, "image/webp", 0.86));
-    if (!blob || blob.type !== "image/webp") blob = await new Promise(r => c.toBlob(r, "image/png"));
+    if (!blob || blob.type !== "image/webp" || blob.size > 1400000) blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.84));
     return blob;
   } finally { URL.revokeObjectURL(url); }
 }
 async function entImageUpload(kind, id, blob) {
   const fd = new FormData();
-  fd.append("file", blob, blob.type === "image/png" ? "picture.png" : "picture.webp");
+  fd.append("file", blob, blob.type === "image/jpeg" ? "picture.jpg" : blob.type === "image/png" ? "picture.png" : "picture.webp");
   return api(`/api/images/${kind}/${id}`, { method: "POST", body: fd });
 }
-// Picture control for a form. With an id the upload is saved at once; without
-// one (a new record) the picture waits in field.pending until the record exists.
-function entImageField(kind, id, v, name) {
-  return `<div class="ent-img-field" data-kind="${kind}" data-id="${id || ""}">
-    <span class="ent-img-prev">${entThumb(kind, id, v, name, 64)}</span>
-    <div><label class="btn btn-sm" style="cursor:pointer">&#x2912; ${t(v ? "Change picture" : "Add picture")}
-        <input type="file" class="ent-img-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
-      <button type="button" class="btn btn-sm btn-ghost ent-img-del" ${v ? "" : "hidden"}>${t("Remove")}</button>
-      <div class="muted" style="font-size:11.5px;margin-top:4px">${t("Shown beside the name in the list. PNG, JPG, WebP or GIF — resized to 480 px.")}${id ? "" : " " + t("It is saved together with the new record.")}</div></div>
+// Picture control for a form: pick one of the painted scenes, or upload a picture
+// of its own, which is shown instead of the scene. With an id every change is
+// saved at once; for a new record both wait (field.pending / field.pendingArt)
+// until the record exists.
+function entImageField(kind, rec) {
+  rec = rec || {};
+  const id = rec.id || null, v = rec.image_v || null, cur = artKey(kind, rec);
+  return `<div class="ent-img-field" data-kind="${kind}" data-id="${id || ""}" data-v="${esc(v || "")}">
+    <span class="ent-img-prev">${entThumb(kind, id, v, rec.name, 72, cur)}</span>
+    <div class="ent-img-body">
+      <div class="ent-img-lbl"><b>${t("Picture")}</b> <span class="muted">· ${t("a painted scene, or a picture of its own")}</span></div>
+      <div class="ent-art-pick" data-cur="${cur}">${ART[kind].map(([k, title]) => `<button type="button" class="ent-art ${k === cur && !v ? "on" : ""}" data-art="${k}" title="${esc(t(title))}">
+        <img src="${artUrl(kind, k)}" alt="${esc(t(title))}"></button>`).join("")}</div>
+      <div class="ent-img-acts"><label class="btn btn-sm" style="cursor:pointer">&#x2912; <span class="ent-up-t">${t(v ? "Change my picture" : "Upload my own picture")}</span>
+          <input type="file" class="ent-img-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden></label>
+        <button type="button" class="btn btn-sm btn-ghost ent-img-del" ${v ? "" : "hidden"}>${t("Remove my picture")}</button></div>
+      <div class="muted" style="font-size:11.5px;margin-top:4px">${t("An uploaded picture is shown instead of the scene. PNG, JPG, WebP or GIF — resized to 1280 px.")}${id ? "" : " " + t("It is saved together with the new record.")}</div></div>
   </div>`;
 }
 function wireEntImageField(root, name, onChange) {
@@ -5072,37 +6110,138 @@ function wireEntImageField(root, name, onChange) {
   if (!box) return null;
   const kind = box.dataset.kind, id = box.dataset.id;
   const prev = box.querySelector(".ent-img-prev"), del = box.querySelector(".ent-img-del");
+  let v = box.dataset.v || null, art = box.querySelector(".ent-art-pick").dataset.cur;
+  // One picture at a time: an uploaded picture, or one painted scene. The
+  // highlighted scene is the one in use, so none is lit while an upload shows.
+  const mark = key => box.querySelectorAll(".ent-art").forEach(x => x.classList.toggle("on", x.dataset.art === key));
+  const draw = src => {
+    prev.innerHTML = src ? `<img class="ent-thumb" style="width:72px;height:72px" src="${src}" alt="">` : entThumb(kind, id, v, name, 72, art);
+    box.querySelector(".ent-up-t").textContent = t(src || v ? "Change my picture" : "Upload my own picture");
+  };
+  box.querySelectorAll(".ent-art").forEach(b => b.onclick = async () => {
+    try {
+      // picking a scene replaces an uploaded picture - before, the upload kept
+      // winning, so a new scene was saved but never showed
+      if (id && v) {
+        if (!confirm(t("Use this painted scene instead of the uploaded picture? The uploaded picture is removed."))) return;
+        await api(`/api/images/${kind}/${id}`, { method: "DELETE" });
+        v = null;
+      }
+      box.pending = null;
+      del.hidden = true;
+      if (id) await api(`/api/images/${kind}/${id}/art`, { method: "PUT", json: { art: b.dataset.art } });
+      else box.pendingArt = b.dataset.art;
+      art = b.dataset.art;
+      mark(art);
+      draw();
+      if (id) { toast(t("Picture saved")); if (onChange) onChange(v); }
+    } catch (err) { toast(err.message, true); }
+  });
   box.querySelector(".ent-img-file").onchange = async e => {
     const file = e.target.files[0];
     e.target.value = "";
     if (!file) return;
     try {
-      const blob = await entImageBlob(file);
+      const blob = await entImageBlob(file, 1280);
       if (!id) {
         box.pending = blob;
-        prev.innerHTML = `<img class="ent-thumb" style="width:64px;height:64px" src="${URL.createObjectURL(blob)}" alt="">`;
+        draw(URL.createObjectURL(blob));
         del.hidden = false;
+        mark(null);
         return;
       }
       const r = await entImageUpload(kind, id, blob);
-      prev.innerHTML = entThumb(kind, id, r.v, name, 64);
+      v = r.v;
+      draw();
       del.hidden = false;
+      mark(null);
       toast(t("Picture saved"));
       if (onChange) onChange(r.v);
     } catch (err) { toast(err.message, true); }
   };
   del.onclick = async () => {
-    if (!id) { box.pending = null; prev.innerHTML = entThumb(kind, null, null, name, 64); del.hidden = true; return; }
-    if (!confirm(t("Remove this picture?"))) return;
+    if (!id) { box.pending = null; draw(); del.hidden = true; mark(art); return; }
+    if (!confirm(t("Remove this picture? The painted scene is shown again."))) return;
     try {
       await api(`/api/images/${kind}/${id}`, { method: "DELETE" });
-      prev.innerHTML = entThumb(kind, id, null, name, 64);
+      v = null;
+      draw();
       del.hidden = true;
+      mark(art);
       toast(t("Picture removed"));
       if (onChange) onChange(null);
     } catch (err) { toast(err.message, true); }
   };
   return box;
+}
+
+/* ---- the chooser: one SBU / initiative large, every one as a picture card ---- */
+// Laid out like a strategy game's "choose your culture" screen: the chosen one's
+// picture with painted edges on the left, its story and its strong and weak
+// points under it, and every one of them as a picture card on the right.
+// o = { kind, items, title, question, goLabel, stage(x) -> {eyebrow, desc, traits, actions},
+//       wire(x, stageEl), more(x) -> Promise<traits>, badge(x), open(x) }
+const hcTrait = tr => `<li class="hc-${tr.tone || "info"}">${tr.html}</li>`;
+function heroChooser(box, o) {
+  const items = o.items;
+  if (!state.hcSel) state.hcSel = {};
+  let cur = items.find(x => x.id === state.hcSel[o.kind]) || items[0];
+  const hcCard = x => `<button type="button" class="hc-card" data-id="${x.id}" title="${esc(x.name)}">
+        <img src="${entPic(o.kind, x)}" alt="" loading="lazy" style="object-position:${artFocus(o.kind, x)}">
+        ${o.badge ? o.badge(x) : ""}<span>${esc(x.name)}</span></button>`;
+  box.innerHTML = `<div class="hc hc-${o.kind}">
+    <div class="hc-stage"></div>
+    <div class="hc-side">
+      <div class="hc-side-title">${esc(o.title)}</div>
+      <div class="hc-side-q">${esc(o.question)}</div>
+      <div class="hc-grid">${o.groups
+        ? o.groups.map(g => `<div class="hc-group" style="--sc:${esc(g.color || "#9aa6b1")}"><b>${esc(g.name)}</b><span>${g.items.length}</span></div>${g.items.map(hcCard).join("")}`).join("")
+        : items.map(hcCard).join("")}</div>
+      <div class="hc-foot">
+        <button type="button" class="hc-arrow" data-step="-1" title="${t("Previous")}">&#8592;</button>
+        <button type="button" class="hc-go">${esc(o.goLabel)} &rarr;</button>
+        <button type="button" class="hc-arrow" data-step="1" title="${t("Next")}">&#8594;</button>
+      </div>
+    </div></div>`;
+  const stage = $(".hc-stage", box);
+  const pick = (x, scroll) => {
+    cur = x;
+    state.hcSel[o.kind] = x.id;
+    $$(".hc-card", box).forEach(c => {
+      c.classList.toggle("on", +c.dataset.id === x.id);
+      if (scroll && +c.dataset.id === x.id) c.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+    const s = o.stage(x), art = artInfo(o.kind, artKey(o.kind, x));
+    stage.innerHTML = `<div class="hc-art"><img src="${entPic(o.kind, x)}" alt=""></div>
+      <div class="hc-copy">
+        <div class="hc-eyebrow">${s.eyebrow}</div>
+        <h2 class="hc-name">${esc(x.name)}</h2>
+        ${ownPic(o.kind, x) ? "" : `<div class="hc-story">${esc(t(art[1]))} — ${esc(t(art[2]))}</div>`}
+        ${s.desc ? `<p class="hc-desc">${s.desc}</p>` : ""}
+        <ul class="hc-traits">${(s.traits || []).map(hcTrait).join("")}</ul>
+        <ul class="hc-traits hc-more"></ul>
+        ${s.actions ? `<div class="hc-actions">${s.actions}</div>` : ""}
+      </div>`;
+    if (o.wire) o.wire(x, stage);
+    if (o.more) {
+      $(".hc-more", stage).innerHTML = `<li class="hc-info muted">${t("Reading…")}</li>`;
+      o.more(x).then(list => {
+        if (cur !== x || !document.body.contains(stage)) return;
+        $(".hc-more", stage).innerHTML = (list || []).map(hcTrait).join("");
+      }).catch(e => { if (cur === x) $(".hc-more", stage).innerHTML = hcTrait({ tone: "bad", html: esc(e.message) }); });
+    }
+  };
+  const byId = c => items.find(x => x.id === +c.dataset.id);
+  $$(".hc-card", box).forEach(c => {
+    c.onclick = () => pick(byId(c));
+    c.ondblclick = () => o.open(byId(c));
+  });
+  $$(".hc-arrow", box).forEach(b => b.onclick = () => {
+    const n = items.length;
+    pick(items[(items.indexOf(cur) + +b.dataset.step + n) % n], true);
+  });
+  $(".hc-go", box).onclick = () => o.open(cur);
+  pick(cur);
 }
 
 /* ---- SBU finance report (the NX-Sentimind workbook, from the ledger) -------- */
@@ -5813,11 +6952,12 @@ async function pfSettings(body, pid, reload) {
 
   body.innerHTML = `
     <div class="card pf-edit"><h3>${t("The SBU")}</h3>
-      ${canWrite() ? entImageField("product", pid, d.image_v, d.name) : ""}
+      ${canWrite() ? entImageField("product", d) : ""}
       <div class="form-grid">
         <label>${t("Name")} <input id="psName" value="${esc(d.name)}" ${ro}></label>
         <label>${t("Code")} <input id="psCode" value="${esc(d.code)}" ${ro}></label>
         <label>${t("Company")} <select id="psCo" ${ro}>${companyOptions(d.company_id)}</select></label>
+        <label>${t("SBU type")} <select id="psType" ${ro}>${sbuTypeOptions(d.sbu_type || "")}</select></label>
         <label>${t("Stage")} <select id="psStage" ${ro}>${d.stages.map(x => `<option value="${x}" ${x === d.stage ? "selected" : ""}>${esc(t(x))}</option>`).join("")}</select></label>
         <label>${t("Launch month")} <input type="month" id="psLaunch" value="${esc(d.launch_month || "")}" ${ro}></label>
         <label>${t("Must be profitable by (year)")} <input type="number" id="psYear" value="${d.target_year || ""}" ${ro}></label>
@@ -5888,7 +7028,7 @@ async function pfSettings(body, pid, reload) {
     const n = id => parseFloat($(id).value) || 0, frac = id => (parseFloat($(id).value) || 0) / 100;
     const payload = {
       name: $("#psName").value, code: $("#psCode").value, company_id: parseInt($("#psCo").value, 10),
-      stage: $("#psStage").value, launch_month: $("#psLaunch").value,
+      stage: $("#psStage").value, launch_month: $("#psLaunch").value, sbu_type: $("#psType").value || null,
       target_year: parseInt($("#psYear").value, 10), actual_through: $("#psThrough").value,
       horizon_end: $("#psHorizon").value, burn_budget: n("#psBudget"), notes: $("#psNotes").value,
       project_ids: $$("#pfBody .ps-prj").filter(c => c.checked).map(c => parseInt(c.value, 10)),
@@ -5927,44 +7067,45 @@ async function pfSettings(body, pid, reload) {
 const MT_STATE_PILL = { completed: "posted", current: "active", pending: "inactive", skipped: "draft" };
 const MT_STATUS_PILL = { prospectus: "prospectus", active: "active", done: "posted", on_hold: "draft", cancelled: "inactive" };
 
+// Two views of the same tracks. Pictures: a map-select screen - every invoice a
+// picture card, grouped in sections by sector, status as the mode tabs on top;
+// click a picture for its phases. List: the table with its filters.
 async function pageMoneyTracker(el) {
+  let view = "pics";
+  try { view = localStorage.getItem("erp.mtView") || "pics"; } catch (e) { /* private window */ }
+  if (state.mtStatus == null) state.mtStatus = "";
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Money Tracker")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("invoicing process per project")}</span></h2>
+    <div class="page-head"><h2>${t("Money Tracker")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("invoicing process per project — Project Details sets the amounts")}</span></h2>
       <div class="page-actions">
+        <div class="seg-group" id="mtView">
+          <button class="seg ${view === "pics" ? "active" : ""}" data-v="pics">${t("Pictures")}</button>
+          <button class="seg ${view === "list" ? "active" : ""}" data-v="list">${t("List")}</button></div>
+        <button class="btn" id="mtHarmony" title="${t("Is every invoice in line with its project in Project Details?")}">&#9878; ${t("Harmonization check")}</button>
         ${canWrite() ? `<button class="btn btn-primary" id="mtNew">+ ${t("New invoice track")}</button>` : ""}
       </div></div>
     <div id="mtBody"><div class="empty">Loading…</div></div>`;
+  $$("#mtView .seg").forEach(b => b.onclick = () => {
+    try { localStorage.setItem("erp.mtView", b.dataset.v); } catch (e) { /* private window */ }
+    pageMoneyTracker(el);
+  });
   const load = async () => {
-    const d = await api(`/api/money-tracker?${scopeQS()}`);
+    const [d, types] = await Promise.all([api(`/api/money-tracker?${scopeQS()}`), api("/api/project-types").catch(() => [])]);
+    if (!document.body.contains($("#mtBody"))) return;
     $("#scopeBadge").textContent = d.scope;
-    // ---- filters (client name / amount order / current phase) ----
+    // ---- filters (client name / amount order / current phase / sector / status) ----
     const fClient = (state.mtClient || "").toLowerCase();
     const fPhase = state.mtPhase || "";
     const fSort = state.mtSort || "";
-    let items = d.items.filter(m =>
+    const fSector = state.mtSector || "";
+    const fStatus = view === "pics" ? state.mtStatus : "";
+    const secKey = m => m.sector_id ? String(m.sector_id) : "none";
+    let base = d.items.filter(m =>
       (!fClient || (`${m.client || ""} ${m.project_code || ""} ${m.project_name || ""} ${m.title || ""}`).toLowerCase().includes(fClient))
-      && (!fPhase || m.phase_key === fPhase));
-    if (fSort === "amount_desc") items = items.slice().sort((a, b) => (b.amount || 0) - (a.amount || 0));
-    else if (fSort === "amount_asc") items = items.slice().sort((a, b) => (a.amount || 0) - (b.amount || 0));
-    const rows = items.map(m => {
-      const name = m.project_code ? `${esc(m.project_code)} — ${esc(m.project_name || "")}` : esc(m.title || "—");
-      const hot = m.is_hot ? ` <span class="pill hot" title="HOT prospect">&#128293; HOT</span>` : "";
-      return `<tr data-id="${m.id}" style="cursor:pointer">
-        <td><b>${name}</b>${hot}${m.title && m.project_code ? `<br><span class="muted">${esc(m.title)}</span>` : ""}</td>
-        <td>${esc(m.company_code)}</td>
-        <td>${esc(m.client || "")}<br><span class="muted">${esc(m.invoice_no || "")}</span></td>
-        <td class="num"><b>${fmtRp(m.amount)}</b></td>
-        <td style="min-width:190px">
-          <div><span class="pill ${MT_STATE_PILL[m.status === "done" ? "completed" : "current"]}">${esc(m.phase_label)}</span>
-            <span class="muted" style="font-size:11.5px"> ${esc(m.phase_name)}</span></div>
-          <div class="bar" style="margin-top:5px"><span style="width:${m.progress_pct}%"></span></div>
-          <span class="muted" style="font-size:11px">${m.phase_index}/${m.phase_total} · ${m.progress_pct}%</span>
-        </td>
-        <td><span class="pill ${MT_STATUS_PILL[m.status] || "inactive"}">${esc(m.status.replace("_", " "))}</span></td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="6" class="empty">${d.items.length ? "No track matches these filters." : "No invoice tracks yet — add one to follow a project's money from contract to payment."}</td></tr>`;
-    $("#mtBody").innerHTML = `
-      <div class="grid kpis">
+      && (!fPhase || m.phase_key === fPhase) && (!fStatus || m.status === fStatus));
+    if (fSort === "amount_desc") base = base.slice().sort((a, b) => (b.amount || 0) - (a.amount || 0));
+    else if (fSort === "amount_asc") base = base.slice().sort((a, b) => (a.amount || 0) - (b.amount || 0));
+    const items = base.filter(m => !fSector || secKey(m) === fSector);
+    const kpis = `<div class="grid kpis">
         <div class="kpi"><div class="kpi-label">${t("Total tracked")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.total_amount)}</div>
           <div class="kpi-sub">${d.items.length} invoice track(s)</div></div>
         <div class="kpi hl"><div class="kpi-label">${t("Outstanding")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.outstanding)}</div>
@@ -5975,37 +7116,153 @@ async function pageMoneyTracker(el) {
           <div class="kpi-sub">${d.count_prospectus || 0} prospect(s)${d.count_hot ? ` &middot; ${d.count_hot} HOT` : ""}</div></div>
         <div class="kpi green"><div class="kpi-label">${t("Received")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(d.received)}</div>
           <div class="kpi-sub">clear &amp; clear</div></div>
-      </div>
-      <div class="card mt">
-        <div class="filters" style="margin-bottom:10px">
-          <label>${t("Client / project")} <input id="mtfClient" value="${esc(state.mtClient || "")}" placeholder="${t("search…")}" style="min-width:180px"></label>
-          <label>${t("Amount")} <select id="mtfSort">
+      </div>`;
+    const sortSel = `<select id="mtfSort">
             <option value="">${t("default order")}</option>
             <option value="amount_desc" ${state.mtSort === "amount_desc" ? "selected" : ""}>${t("Big to small")}</option>
-            <option value="amount_asc" ${state.mtSort === "amount_asc" ? "selected" : ""}>${t("Small to big")}</option>
-          </select></label>
-          <label>${t("Current phase")} <select id="mtfPhase">
-            <option value="">${t("All phases")}</option>
-            ${(d.phases || []).map(p => `<option value="${esc(p.key)}" ${state.mtPhase === p.key ? "selected" : ""}>${esc(p.label)} — ${esc(p.name)}</option>`).join("")}
-          </select></label>
-          <button class="btn btn-sm" id="mtfClear">${t("Clear")}</button>
-          <span class="muted">${items.length} ${t("of")} ${d.items.length}</span>
-        </div>
-        <div style="overflow-x:auto"><table class="tbl">
-        <thead><tr><th>${t("Project")}</th><th>Co.</th><th>${t("Client")} / ${t("Invoice")}</th>
-          <th class="num">${t("Amount")}</th><th>${t("Current phase")}</th><th>${t("Status")}</th></tr></thead>
-        <tbody>${rows}</tbody></table></div>
-        <p class="muted mt">Click a row to open the phase pipeline — Pre-administration → Contract → Ongoing → Reports → SPM → SPP → Approval → KASDA → SP2D → Done.</p>
-      </div>`;
-    $$("#mtBody tr[data-id]").forEach(tr => tr.onclick = () => moneyTrackerDetail(tr.dataset.id, load));
+            <option value="amount_asc" ${state.mtSort === "amount_asc" ? "selected" : ""}>${t("Small to big")}</option></select>`;
+    const phaseSel = `<select id="mtfPhase"><option value="">${t("All phases")}</option>
+            ${(d.phases || []).map(p => `<option value="${esc(p.key)}" ${state.mtPhase === p.key ? "selected" : ""}>${esc(p.label)} — ${esc(p.name)}</option>`).join("")}</select>`;
+    if (view === "pics") {
+      const groups = types.map(x => ({ key: String(x.id), name: x.name, color: x.color }))
+        .concat([{ key: "none", name: t("Unassigned"), color: "#9aa6b1" }])
+        .map(g => Object.assign(g, { list: base.filter(m => secKey(m) === g.key) }))
+        .filter(g => g.list.length);
+      if (fSector && !groups.some(g => g.key === fSector)) state.mtSector = "";
+      const shownG = groups.filter(g => !state.mtSector || g.key === state.mtSector);
+      const MODES = [["", t("All")], ["active", t("Active")], ["prospectus", t("Prospectus")], ["on_hold", t("On hold")],
+                     ["done", t("Done")], ["cancelled", t("Cancelled")]];
+      const nOf = st => d.items.filter(m => !st || m.status === st).length;
+      const card = m => {
+        const name = m.title || (m.project_code ? `${m.project_code} — ${m.project_name || ""}` : "—");
+        const sub = [m.title && m.project_code ? m.project_code : "", m.client, m.invoice_no].filter(Boolean).join(" · ");
+        const passed = m.status === "done" ? m.phase_total : m.phase_index - 1;
+        return `<button type="button" class="ms-card st-${m.status}" data-id="${m.id}" title="${esc(name)} — ${esc(m.phase_name)}">
+          <img src="${entPic("money", m)}" alt="" loading="lazy" style="object-position:${artFocus("money", m)}">
+          <span class="ms-top"><span class="ms-phase">${esc(m.phase_label)}</span>
+            ${m.is_hot ? `<span class="ms-hot">&#128293; HOT</span>` : ""}
+            ${m.status !== "active" ? `<span class="ms-st">${esc(t({ prospectus: "Prospectus", on_hold: "On hold", done: "Done", cancelled: "Cancelled" }[m.status] || m.status))}</span>` : ""}</span>
+          <span class="ms-amt">${fmtShortRp(m.amount)}</span>
+          <span class="ms-cap"><b>${esc(name)}</b><small>${esc(m.phase_name)}${sub ? " · " + esc(sub) : ""}</small></span>
+          <span class="ms-steps">${Array.from({ length: m.phase_total }, (_, i) =>
+            `<i class="${i < passed ? "on" : i === passed && m.status !== "done" ? "cur" : ""}"></i>`).join("")}</span></button>`;
+      };
+      $("#mtBody").innerHTML = `${kpis}
+        <div class="ms">
+          <div class="ms-head">
+            <div class="ms-modes">${MODES.map(([k, l]) => `<button type="button" class="ms-mode ${state.mtStatus === k ? "on" : ""}" data-st="${k}">${esc(l)} <span>${nOf(k)}</span></button>`).join("")}</div>
+            <div class="ms-tools"><input id="mtfClient" value="${esc(state.mtClient || "")}" placeholder="${t("Client / project")}…">${sortSel}${phaseSel}</div>
+          </div>
+          <div class="ms-sectors">
+            <button type="button" class="ms-sec ${!state.mtSector ? "on" : ""}" data-k="">${t("All sectors")} <span>${base.length}</span></button>
+            ${groups.map(g => `<button type="button" class="ms-sec ${state.mtSector === g.key ? "on" : ""}" data-k="${g.key}" style="--sc:${esc(g.color)}">
+              <i></i>${esc(g.name)} <span>${g.list.length}</span></button>`).join("")}
+          </div>
+          ${shownG.map(g => {
+            const sum = g.list.reduce((a, m) => a + (m.amount || 0), 0);
+            const got = g.list.filter(m => m.status === "done").reduce((a, m) => a + (m.amount || 0), 0);
+            return `<section class="ms-group" style="--sc:${esc(g.color)}">
+              <div class="ms-ghead"><b>${esc(g.name)}</b><span>${g.list.length} ${t("invoice(s)")} · ${fmtShortRp(sum)}${got ? ` · ${t("received")} ${fmtShortRp(got)}` : ""}</span></div>
+              <div class="ms-grid">${g.list.map(card).join("")}</div></section>`;
+          }).join("") || `<div class="ms-empty">${d.items.length ? t("No invoice matches these filters.") : t("No invoice tracks yet — plan them from a project's Revenue invoicing in Project Details.")}</div>`}
+          <p class="ms-note">${t("Click a picture to open the invoice's phases — Pre-administration → Contract → Ongoing → Reports → SPM → SPP → Approval → KASDA → SP2D → Done. The bar under each picture is its 12 phases.")}</p>
+        </div>`;
+      $$("#mtBody .ms-card").forEach(c => c.onclick = () => moneyTrackerDetail(c.dataset.id, load));
+      $$("#mtBody .ms-mode").forEach(b => b.onclick = () => { state.mtStatus = b.dataset.st; load(); });
+      $$("#mtBody .ms-sec").forEach(b => b.onclick = () => { state.mtSector = b.dataset.k; load(); });
+    } else {
+      const rows = items.map(m => {
+        const name = m.project_code ? `${esc(m.project_code)} — ${esc(m.project_name || "")}` : esc(m.title || "—");
+        const hot = m.is_hot ? ` <span class="pill hot" title="HOT prospect">&#128293; HOT</span>` : "";
+        return `<tr data-id="${m.id}" style="cursor:pointer">
+          <td class="ent-cell"><img class="ent-thumb" style="width:38px;height:38px" src="${entPic("money", m)}" alt="" loading="lazy"></td>
+          <td><b>${name}</b>${hot}${m.title && m.project_code ? `<br><span class="muted">${esc(m.title)}</span>` : ""}
+            <div style="margin-top:3px">${sectorChip(m.type_name, m.type_color)}</div></td>
+          <td>${esc(m.company_code)}</td>
+          <td>${esc(m.client || "")}<br><span class="muted">${esc(m.invoice_no || "")}</span></td>
+          <td class="num"><b>${fmtRp(m.amount)}</b></td>
+          <td style="min-width:190px">
+            <div><span class="pill ${MT_STATE_PILL[m.status === "done" ? "completed" : "current"]}">${esc(m.phase_label)}</span>
+              <span class="muted" style="font-size:11.5px"> ${esc(m.phase_name)}</span></div>
+            <div class="bar" style="margin-top:5px"><span style="width:${m.progress_pct}%"></span></div>
+            <span class="muted" style="font-size:11px">${m.phase_index}/${m.phase_total} · ${m.progress_pct}%</span>
+          </td>
+          <td><span class="pill ${MT_STATUS_PILL[m.status] || "inactive"}">${esc(m.status.replace("_", " "))}</span></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="7" class="empty">${d.items.length ? "No track matches these filters." : "No invoice tracks yet — add one to follow a project's money from contract to payment."}</td></tr>`;
+      $("#mtBody").innerHTML = `${kpis}
+        <div class="card mt">
+          <div class="filters" style="margin-bottom:10px">
+            <label>${t("Client / project")} <input id="mtfClient" value="${esc(state.mtClient || "")}" placeholder="${t("search…")}" style="min-width:180px"></label>
+            <label>${t("Amount")} ${sortSel}</label>
+            <label>${t("Current phase")} ${phaseSel}</label>
+            <label>${t("Sector")} <select id="mtfSector">
+              <option value="">${t("All sectors")}</option>
+              ${types.map(x => `<option value="${x.id}" ${String(state.mtSector) === String(x.id) ? "selected" : ""}>${esc(x.name)}</option>`).join("")}
+              <option value="none" ${state.mtSector === "none" ? "selected" : ""}>${t("Unassigned")}</option>
+            </select></label>
+            <button class="btn btn-sm" id="mtfClear">${t("Clear")}</button>
+            <span class="muted">${items.length} ${t("of")} ${d.items.length}</span>
+          </div>
+          <div style="overflow-x:auto"><table class="tbl">
+          <thead><tr><th style="width:52px"></th><th>${t("Project")}</th><th>Co.</th><th>${t("Client")} / ${t("Invoice")}</th>
+            <th class="num">${t("Amount")}</th><th>${t("Current phase")}</th><th>${t("Status")}</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+          <p class="muted mt">Click a row to open the phase pipeline — Pre-administration → Contract → Ongoing → Reports → SPM → SPP → Approval → KASDA → SP2D → Done.</p>
+        </div>`;
+      $$("#mtBody tr[data-id]").forEach(tr => tr.onclick = () => moneyTrackerDetail(tr.dataset.id, load));
+      $("#mtfSector").onchange = e => { state.mtSector = e.target.value; load(); };
+      $("#mtfClear").onclick = () => { state.mtClient = ""; state.mtSort = ""; state.mtPhase = ""; state.mtSector = ""; load(); };
+    }
     const deb = (fn, ms) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
-    $("#mtfClient").oninput = deb(e => { state.mtClient = e.target.value; load(); }, 250);
+    $("#mtfClient").oninput = deb(e => { state.mtClient = e.target.value; load(); }, 300);
     $("#mtfSort").onchange = e => { state.mtSort = e.target.value; load(); };
     $("#mtfPhase").onchange = e => { state.mtPhase = e.target.value; load(); };
-    $("#mtfClear").onclick = () => { state.mtClient = ""; state.mtSort = ""; state.mtPhase = ""; load(); };
   };
   if ($("#mtNew")) $("#mtNew").onclick = () => moneyTrackerEditor(null, load);
+  $("#mtHarmony").onclick = () => moneyHarmonyModal(load);
   await load();
+}
+
+// The harmonization check: every place the Money Tracker has drifted from its
+// project in Project Details (the mother), with a way to fix each.
+const HM_LEVEL = { danger: ["Disharmonized", "bad"], watch: ["Needs attention", "watch"], info: ["Not set up for invoicing yet", "info"] };
+const HM_FIX = { sector: "Use the project's sector", company: "Move it to the project's company", done: "Mark the project Done" };
+async function moneyHarmonyModal(reload) {
+  let h;
+  try { h = await api(`/api/money-tracker/harmony?${scopeQS()}`); } catch (e) { toast(e.message, true); return; }
+  const again = () => moneyHarmonyModal(reload);
+  const row = i => `<div class="hm-row hm-${i.level}">
+      <div class="hm-main"><b>${esc(t(i.title))}</b>
+        <span class="muted">${i.project_code ? `${esc(i.project_code)} ${esc(i.project_name || "")}` : ""}${i.track_title ? ` · ${t("invoice")} ${esc(i.track_title)}` : ""}${i.company_code ? ` · ${esc(i.company_code)}` : ""}</span>
+        <div class="hm-detail">${esc(i.detail)}</div></div>
+      <div class="hm-acts">
+        ${i.project_id ? `<button class="btn btn-sm" data-hp="${i.project_id}">${t("Revenue invoicing")}</button>` : ""}
+        ${i.track_id ? `<button class="btn btn-sm" data-ht="${i.track_id}">${t("Open invoice")}</button>` : ""}
+        ${canWrite() && HM_FIX[i.fix] ? `<button class="btn btn-sm btn-primary" data-fix="${i.fix}" data-t="${i.track_id || ""}" data-p="${i.project_id || ""}">${esc(t(HM_FIX[i.fix]))}</button>` : ""}
+      </div></div>`;
+  const by = lv => h.issues.filter(i => i.level === lv);
+  openModal(`
+    <div class="hm-sum ${h.harmonized ? "ok" : "bad"}">
+      <b>${h.harmonized ? "&#10003; " + t("Harmonized") : "&#9888; " + t("Disharmonized")}</b>
+      <span>${h.projects} ${t("projects")} · ${h.tracks} ${t("invoice tracks checked")} · ${esc(h.scope || "")}</span>
+      <span class="hm-n"><em class="bad">${h.danger}</em> ${t("disharmonized")} · <em class="watch">${h.watch}</em> ${t("need attention")} · <em>${h.info}</em> ${t("not set up yet")}</span>
+    </div>
+    <p class="muted">${t("Project Details is the mother: its contract value is fixed, and the Money Tracker's invoices must add up to it, sit in the project's company, carry its sector and close with it.")}</p>
+    ${["danger", "watch"].map(lv => by(lv).length ? `<h3 class="hm-h hm-${lv}">${t(HM_LEVEL[lv][0])} · ${by(lv).length}</h3>${by(lv).map(row).join("")}` : "").join("")}
+    ${by("info").length ? `<details class="hm-info"><summary>${t(HM_LEVEL.info[0])} · ${by("info").length} ${t("project(s) with no contract value and no invoice")}</summary>${by("info").map(row).join("")}</details>` : ""}
+    ${!h.issues.length ? `<div class="empty">${t("Every invoice is in line with its project.")}</div>` : ""}`,
+    { title: t("Harmonization check — Project Details vs Money Tracker"), wide: true });
+  $$("#modalRoot [data-hp]").forEach(b => b.onclick = () => projectInvoicingModal(b.dataset.hp, reload, again));
+  $$("#modalRoot [data-ht]").forEach(b => b.onclick = () => moneyTrackerDetail(b.dataset.ht, reload));
+  $$("#modalRoot [data-fix]").forEach(b => b.onclick = async () => {
+    if (b.dataset.fix === "done" && !confirm(t("Mark this project Done in Project Details?"))) return;
+    try {
+      await api("/api/money-tracker/harmony/fix", { json: { kind: b.dataset.fix,
+        track_id: b.dataset.t ? parseInt(b.dataset.t, 10) : null, project_id: b.dataset.p ? parseInt(b.dataset.p, 10) : null } });
+      toast(t("Fixed")); reload && reload(); again();
+    } catch (e) { toast(e.message, true); }
+  });
 }
 
 function mtStepper(history) {
@@ -6041,8 +7298,12 @@ async function moneyTrackerDetail(tid, reload) {
   comments.filter(c => c.phase_key).forEach(c => { (byPhase[c.phase_key] = byPhase[c.phase_key] || []).push(c); });
   const name = m.project_code ? `${m.project_code} — ${m.project_name || ""}` : (m.title || "Invoice track");
   openModal(`
-    <div class="muted" style="margin-top:-4px">${esc(m.company_code)}${m.client ? " · " + esc(m.client) : ""}
-      ${m.invoice_no ? " · invoice " + esc(m.invoice_no) : ""}${m.started_at ? " · started " + esc(fmtDate(m.started_at)) : ""}</div>
+    <div class="mt-pichead"><img src="${entPic("money", m)}" alt="" style="object-position:${artFocus("money", m)}">
+      <div class="muted">${esc(m.company_code)}${m.client ? " · " + esc(m.client) : ""}
+      ${m.invoice_no ? " · invoice " + esc(m.invoice_no) : ""}${m.started_at ? " · started " + esc(fmtDate(m.started_at)) : ""}
+      ${m.project_id ? `<br>${t("Project Details")}: <b>${esc(m.project_code)}</b> · ${m.project_contract
+        ? `${t("contract")} ${fmtShortRp(m.project_contract)} — ${t("this invoice is")} ${Math.round(1000 * m.amount / m.project_contract) / 10}%`
+        : `<span class="neg">${t("no contract value set on the project")}</span>`}` : ""}</div></div>
     <div class="grid kpis mt">
       <div class="kpi"><div class="kpi-label">${t("Amount")}</div><div class="kpi-value" style="font-size:17px">${fmtRp(m.amount)}</div></div>
       <div class="kpi hl"><div class="kpi-label">${t("Current phase")}</div><div class="kpi-value" style="font-size:16px">${esc(m.phase_label)}</div>
@@ -6176,7 +7437,8 @@ async function moneyTrackerDetail(tid, reload) {
 }
 
 async function moneyTrackerEditor(m, reload) {
-  const projects = await api("/api/projects?company_id=all").catch(() => []);
+  const [projects, types] = await Promise.all([api("/api/projects?company_id=all").catch(() => []),
+                                               api("/api/project-types").catch(() => [])]);
   const cid = m ? m.company_id : (state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10));
   const phases = await api("/api/money-tracker/phases");
   const byCo = {};
@@ -6184,9 +7446,12 @@ async function moneyTrackerEditor(m, reload) {
   const projOpts = `<option value="">— no project (free-text title) —</option>` +
     Object.keys(byCo).sort().map(co => `<optgroup label="${esc(co)}">` + byCo[co].map(p =>
       `<option value="${p.id}" ${m && String(m.project_id) === String(p.id) ? "selected" : ""}>${esc(p.code)} — ${esc(p.name)}</option>`).join("") + "</optgroup>").join("");
-  openModal(`<div class="form-grid">
+  openModal(`${entImageField("money", m || {})}<div class="form-grid">
     ${m ? "" : `<label class="full">Company <select id="mtCompany">${companyOptions(cid)}</select></label>`}
-    <label class="full">Project <select id="mtProject">${projOpts}</select></label>
+    <label class="full">Project <select id="mtProject">${projOpts}</select>
+      <span class="muted" style="font-weight:400" id="mtContract"></span></label>
+    <label class="full">${t("Sector (project type)")} <select id="mtType">${sectorOptions(types, m ? m.sector_id : "")}</select>
+      <span class="muted" style="font-weight:400" id="mtTypeNote"></span></label>
     <label class="full">Title / package <input id="mtTitle" value="${esc(m ? m.title : "")}" placeholder="e.g. Termin 1 — Consulting fee"></label>
     <label>Client <input id="mtClient" value="${esc(m ? m.client : "")}" placeholder="e.g. Dinas PU Provinsi"></label>
     <label>Invoice No <input id="mtInv" value="${esc(m ? m.invoice_no : "")}" placeholder="INV-2026-001"></label>
@@ -6201,6 +7466,34 @@ async function moneyTrackerEditor(m, reload) {
       <input type="checkbox" id="mtHotChk" ${m && m.is_hot ? "checked" : ""} style="width:auto"> &#128293; HOT prospect</label>
     </div><div class="form-actions"><button class="btn btn-primary" id="mtSave">Save</button></div>`,
     { title: m ? "Edit invoice track" : "New invoice track" });
+  // the sector belongs to the project: picking a project shows (and sets) that project's
+  const syncType = () => {
+    const pr = projects.find(p => String(p.id) === $("#mtProject").value);
+    if (pr) $("#mtType").value = pr.type_id ? String(pr.type_id) : "";
+    $("#mtTypeNote").textContent = pr ? t("saved on the project, so Project Details shows the same sector")
+                                      : t("kept on this track until it is linked to a project");
+  };
+  // Project Details is the mother: show what its contract still allows, and
+  // start a new invoice at that amount
+  const imgBox = wireEntImageField($("#modalRoot"), m ? (m.title || "") : "", () => { reload && reload(); });
+  const syncContract = async () => {
+    const pid = $("#mtProject").value, box = $("#mtContract");
+    if (!pid) { box.textContent = ""; return; }
+    try {
+      const v = await api(`/api/projects/${pid}/invoicing`);
+      const cv = v.project.contract_value;
+      const mine = m && String(m.project_id) === String(pid) && m.status !== "cancelled" ? (m.amount || 0) : 0;
+      const left = round2(cv - (v.invoiced - mine));
+      box.innerHTML = cv ? `${t("Contract")} ${fmtRp(cv)} ${t("in Project Details")} · ${t("other invoices")} ${fmtRp(v.invoiced - mine)} · <b>${t("room")} ${fmtRp(left)}</b>`
+                         : `<span class="neg">${t("This project has no contract value in Project Details yet.")}</span>`;
+      if (!m && cv && !$("#mtAmount").value) $("#mtAmount").value = fmt(Math.max(0, left));
+      if (!m && !$("#mtTitle").value) $("#mtTitle").value = `Termin ${v.tracks.filter(x => x.status !== "cancelled").length + 1}`;
+    } catch (e) { box.textContent = ""; }
+  };
+  $("#mtProject").onchange = () => { syncType(); syncContract(); };
+  syncContract();
+  $("#mtTypeNote").textContent = $("#mtProject").value ? t("saved on the project, so Project Details shows the same sector")
+                                                        : t("kept on this track until it is linked to a project");
   $("#mtSave").onclick = async () => {
     const body = {
       project_id: $("#mtProject").value || null,
@@ -6210,10 +7503,15 @@ async function moneyTrackerEditor(m, reload) {
       started_at: $("#mtStart").value || null,
       phase_key: $("#mtPhase").value, status: $("#mtStatus").value,
       notes: $("#mtNotes").value, is_hot: $("#mtHotChk").checked,
+      type_id: $("#mtType").value ? parseInt($("#mtType").value, 10) : null,
     };
     try {
       if (m) await api("/api/money-tracker/" + m.id, { method: "PUT", json: body });
-      else await api("/api/money-tracker", { json: Object.assign(body, { company_id: parseInt($("#mtCompany").value, 10) }) });
+      else {
+        const made = await api("/api/money-tracker", { json: Object.assign(body, { company_id: parseInt($("#mtCompany").value, 10) }) });
+        if (imgBox && imgBox.pending) await entImageUpload("money", made.id, imgBox.pending);
+        if (imgBox && imgBox.pendingArt) await api(`/api/images/money/${made.id}/art`, { method: "PUT", json: { art: imgBox.pendingArt } });
+      }
       toast("Invoice track saved"); closeModal(); reload && reload();
     } catch (e) { toast(e.message, true); }
   };
@@ -6332,7 +7630,7 @@ function renderAcctLedger(body, d) {
 
 async function pageSettings(el) {
   const tabs = [["display", "Display"], ["coa", "Chart of Accounts"], ["fields", "Custom Fields"],
-                ["companies", "Companies"]];
+                ["companies", "Companies"], ["ptypes", "Project types"]];
   if (isAdmin()) tabs.push(["users", "Users"], ["thresholds", "Thresholds"], ["cash", "Cash & Bank"],
                            ["dashboard", "Dashboard"], ["cashplan", "Budget & Oracle"]);
   el.innerHTML = `
@@ -6353,6 +7651,7 @@ async function pageSettings(el) {
     else if (tab === "coa") await settingsCoa(body);
     else if (tab === "fields") await settingsFields(body);
     else if (tab === "companies") await settingsCompanies(body);
+    else if (tab === "ptypes") await settingsProjectTypes(body);
     else if (tab === "users") await settingsUsers(body);
     else if (tab === "thresholds") await settingsThresholds(body);
     else if (tab === "cash") await settingsCash(body);
@@ -6559,10 +7858,20 @@ async function settingsCompanies(body) {
         <td>${isAdmin() ? `<button class="btn btn-sm" data-id="${c.id}">Edit</button>
           ${rows.length > 1 ? `<button class="btn btn-sm btn-danger" data-del="${c.id}">Delete</button>` : ""}` : ""}</td></tr>`).join("")}</tbody></table>
       <p class="muted mt">Deleting a company permanently removes it together with all of its accounts,
-        projects, journal entries, budgets and investments.</p></div>`;
+        projects, journal entries, budgets and investments.</p>
+      ${isAdmin() ? `<div class="filters mt"><label>${t("Main company")} <select id="coMain">${rows.filter(c => c.is_active).map(c =>
+          `<option value="${c.id}" ${c.id === state.me.main_company_id ? "selected" : ""}>${esc(c.code)} — ${esc(c.name)}</option>`).join("")}</select></label>
+        <span class="muted">${t("Account Parsing opens on it, and it is the default company wherever All is selected.")}</span></div>` : ""}</div>`;
     $$("#sBody [data-id]").forEach(b => b.onclick = () => companyEditor(byId[b.dataset.id], rows, load));
     $$("#sBody [data-del]").forEach(b => b.onclick = () => confirmDeleteCompany(byId[b.dataset.del], load));
     if ($("#coNew")) $("#coNew").onclick = () => companyEditor(null, rows, load);
+    if ($("#coMain")) $("#coMain").onchange = async e => {
+      try {
+        const r = await api("/api/settings/main-company", { method: "PUT", json: { company_id: parseInt(e.target.value, 10) } });
+        state.me.main_company_id = r.main_company_id;
+        toast(`${t("Main company")}: ${r.code}`);
+      } catch (err) { toast(err.message, true); }
+    };
   };
   await load();
 }
@@ -7040,6 +8349,11 @@ function oracleCashImportModal(onDone) {
     <p class="muted" style="margin-top:0">${t("Two shapes are read here. The PLAN TEMPLATE is written from your own database: every account and project is a drop-down and this year's budget is already in it, so a row reads \"5100-01 Direct Labor / Consultant Fees · project NX-01 · 25.000.000 · out · W2 December\". A HAND-KEPT CASH SHEET also works: the month over each block, W1..W4 under it, and a label with its amount in the next column (negative = money out).")}</p>
     <p class="muted" style="margin-top:-6px">${t("Either way it becomes a new Oracle scenario; your Budget Center is not touched.")}
       <button class="btn btn-sm" id="cfTpl" type="button" style="margin-left:6px">&#x2913; ${t("Plan template")}</button></p>
+    <div class="cf-quarter">
+      <b>${t("Quarterly sheet")}</b> <span class="muted">${t("— your Q4 cash-drive layout: per week NAME | KODE | VALUE. NAME is the project or investment, KODE the account number, VALUE positive for revenue and negative for cost. Filled with the quarter's budget.")}</span>
+      <div class="filters" style="margin-top:6px"><label>${t("Quarter")} <select id="cfQ">${[1, 2, 3, 4].map(q =>
+        `<option value="${q}" ${q === Math.floor(new Date().getMonth() / 3) + 1 ? "selected" : ""}>Q${q}</option>`).join("")}</select></label>
+        <button class="btn btn-sm" id="cfQTpl" type="button">&#x2913; ${t("Download quarterly sheet")}</button></div></div>
     <form id="cfImp" class="form-grid">
       <label>${t("Company")} <select name="company_id">${companyOptions(cid)}</select></label>
       <label>${t("Year, if the sheet does not say")} <input name="year" type="number" value="${state.year}"></label>
@@ -7056,6 +8370,10 @@ function oracleCashImportModal(onDone) {
   $("#cfTpl").onclick = () => {
     const f = $("#cfImp").elements;
     window.location = `/api/templates/oracle-plan?company_id=${f.company_id.value}&year=${f.year.value || state.year}`;
+  };
+  $("#cfQTpl").onclick = () => {
+    const f = $("#cfImp").elements;
+    window.location = `/api/templates/oracle-quarter?company_id=${f.company_id.value}&year=${f.year.value || state.year}&quarter=${$("#cfQ").value}`;
   };
   const send = preview => {
     const fd = new FormData($("#cfImp"));
@@ -7092,8 +8410,9 @@ function cfPreviewHtml(r) {
       (${esc(r.months.map(fmtYM).join(", "))})<br>
       ${t("Money in")} <b class="pos">${fmtRp(r.total_in)}</b> · ${t("Money out")} <b class="neg">${fmtRp(r.total_out)}</b>
       · ${t("Net")} <b class="${net >= 0 ? "pos" : "neg"}">${fmtRp(net)}</b>
-      ${r.accounts ? `<br><span class="muted">${t("Money in books to")} ${esc(r.accounts.in)} · ${t("money out to")} ${esc(r.accounts.out)}</span>`
-        : `<br><span class="muted">${t("Every row carries its own account and project.")}</span>`}</div>
+      ${r.accounts ? `<br><span class="muted">${r.coded ? `${r.coded} ${t("row(s) book on their own KODE")}; ${t("the rest")}: ` : ""}${t("money in books to")} ${esc(r.accounts.in)} · ${t("money out to")} ${esc(r.accounts.out)}</span>`
+        : `<br><span class="muted">${t("Every row carries its own account and project.")}</span>`}
+      ${r.tagged ? `<br><span class="muted">${r.tagged} ${t("row(s) named a project or investment and are tagged to it")}</span>` : ""}</div>
     ${r.reconciled ? `<p class="pos" style="margin:6px 0 0">&#10003; ${t("The sheet's own weekly balances add up: every week's opening plus its rows equals the next week's opening.")}</p>`
       : (r.checks || []).length ? `<div class="warn mt"><span class="warn-ic">&#9888;</span><span>${t("The sheet does not add up week to week — it still imports, but check these:")}
         <ul style="margin:4px 0 0 16px">${r.checks.map(c => `<li>${esc(c)}</li>`).join("")}</ul></span></div>` : ""}
@@ -7230,6 +8549,73 @@ function currentFontSize() {
 function applyFontSize(v) {
   document.documentElement.dataset.fontsize = v;
   try { localStorage.setItem("erp.fontsize", v); } catch (e) { /* private window */ }
+}
+
+// Project types = the sectors Project Details groups by and the Money Tracker
+// flags. Edits save as they are made; a type still in use can be switched off
+// but not deleted, so no project silently loses its sector.
+async function settingsProjectTypes(body) {
+  const types = await api("/api/project-types");
+  const ro = canWrite() ? "" : "disabled";
+  body.innerHTML = `<div class="card">
+    <h3>${t("Project types")} <span class="muted" style="font-weight:500">· ${t("the sector each project belongs to")}</span></h3>
+    <p class="muted" style="margin-top:-6px">${t("Project Details groups its projects by these, and the Money Tracker can flag a track with one. Changes save as you make them.")}</p>
+    <table class="tbl ptype-tbl"><thead><tr><th style="width:60px">${t("Colour")}</th><th>${t("Name")}</th>
+      <th class="num">${t("Projects")}</th><th class="num">${t("Tracks without a project")}</th><th>${t("In use")}</th><th style="width:150px"></th></tr></thead>
+      <tbody>${types.map((x, i) => `<tr data-id="${x.id}">
+        <td><input type="color" class="pt-color" value="${esc(x.color)}" ${ro}></td>
+        <td><input class="pt-name" value="${esc(x.name)}" ${ro} style="min-width:220px"></td>
+        <td class="num">${x.projects}</td><td class="num">${x.tracks}</td>
+        <td><label class="chk"><input type="checkbox" class="pt-active" ${x.is_active ? "checked" : ""} ${ro}> ${t("active")}</label></td>
+        <td style="white-space:nowrap">${canWrite() ? `<button class="btn btn-sm btn-ghost pt-up" ${i === 0 ? "disabled" : ""} title="${t("Move up")}">&uarr;</button>
+          <button class="btn btn-sm btn-ghost pt-down" ${i === types.length - 1 ? "disabled" : ""} title="${t("Move down")}">&darr;</button>
+          <button class="btn btn-sm btn-danger pt-del" ${x.projects || x.tracks ? `disabled title="${t("Still in use — switch it off instead")}"` : ""}>${t("Delete")}</button>` : ""}</td></tr>`).join("")
+        || `<tr><td colspan="6" class="empty">${t("No project types yet.")}</td></tr>`}</tbody></table>
+    ${canWrite() ? `<div class="filters mt"><input type="color" id="ptNewColor" value="#00a2b6">
+      <input id="ptNewName" placeholder="${t("e.g. Infrastructure")}" style="min-width:240px">
+      <button class="btn btn-primary" id="ptAdd">+ ${t("Add project type")}</button></div>` : ""}
+  </div>`;
+  const reload = () => settingsProjectTypes(body);
+  const save = async (tr, extra = {}) => {
+    const x = types.find(y => String(y.id) === tr.dataset.id);
+    try {
+      await api(`/api/project-types/${x.id}`, { method: "PUT", json: Object.assign({
+        name: $(".pt-name", tr).value, color: $(".pt-color", tr).value,
+        is_active: $(".pt-active", tr).checked, sort: x.sort }, extra) });
+      toast(t("Saved"));
+    } catch (e) { toast(e.message, true); reload(); }
+  };
+  $$("#sBody .ptype-tbl tbody tr[data-id]").forEach(tr => {
+    $(".pt-name", tr).onchange = () => save(tr);
+    $(".pt-color", tr).onchange = () => save(tr);
+    $(".pt-active", tr).onchange = () => save(tr);
+    const move = async dir => {
+      const i = types.findIndex(y => String(y.id) === tr.dataset.id), j = i + dir;
+      if (j < 0 || j >= types.length) return;
+      const order = types.map(y => y.id);
+      [order[i], order[j]] = [order[j], order[i]];
+      try {
+        for (let k = 0; k < order.length; k++) {
+          const y = types.find(z => z.id === order[k]);
+          if (y.sort !== k) await api(`/api/project-types/${y.id}`, { method: "PUT", json: { name: y.name, color: y.color, is_active: y.is_active, sort: k } });
+        }
+        reload();
+      } catch (e) { toast(e.message, true); }
+    };
+    if ($(".pt-up", tr)) $(".pt-up", tr).onclick = () => move(-1);
+    if ($(".pt-down", tr)) $(".pt-down", tr).onclick = () => move(1);
+    if ($(".pt-del", tr)) $(".pt-del", tr).onclick = async () => {
+      if (!confirm(t("Delete this project type?"))) return;
+      try { await api(`/api/project-types/${tr.dataset.id}`, { method: "DELETE" }); toast(t("Deleted")); reload(); }
+      catch (e) { toast(e.message, true); }
+    };
+  });
+  if ($("#ptAdd")) $("#ptAdd").onclick = async () => {
+    try {
+      await api("/api/project-types", { json: { name: $("#ptNewName").value, color: $("#ptNewColor").value } });
+      toast(t("Project type added")); reload();
+    } catch (e) { toast(e.message, true); }
+  };
 }
 
 async function settingsDisplay(body) {

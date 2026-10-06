@@ -1165,6 +1165,18 @@ def parse_sbu_workbook(stream, categories, stages):
 # --------------------------------------------------------------------------
 
 CF_OB_LABELS = {"ob", "opening", "opening balance", "open balance", "saldo awal", "kas awal"}
+# the header written over the account-code column of a week block
+CF_CODE_LABELS = {"KODE", "CODE", "KODE AKUN", "ACCOUNT", "AKUN", "NO AKUN", "ACC"}
+
+
+def _cf_code(v):
+    """An account code as written in a KODE cell: 6100 typed as a number reads '6100'."""
+    if v is None:
+        return ""
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    s = str(v).strip()
+    return "" if s.upper() in CF_CODE_LABELS else s
 CF_MONTH_WORDS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "mei": 5, "jun": 6,
                   "jul": 7, "aug": 8, "agu": 8, "ags": 8, "sep": 9, "oct": 10, "okt": 10,
                   "nov": 11, "dec": 12, "des": 12}
@@ -1251,6 +1263,29 @@ def parse_cashflow_workbook(stream, default_year=None):
                 hit = ym
         return hit
 
+    # 2b) a week block is "label | amount" or "label | KODE | amount". The W header
+    # is merged across the block, so its width says which; the amount column is
+    # whichever candidate actually holds numbers, so a wide merge over a spacer
+    # column cannot shift every amount by one.
+    merged = [rng for rng in ws.merged_cells.ranges if rng.min_row <= wrow <= rng.max_row]
+
+    def numbers_in(c):
+        return sum(1 for r in range(wrow + 1, min(ws.max_row, wrow + 60) + 1)
+                   if _cf_num(ws.cell(row=r, column=c).value) is not None)
+
+    layout = {}
+    for col, _ in weeks:
+        width = next((rng.max_col - rng.min_col + 1 for rng in merged if rng.min_col == col), 2)
+        kode_head = any(_cell_str(ws.cell(row=r, column=col + 1).value).upper() in CF_CODE_LABELS
+                        for r in range(wrow + 1, min(ws.max_row, wrow + 3) + 1))
+        cands = {col + 1}
+        if width >= 3:
+            cands.add(col + width - 1)
+        if kode_head:
+            cands.add(col + 2)
+        amt = max(cands, key=lambda c: (numbers_in(c), c))
+        layout[col] = (col + 1 if amt > col + 1 else None, amt)
+
     buckets, order = {}, []
 
     def bucket(col, week):
@@ -1266,7 +1301,7 @@ def parse_cashflow_workbook(stream, default_year=None):
     # 3) the rows under the week headers, until the first fully blank one
     warnings, ignored, stopped_at = [], [], None
     for r in range(wrow + 1, ws.max_row + 1):
-        cells = {col: (ws.cell(row=r, column=col).value, ws.cell(row=r, column=col + 1).value)
+        cells = {col: (ws.cell(row=r, column=col).value, ws.cell(row=r, column=layout[col][1]).value)
                  for col, _ in weeks}
         if all(not _cell_str(lab) and _cf_num(amt) is None for lab, amt in cells.values()):
             if any(b["items"] for b in buckets.values()):
@@ -1292,14 +1327,16 @@ def parse_cashflow_workbook(stream, default_year=None):
                 warnings.append("%s (row %d): '%s' has no amount beside it, so it was skipped."
                                 % (b["label"], r, text))
                 continue
-            b["items"].append({"label": text, "amount": abs(num),
+            code_col = layout[col][0]
+            code = _cf_code(ws.cell(row=r, column=code_col).value) if code_col else ""
+            b["items"].append({"label": text, "amount": abs(num), "code": code,
                                "flow": "in" if num > 0 else "out", "row": r})
 
     if stopped_at:
         for r in range(stopped_at, ws.max_row + 1):
             for col, _ in weeks:
                 text = _cell_str(ws.cell(row=r, column=col).value)
-                num = _cf_num(ws.cell(row=r, column=col + 1).value)
+                num = _cf_num(ws.cell(row=r, column=layout[col][1]).value)
                 if text and num:
                     ignored.append("row %d '%s'" % (r, text))
 
@@ -1342,6 +1379,7 @@ def parse_cashflow_workbook(stream, default_year=None):
         "total_out": round(sum(i["amount"] for i in items if i["flow"] == "out"), 2),
         "opening": next((b["opening"] for b in out_weeks if b["opening"] is not None), None),
         "warnings": warnings, "ignored": ignored,
+        "has_codes": any(i.get("code") for i in items),
     }
     return plan, []
 
@@ -1988,4 +2026,111 @@ def export_sbu_report(rep):
     mrow("LTV/CAC Ratio", "ltv_cac", "0.0")
     _box(ws, "A%d:M%d" % (r, r), "💡  Benchmark SaaS Sehat: Churn < 5%/bln | LTV/CAC > 3x | NRR > 100% | "
          "MRR Growth > 15%/bln.", "FEF9E7", color=_AMBER, size=9)
+    return _to_bytes(wb)
+
+# ---------------------------------------------------------------------------
+# The Oracle's quarterly sheet (v1.11) - the hand-kept Q4 cash drive layout,
+# written FROM the database: the month over each block, W1..W4 under it, and in
+# every week "name | KODE | value" - the project or investment the money belongs
+# to, the account number it books on, and the amount (positive = revenue in,
+# negative = cost out). It imports back unchanged.
+# ---------------------------------------------------------------------------
+
+QUARTER_SHEET = "Quarter plan"
+
+
+def export_quarter_template(year, quarter, company_label, opening, weeks, accounts, names):
+    # weeks: {(month, week): [{"name", "code", "value"}]}
+    # accounts: [(code, name, type)]; names: [(name, kind, code, company_code)]
+    wb = Workbook()
+    ws = wb.active
+    ws.title = QUARTER_SHEET
+    months = [3 * quarter - 2, 3 * quarter - 1, 3 * quarter]
+    navy, teal, grey = PatternFill("solid", fgColor="0D1B2A"), PatternFill("solid", fgColor="028090"), \
+        PatternFill("solid", fgColor="EEF2F5")
+    white = Font(color="FFFFFF", bold=True)
+    ws["C1"] = "Q%d %d cash drive - %s" % (quarter, year, company_label)
+    ws["C1"].font = Font(bold=True, size=13)
+    ws.column_dimensions["A"].width = 2
+    ws.column_dimensions["B"].width = 2
+    layout, col = [], 3
+    for m in months:
+        start = col
+        for w in range(1, 5):
+            layout.append((m, w, col, col + 1, col + 2))
+            ws.column_dimensions[get_column_letter(col)].width = 28
+            ws.column_dimensions[get_column_letter(col + 1)].width = 10
+            ws.column_dimensions[get_column_letter(col + 2)].width = 15
+            col += 3
+        c = ws.cell(row=2, column=start, value=datetime(year, m, 1))
+        c.number_format = "mmmm yyyy"
+        c.font, c.fill, c.alignment = white, navy, Alignment(horizontal="center")
+        ws.merge_cells(start_row=2, start_column=start, end_row=2, end_column=col - 1)
+        ws.column_dimensions[get_column_letter(col)].width = 3
+        col += 1
+    n_rows = max([len(v) for v in weeks.values()] + [12]) + 3   # room to type a few more
+    first, last = 5, 5 + n_rows - 1
+    total_row = last + 1
+    for i, (m, w, lc, cc, ac) in enumerate(layout):
+        h = ws.cell(row=3, column=lc, value="W%d" % w)
+        h.font, h.fill, h.alignment = white, teal, Alignment(horizontal="center")
+        ws.merge_cells(start_row=3, start_column=lc, end_row=3, end_column=ac)
+        k = ws.cell(row=4, column=cc, value="KODE")
+        k.font, k.fill = Font(bold=True, color="566573"), grey
+        if i == 0:
+            ws.cell(row=4, column=lc, value="OB").font = BOLD
+            ob = ws.cell(row=4, column=ac, value=round(opening or 0, 2))
+        else:
+            ob = ws.cell(row=4, column=ac, value="=%s%d" % (get_column_letter(layout[i - 1][4]), total_row))
+        ob.number_format, ob.font, ob.fill = NUM_FMT, BOLD, grey
+        ws.cell(row=4, column=lc).fill = grey
+        for n, it in enumerate(weeks.get((m, w), [])):
+            r = first + n
+            ws.cell(row=r, column=lc, value=it["name"])
+            ws.cell(row=r, column=cc, value=it["code"] or None)
+            v = ws.cell(row=r, column=ac, value=round(it["value"], 2))
+            v.number_format = NUM_FMT
+        for r in range(first, last + 1):
+            ws.cell(row=r, column=ac).number_format = NUM_FMT
+        L = get_column_letter(ac)
+        t = ws.cell(row=total_row, column=ac, value="=SUM(%s4:%s%d)" % (L, L, last))
+        t.number_format, t.font = NUM_FMT, BOLD
+        t.border = Border(top=Side(style="thin", color="0D1B2A"))
+        # the account and the name are picked from lists; a typed name still works
+        _dv(ws, "%s%d:%s%d" % (get_column_letter(cc), first, get_column_letter(cc), last),
+            "Accounts!$A$2:$A$%d" % (len(accounts) + 1))
+        dvn = DataValidation(type="list", formula1="Names!$A$2:$A$%d" % (len(names) + 1), allow_blank=True)
+        dvn.showErrorMessage = False
+        ws.add_data_validation(dvn)
+        dvn.add("%s%d:%s%d" % (get_column_letter(lc), first, get_column_letter(lc), last))
+    ws.freeze_panes = "C5"
+
+    acc = wb.create_sheet("Accounts")
+    _header_row(acc, 1, ["Code", "Account", "Type", "Write the value as"], [12, 42, 12, 34])
+    for i, (code, name, typ) in enumerate(accounts, start=2):
+        acc.cell(row=i, column=1, value=code)
+        acc.cell(row=i, column=2, value=name)
+        acc.cell(row=i, column=3, value=typ)
+        acc.cell(row=i, column=4, value="positive - money in" if typ == "revenue" else "negative - money out")
+    nm = wb.create_sheet("Names")
+    _header_row(nm, 1, ["Name", "Kind", "Code", "Company"], [44, 12, 14, 10])
+    for i, (name, kind, code, co) in enumerate(names, start=2):
+        for j, v in enumerate((name, kind, code, co), start=1):
+            nm.cell(row=i, column=j, value=v)
+    how = wb.create_sheet("How to fill")
+    how.column_dimensions["A"].width = 110
+    for i, line in enumerate([
+        "Q%d %d cash drive - %s" % (quarter, year, company_label), "",
+        "Each week is three columns: NAME | KODE | VALUE.",
+        "NAME  - the project or investment the money belongs to (pick from the list, sheet Names), or any label.",
+        "KODE  - the account number it books on (sheet Accounts). Leave it blank and the Oracle books money in on",
+        "        other revenue and money out on miscellaneous expense.",
+        "VALUE - positive = money in, on a REVENUE account; negative = money out, on a COST account.",
+        "        A positive value on a cost account (or the reverse) is refused, so a sign slip cannot import.",
+        "OB    - the cash at the start of the quarter, from the ledger. Each later week opens at the week before's total.",
+        "The rows already filled in are this quarter's Budget Center lines; edit, delete or add rows freely.",
+        "Leave the row under the totals blank: a blank row ends the plan, anything below it is ignored.",
+        "Import it in The Oracle - Import cashflow. It becomes a new scenario; the Budget Center is not touched.",
+    ], start=1):
+        how.cell(row=i, column=1, value=line).font = BOLD if i == 1 else Font()
     return _to_bytes(wb)

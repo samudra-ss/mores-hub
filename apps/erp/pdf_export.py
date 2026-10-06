@@ -5,6 +5,7 @@ built-in Helvetica / Helvetica-Bold fonts (no embedding, no third-party libs).
 Produces real selectable-text PDFs sized A4 portrait.
 """
 import io
+import math
 
 PAGE_W, PAGE_H = 595.0, 842.0  # A4 portrait, points
 MARGIN = 40.0
@@ -386,4 +387,275 @@ def export_budget_vs_actual_pdf(bva, scope, project=None):
         d.rtext(used_x, d.y, ("-" if r["used_pct"] is None else "%s%%" % r["used_pct"]), 8)
         d.y -= 12.5
     d.text(cx, d.y - 2, "Realization = posted actuals (Realisasi).", 8, False, GREY)
+    return d.build()
+
+
+# ---------------------------------------------------------------------------
+# Project close-out report (v1.11) - page 1 the gross profit with a chart and a
+# budget vs realization table, page 2 on the detail of every account it used.
+# ---------------------------------------------------------------------------
+
+GREEN = (0.122, 0.616, 0.341)
+LIGHT = {"navy": (0.91, 0.93, 0.96), "teal": (0.88, 0.96, 0.97), "orange": (1.0, 0.95, 0.88),
+         "green": (0.91, 0.97, 0.93), "red": (0.99, 0.91, 0.90), "grey": (0.95, 0.96, 0.97)}
+
+
+def _dmy(iso):
+    s = str(iso or "")[:10]
+    return "%s/%s/%s" % (s[8:10], s[5:7], s[:4]) if len(s) == 10 and s[4] == "-" else (s or "-")
+
+
+def _pct(v):
+    return "-" if v is None else ("%.1f%%" % (v * 100)).replace(".", ",")
+
+
+def _nice_step(span, n=4):
+    """A round tick step (1, 2, 2.5 or 5 x 10^k) that splits span into about n parts."""
+    raw = max(span, 1.0) / n
+    mag = 10 ** math.floor(math.log10(raw))
+    for m in (1, 2, 2.5, 5, 10):
+        if raw <= m * mag:
+            return m * mag
+    return 10 * mag
+
+
+def _waterfall(d, data, chart_h=118.0):
+    """Revenue, then each cost account taken out of it, ending at gross profit."""
+    cost = data["cost"]
+    top = cost[:7]
+    rest = round(sum(a["actual"] for a in cost[7:]), 2)
+    steps = [("Revenue", data["total_revenue"], "rev")]
+    steps += [(a["code"], a["actual"], "cost") for a in top if a["actual"]]
+    if rest:
+        steps.append(("Other", rest, "cost"))
+    steps.append(("Gross profit", data["gross_profit"], "gp"))
+    # every level the bars touch, so a loss-making project draws below zero
+    level, levels = 0.0, [0.0]
+    for label, v, kind in steps:
+        if kind == "rev":
+            level = v
+            levels.append(v)
+        elif kind == "cost":
+            level -= v
+            levels.append(level)
+        else:
+            levels.append(v)
+    step = _nice_step(max(levels) - min(levels))
+    lo = math.floor(min(levels) / step) * step
+    hi = math.ceil(max(max(levels), 1.0) / step) * step
+    top_v = hi + step * 0.25                        # room for the value labels
+    chart_x = MARGIN + 38
+    chart_w = PAGE_W - MARGIN - chart_x
+    y0 = d.y - 8 - chart_h
+
+    def yv(v):
+        return y0 + (v - lo) / (top_v - lo) * chart_h
+
+    t = lo
+    while t <= hi + step / 2.0:
+        d.line(chart_x, yv(t), chart_x + chart_w, yv(t), 0.4 if t else 0.8, 0.9 if t else 0.45)
+        d.rtext(chart_x - 5, yv(t) - 3, _short(t), 6.5, False, GREY)
+        t += step
+    gw = chart_w / len(steps)
+    bw = min(46.0, gw * 0.62)
+    level = 0.0
+    for i, (label, v, kind) in enumerate(steps):
+        x = chart_x + i * gw + (gw - bw) / 2.0
+        if kind == "rev":
+            a, b, col = 0.0, v, TEAL
+            level = v
+        elif kind == "cost":
+            a, b, col = level - v, level, ORANGE
+            level -= v
+        else:
+            a, b, col = 0.0, v, GREEN if v >= 0 else RED
+        y1, y2 = sorted((yv(a), yv(b)))
+        d.rect_fill(x, y1, bw, max(0.6, y2 - y1), col)
+        d.text(x + bw / 2.0 - text_width(_short(v), 6.5) / 2.0, y2 + 3, _short(v), 6.5, True, GREY)
+        lab = d.fit(label, gw - 2, 6.5)
+        d.text(chart_x + i * gw + gw / 2.0 - text_width(lab, 6.5) / 2.0, y0 - 10, lab, 6.5, False, GREY)
+    ly = y0 - 23
+    for j, (name, col) in enumerate((("Revenue", TEAL), ("Cost accounts", ORANGE), ("Gross profit", GREEN))):
+        lx = chart_x + j * 100
+        d.rect_fill(lx, ly, 9, 7, col)
+        d.text(lx + 13, ly, name, 7.5, False, GREY)
+    d.y = ly - 16
+
+
+def export_project_closeout_pdf(data, generated_by="", generated_on=""):
+    p = data["project"]
+    tracks = data.get("tracks") or []
+    d = PdfDoc()
+    d.header("Project Close-out Report",
+             d.fit("%s - %s   |   %s   |   Sector: %s" % (p["code"], p["name"], p["company_code"],
+                                                        p["type_name"] or "Unassigned"), PAGE_W - 2 * MARGIN, 9))
+
+    # --- the facts -----------------------------------------------------------
+    invoiced = sum(t.get("amount") or 0 for t in tracks)
+    done = [t for t in tracks if t.get("status") == "done"]
+    facts = [
+        [("Project", "%s - %s" % (p["code"], p["name"]))],
+        [("Company", "%s - %s" % (p["company_code"], p["company_name"])), ("Sector", p["type_name"] or "Unassigned")],
+        [("Status", "DONE"), ("Timeline", "%s  to  %s" % (_dmy(p["start_date"]), _dmy(p["end_date"])))],
+        [("Ledger activity", ("%s  to  %s  (%d lines)" % (_dmy(data["first_date"]), _dmy(data["last_date"]),
+                                                        data["line_count"])) if data["line_count"] else "no posted lines"),
+         ("Client", ", ".join(sorted({t["client"] for t in tracks if t.get("client")})) or "-")],
+        [("Contract value", "Rp " + money(data["contract_value"])
+          + ("  (from the revenue budget)" if data["contract_from_budget"] else "")),
+         ("Invoicing (Money Tracker)", ("Rp %s in %d track%s, %d paid" % (money(invoiced), len(tracks),
+                                        "" if len(tracks) == 1 else "s", len(done))) if tracks else "no tracks")],
+    ]
+    full_w = PAGE_W - 2 * MARGIN
+    for row in facts:
+        w = full_w / len(row)
+        for j, (k, v) in enumerate(row):
+            x = MARGIN + j * w
+            d.text(x, d.y, k.upper(), 6.5, True, GREY)
+            d.text(x, d.y - 10.5, d.fit(v, w - 12, 9), 9)
+        d.y -= 24
+    d.y -= 8
+
+    # --- the headline numbers -------------------------------------------------
+    gp, gm = data["gross_profit"], data["gross_margin"]
+    tiles = [("CONTRACT VALUE", "Rp " + money(data["contract_value"]), LIGHT["navy"], NAVY),
+             ("REVENUE", "Rp " + money(data["total_revenue"]), LIGHT["teal"], TEAL),
+             ("TOTAL COST", "Rp " + money(data["total_cost"]), LIGHT["orange"], ORANGE),
+             ("GROSS PROFIT", "Rp " + money(gp), LIGHT["green"] if gp >= 0 else LIGHT["red"], GREEN if gp >= 0 else RED),
+             ("GROSS MARGIN", _pct(gm), LIGHT["green"] if (gm or 0) >= 0 else LIGHT["red"], GREEN if (gm or 0) >= 0 else RED)]
+    tw = (full_w - 4 * 6) / 5.0
+    for i, (label, val, bg, fg) in enumerate(tiles):
+        x = MARGIN + i * (tw + 6)
+        d.rect_fill(x, d.y - 32, tw, 42, bg)
+        d.rect_fill(x, d.y - 32, 3, 42, fg)
+        d.text(x + 8, d.y - 1, label, 6.5, True, GREY)
+        d.text(x + 8, d.y - 20, d.fit(val, tw - 12, 10), 10, True, fg)
+    d.y -= 52
+
+    # --- the chart ------------------------------------------------------------
+    d.text(MARGIN, d.y, "Gross profit - revenue, less every cost account tagged to the project", 10, True, NAVY)
+    _waterfall(d, data)
+
+    # --- the table: always on this page, the smallest cost accounts folded ----
+    d.text(MARGIN, d.y, "Gross profit - budget vs realization (whole project)", 10, True, NAVY)
+    d.y -= 14
+    xb, xa, xv, xs = MARGIN + 305, MARGIN + 385, MARGIN + 460, PAGE_W - MARGIN
+    d.col_header([("ACCOUNT", MARGIN + 4, "l"), ("BUDGET", xb, "r"), ("REALIZATION", xa, "r"),
+                  ("VARIANCE", xv, "r"), ("% OF REV", xs, "r")])
+    rh = 12.0
+    fixed = 2 * 11 + 3 * rh + 2 + 14 + 2 * 9 + 4      # group labels, totals, GP, margin, notes
+    cap = max(4, int((d.y - BOTTOM - fixed) / rh))
+    rev_rows, cost_rows = list(data["revenue"]), list(data["cost"])
+    folded = None
+    if len(rev_rows) + len(cost_rows) > cap:
+        keep = max(1, cap - len(rev_rows) - 1)
+        extra = cost_rows[keep:]
+        cost_rows = cost_rows[:keep]
+        folded = ("   Other cost accounts (%d) - itemised on the detail pages" % len(extra),
+                  sum(a["budget"] for a in extra), sum(a["actual"] for a in extra))
+    rev_total = data["total_revenue"]
+
+    def row(label, bud, act, var, bold=False, fill=None, color=None):
+        if fill:
+            d.rect_fill(MARGIN, d.y - 3.5, full_w, rh, fill)
+        d.text(MARGIN + 4, d.y, d.fit(label, xb - 80 - MARGIN, 8), 8, bold, color)
+        d.rtext(xb, d.y, money(bud), 8, bold)
+        d.rtext(xa, d.y, money(act), 8, bold)
+        d.rtext(xv, d.y, money(var), 8, bold, RED if var < 0 else None)
+        d.rtext(xs, d.y, _pct(act / rev_total) if rev_total else "-", 8, bold, GREY)
+        d.y -= rh
+
+    def group(title):
+        d.text(MARGIN + 4, d.y, title, 7.5, True, GREY)
+        d.y -= 11
+
+    group("REVENUE")
+    for a in rev_rows:
+        row("   %s  %s" % (a["code"], a["name"]), a["budget"], a["actual"], a["actual"] - a["budget"])
+    row("Total revenue", data["budget_revenue"], rev_total, rev_total - data["budget_revenue"], True, LIGHT["grey"])
+    group("COST OF THE PROJECT")
+    for a in cost_rows:
+        row("   %s  %s" % (a["code"], a["name"]), a["budget"], a["actual"], a["budget"] - a["actual"])
+    if folded:
+        row(folded[0], folded[1], folded[2], folded[1] - folded[2])
+    row("Total cost", data["budget_cost"], data["total_cost"], data["budget_cost"] - data["total_cost"], True, LIGHT["grey"])
+    d.y -= 2
+    row("GROSS PROFIT", data["budget_gross_profit"], gp, gp - data["budget_gross_profit"], True,
+        LIGHT["green"] if gp >= 0 else LIGHT["red"], GREEN if gp >= 0 else RED)
+    bm = (data["budget_gross_profit"] / data["budget_revenue"]) if data["budget_revenue"] else None
+    d.text(MARGIN + 4, d.y, "Gross margin", 8, True)
+    d.rtext(xb, d.y, _pct(bm), 8, True)
+    d.rtext(xa, d.y, _pct(gm), 8, True)
+    d.y -= 14
+    d.text(MARGIN, d.y, "Variance: revenue and profit rows read realization minus budget, cost rows budget minus "
+           "realization - a negative figure is always the unfavourable one.", 6.5, False, GREY)
+    d.y -= 9
+    d.text(MARGIN, d.y, "Budget = every year's Budget Center rows on this project. Realization = every posted journal "
+           "line tagged to it, in any company's books.", 6.5, False, GREY)
+
+    # --- page 2 on: the detail of every account --------------------------------
+    d._new_page()
+    d.header("Detail per account", d.fit("%s - %s   |   every posted line tagged to the project, by account"
+                                         % (p["code"], p["name"]), full_w, 9))
+    accounts = [("revenue", a) for a in data["revenue"]] + [("cost", a) for a in data["cost"]]
+    if not accounts or not data["line_count"]:
+        d.text(MARGIN, d.y, "No posted journal lines are tagged to this project.", 9, False, GREY)
+    else:
+        # the accounts at a glance first, then each one's lines
+        d.text(MARGIN, d.y, "Accounts used", 10, True, NAVY)
+        d.y -= 14
+        xs1, xs2, xs3, xs4 = MARGIN + 330, MARGIN + 395, MARGIN + 455, PAGE_W - MARGIN
+        sum_cols = [("ACCOUNT", MARGIN + 4, "l"), ("LINES", xs1, "r"), ("DEBIT", xs2, "r"),
+                    ("CREDIT", xs3, "r"), ("NET", xs4, "r")]
+        d.col_header(sum_cols)
+        for kind, a in accounts:
+            if d.ensure(12):
+                d.col_header(sum_cols)
+            d.text(MARGIN + 4, d.y, d.fit("%s  %s  (%s)" % (a["code"], a["name"], kind), xs1 - 60 - MARGIN, 8), 8)
+            d.rtext(xs1, d.y, str(len(a["lines"])), 8, False, GREY)
+            d.rtext(xs2, d.y, money(a["debit"]), 8)
+            d.rtext(xs3, d.y, money(a["credit"]), 8)
+            d.rtext(xs4, d.y, money(a["actual"]), 8, True)
+            d.y -= 11
+        d.y -= 12
+
+    xd, xe, xc, xdesc, xdr, xcr = MARGIN + 4, MARGIN + 58, MARGIN + 140, MARGIN + 180, MARGIN + 440, PAGE_W - MARGIN
+    det_cols = [("DATE", xd, "l"), ("ENTRY", xe, "l"), ("CO.", xc, "l"), ("DESCRIPTION", xdesc, "l"),
+                ("DEBIT", xdr, "r"), ("CREDIT", xcr, "r")]
+    for kind, a in accounts:
+        if not a["lines"]:
+            continue
+        d.ensure(52)
+        d.rect_fill(MARGIN, d.y - 5, full_w, 17, LIGHT["navy"])
+        d.text(MARGIN + 4, d.y, d.fit("%s  %s   (%s)" % (a["code"], a["name"], kind), 330, 9.5), 9.5, True, NAVY)
+        d.rtext(PAGE_W - MARGIN - 4, d.y, "%d line%s   -   Rp %s" % (len(a["lines"]), "" if len(a["lines"]) == 1 else "s",
+                                                                money(a["actual"])), 8.5, True, NAVY)
+        d.y -= 20
+        d.col_header(det_cols)
+        for ln in a["lines"]:
+            if d.ensure(12):
+                d.text(MARGIN, d.y, d.fit("%s  %s  (continued)" % (a["code"], a["name"]), 400, 8.5), 8.5, True, NAVY)
+                d.y -= 14
+                d.col_header(det_cols)
+            d.text(xd, d.y, _dmy(ln["date"]), 7.5)
+            d.text(xe, d.y, d.fit(ln["entry_no"], xc - xe - 4, 7.5), 7.5)
+            d.text(xc, d.y, d.fit(ln["company_code"], xdesc - xc - 4, 7.5), 7.5, False, GREY)
+            d.text(xdesc, d.y, d.fit(ln["description"], xdr - 60 - xdesc, 7.5), 7.5)
+            d.rtext(xdr, d.y, money(ln["debit"]) if ln["debit"] else "", 7.5)
+            d.rtext(xcr, d.y, money(ln["credit"]) if ln["credit"] else "", 7.5)
+            d.y -= 11
+        d.ensure(16)
+        d.line(MARGIN, d.y + 7, PAGE_W - MARGIN, d.y + 7, 0.6, 0.7)
+        d.text(xdesc, d.y - 2, "Total %s" % a["code"], 8, True)
+        d.rtext(xdr, d.y - 2, money(a["debit"]), 8, True)
+        d.rtext(xcr, d.y - 2, money(a["credit"]), 8, True)
+        d.y -= 22
+
+    # --- footer on every page ----------------------------------------------------
+    n = len(d.pages)
+    for i, frags in enumerate(d.pages, start=1):
+        d.cur = frags
+        d.line(MARGIN, 34, PAGE_W - MARGIN, 34, 0.4, 0.8)
+        d.text(MARGIN, 22, d.fit("MORES HV - Project close-out - %s%s" % (
+            p["code"], ("   |   generated %s by %s" % (generated_on, generated_by)) if generated_by else ""), 400, 7), 7, False, GREY)
+        d.rtext(PAGE_W - MARGIN, 22, "Page %d of %d" % (i, n), 7, False, GREY)
     return d.build()
