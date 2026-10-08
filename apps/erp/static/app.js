@@ -511,6 +511,29 @@ const TR = {
   "unchanged, as it must be.": "tidak berubah, sebagaimana mestinya.",
   "THESE DO NOT MATCH. Do not trust this result.": "TIDAK COCOK. Jangan percayai hasil ini.",
   "How to use": "Cara pakai",
+  "more cash & bank account(s) are counted too, with nothing in them yet.": "akun kas & bank lain juga dihitung, belum ada saldonya.",
+  "Dashboard “Cash & Bank” accounts": "Akun “Kas & Bank” di dasbor",
+  "Count every cash & bank account": "Hitung semua akun kas & bank",
+  "Every cash & bank (11xx) account counts toward Cash & Bank — on the CEO Dashboard, its cash control and the Oracle — unless you untick it here. A credit card (1170) is a debt, so it is left out unless ticked. A new account counts from its first entry.": "Setiap akun kas & bank (11xx) dihitung sebagai Kas & Bank — di Dasbor CEO, kontrol kas dan Oracle — kecuali Anda hilangkan centangnya di sini. Kartu kredit (1170) adalah utang, jadi tidak dihitung kecuali dicentang. Akun baru langsung dihitung sejak entri pertamanya.",
+  "Until now this screen kept a list of the only accounts to count": "Sebelumnya layar ini menyimpan daftar satu-satunya akun yang dihitung",
+  "That list hid every entry on any other cash or bank account, so it has been retired — untick here what should stay out.": "Daftar itu menyembunyikan setiap entri di akun kas atau bank lain, jadi sudah dihentikan — hilangkan centang di sini untuk yang tidak dihitung.",
+  "sits in account(s) left out of Cash & Bank": "ada di akun yang tidak dihitung sebagai Kas & Bank",
+  "Count": "Hitung",
+  "Code": "Kode",
+  "By company": "Per perusahaan",
+  "Balance today": "Saldo hari ini",
+  "credit card": "kartu kredit",
+  "No 11xx cash/bank accounts": "Tidak ada akun kas/bank 11xx",
+  "Counted as Cash & Bank today": "Dihitung sebagai Kas & Bank hari ini",
+  "Cash & Bank accounts saved — dashboard updated": "Akun Kas & Bank tersimpan — dasbor diperbarui",
+  "account(s) with money, counted": "akun berisi saldo, dihitung",
+  "left out": "tidak dihitung",
+  "balances up to": "saldo sampai",
+  "Every cash & bank account counts unless it is switched off in Settings → Cash & Bank; credit cards are a debt and stay out.": "Setiap akun kas & bank dihitung kecuali dimatikan di Pengaturan → Kas & Bank; kartu kredit adalah utang dan tidak dihitung.",
+  "Counted": "Dihitung",
+  "counted": "dihitung",
+  "Settings → Cash & Bank": "Pengaturan → Kas & Bank",
+  "Cash & Bank — accounts": "Kas & Bank — akun",
   "Use this painted scene instead of the uploaded picture? The uploaded picture is removed.": "Pakai lukisan ini menggantikan gambar yang diunggah? Gambar yang diunggah akan dihapus.",
   "The Raising": "Pembangunan",
   "stone by stone, the work goes up.": "batu demi batu, pekerjaan berdiri.",
@@ -1907,6 +1930,12 @@ async function pageDashboard(el) {
       <div class="kpi-value" title="${fmtRp(k.cash_balance)}">${fmtShortRp(k.cash_balance)}</div>
       <div class="ceo-band-st" id="ceoCashSafe"><span class="ceo-safe ceo-na">${t("checking…")}</span></div>
       <div class="kpi-sub">${t("as of")} ${fmtDate(d.as_of)} · ${t("Cash Buffer")} ${fmtMonths(k.cash_buffer_months)}</div>
+      ${(() => {
+        const acc = d.cash_accounts || [], inn = acc.filter(a => a.counted && Math.abs(a.balance) >= 1);
+        const out = acc.filter(a => !a.counted && !a.card && Math.abs(a.balance) >= 1);
+        return `<div class="ceo-cash-acc"><a href="#" id="ceoCashAcc">${inn.length} ${t("account(s) with money, counted")} &#8599;</a>
+          ${out.length ? `<span class="neg">· ${fmtShortRp(out.reduce((s, a) => s + a.balance, 0))} ${t("left out")}</span>` : ""}</div>`;
+      })()}
     </div>
     <div class="ceo-band-mid">
       <div class="kpi"><div class="kpi-label">${t("Revenue YTD")}</div>
@@ -2081,6 +2110,7 @@ async function pageDashboard(el) {
       </div>
     </div>`;
   renderCeoBlock($("#ceoBlock"), () => pageDashboard(el), c => setCashSafe(c.cash));
+  if ($("#ceoCashAcc")) $("#ceoCashAcc").onclick = e => { e.preventDefault(); cashAccountsModal(d); };
   $$("#dashScope .seg").forEach(b => b.onclick = () => {
     state.companyId = b.dataset.scope;
     localStorage.setItem("erp.company", b.dataset.scope);
@@ -2112,6 +2142,27 @@ async function pageDashboard(el) {
   $$("#content .cakun-code").forEach(a => a.onclick = e => {
     e.preventDefault(); openAccountLedger(a.dataset.code, a.dataset.name);
   });
+}
+
+// The accounts behind the dashboard's Cash & Bank figure, per company, and the
+// ones Settings -> Cash & Bank leaves out.
+function cashAccountsModal(d) {
+  const all = d.cash_accounts || [];
+  const acc = all.filter(a => Math.abs(a.balance) >= 1);
+  const empty = all.filter(a => Math.abs(a.balance) < 1 && a.counted).length;
+  const tot = acc.filter(a => a.counted).reduce((s, a) => s + a.balance, 0);
+  openModal(`<p class="muted" style="margin-top:0">${esc(d.scope)} · ${t("balances up to")} ${fmtDate(state.year + "-12-31")}.
+      ${t("Every cash & bank account counts unless it is switched off in Settings → Cash & Bank; credit cards are a debt and stay out.")}</p>
+    <table class="tbl"><thead><tr><th>Co.</th><th>${t("Account")}</th><th class="num">${t("Balance")}</th><th>${t("Counted")}</th></tr></thead>
+      <tbody>${acc.map(a => `<tr class="${a.counted ? "" : "muted"}"><td>${esc(a.company_code)}</td><td>${esc(a.code)} ${esc(a.name)}</td>
+        <td class="num ${a.balance < 0 ? "neg" : ""}">${fmt(a.balance)}</td>
+        <td>${a.counted ? `<span class="pill posted">${t("counted")}</span>` : `<span class="pill inactive">${a.card ? t("credit card") : t("left out")}</span>`}</td></tr>`).join("")
+        || `<tr><td colspan="4" class="empty">—</td></tr>`}
+        <tr class="total"><td colspan="2">${t("Cash & Bank")}</td><td class="num">${fmt(tot)}</td><td></td></tr></tbody></table>
+    ${empty ? `<p class="muted" style="font-size:12px">${empty} ${t("more cash & bank account(s) are counted too, with nothing in them yet.")}</p>` : ""}
+    ${isAdmin() ? `<div class="form-actions"><button class="btn" id="cashSet">${t("Settings → Cash & Bank")} &rarr;</button></div>` : ""}`,
+    { title: t("Cash & Bank — accounts") });
+  if ($("#cashSet")) $("#cashSet").onclick = () => { closeModal(); state.settingsTab = "cash"; location.hash = "#/settings"; };
 }
 
 async function accountMonthlyModal(code, name) {
@@ -7636,9 +7687,10 @@ async function pageSettings(el) {
   el.innerHTML = `
     <div class="page-head"><h2>${t("Settings")}</h2></div>
     <div class="tabs" id="sTabs">${tabs.map(([k, l], i) =>
-      `<button data-tab="${k}" class="${i === 0 ? "active" : ""}">${l}</button>`).join("")}</div>
+      `<button data-tab="${k}" class="${(state.settingsTab && tabs.some(x => x[0] === state.settingsTab) ? k === state.settingsTab : i === 0) ? "active" : ""}">${l}</button>`).join("")}</div>
     <div id="sBody"></div>`;
-  let tab = "display";
+  let tab = state.settingsTab && tabs.some(x => x[0] === state.settingsTab) ? state.settingsTab : "display";
+  state.settingsTab = null;
   $$("#sTabs button").forEach(b => b.onclick = () => {
     tab = b.dataset.tab;
     $$("#sTabs button").forEach(x => x.classList.toggle("active", x === b));
@@ -7974,33 +8026,46 @@ async function settingsThresholds(body) {
   await load();
 }
 
+// Which cash/bank (11xx) accounts make up "Cash & Bank" - on the dashboard, the
+// CEO cash control and the Oracle. Every one counts unless switched off here
+// (a credit card does not: it is a debt), so a new bank or wallet account counts
+// from its first entry. Only the switched-off ones are stored.
 async function settingsCash(body) {
   const load = async () => {
     const d = await api("/api/settings/cash-accounts");
-    const sel = new Set(d.selected || []);
-    const allOn = sel.size === 0;
+    const left = d.accounts.filter(a => !a.counted && Math.abs(a.balance) >= 1 && !a.card);
     body.innerHTML = `<div class="card">
-      <div class="page-head"><h3 style="margin:0">Dashboard “Cash &amp; Bank” accounts</h3>
-        <button class="btn btn-sm btn-primary" id="csSave">Save</button></div>
-      <p class="muted" style="margin-top:-6px">Choose which cash/bank (11xx) accounts are added up for the dashboard
-        <b>Cash &amp; Bank</b> figure (and the cash-buffer / free-cash metrics derived from it). Leave <b>all</b> ticked to count every
-        cash/bank account.</p>
-      <label class="seg-check" style="margin-bottom:8px"><input type="checkbox" id="csAll" ${allOn ? "checked" : ""}> Count all cash/bank accounts</label>
-      <table class="tbl"><thead><tr><th style="width:40px"></th><th>Code</th><th>Account</th></tr></thead>
-        <tbody>${d.accounts.map(a => `<tr>
-          <td><input type="checkbox" class="cs-in" value="${esc(a.code)}" ${allOn || sel.has(a.code) ? "checked" : ""}></td>
-          <td><b>${esc(a.code)}</b></td><td>${esc(a.name)}</td></tr>`).join("")
-          || `<tr><td colspan="3" class="empty">No 11xx cash/bank accounts</td></tr>`}
+      <div class="page-head"><h3 style="margin:0">${t("Dashboard “Cash & Bank” accounts")}</h3>
+        <div class="page-actions"><button class="btn btn-sm" id="csReset">${t("Count every cash & bank account")}</button>
+          <button class="btn btn-sm btn-primary" id="csSave">${t("Save")}</button></div></div>
+      <p class="muted" style="margin-top:-6px">${t("Every cash & bank (11xx) account counts toward Cash & Bank — on the CEO Dashboard, its cash control and the Oracle — unless you untick it here. A credit card (1170) is a debt, so it is left out unless ticked. A new account counts from its first entry.")}</p>
+      ${d.legacy ? `<div class="warn watch" style="margin-bottom:10px"><span class="warn-ic">›</span><span>${t("Until now this screen kept a list of the only accounts to count")} (<b>${esc(d.legacy.join(", "))}</b>).
+        ${t("That list hid every entry on any other cash or bank account, so it has been retired — untick here what should stay out.")}</span></div>` : ""}
+      ${left.length ? `<div class="warn danger" style="margin-bottom:10px"><span class="warn-ic">⚠</span><span>${fmtRp(left.reduce((s, a) => s + a.balance, 0))}
+        ${t("sits in account(s) left out of Cash & Bank")}: ${left.map(a => esc(a.code)).join(", ")}.</span></div>` : ""}
+      <table class="tbl"><thead><tr><th style="width:44px">${t("Count")}</th><th>${t("Code")}</th><th>${t("Account")}</th>
+        <th>${t("By company")}</th><th class="num">${t("Balance today")}</th></tr></thead>
+        <tbody>${d.accounts.map(a => `<tr class="${a.counted ? "" : "muted"}">
+          <td><input type="checkbox" class="cs-in" value="${esc(a.code)}" ${a.counted ? "checked" : ""}></td>
+          <td><b>${esc(a.code)}</b></td>
+          <td>${esc(a.name)}${a.card ? ` <span class="pill draft">${t("credit card")}</span>` : ""}</td>
+          <td style="font-size:12px">${a.companies.map(c => `${esc(c.company_code)} <span class="${c.balance ? "" : "muted"}">${fmt(c.balance)}</span>`).join(" · ")}</td>
+          <td class="num ${a.balance < 0 ? "neg" : ""}"><b>${fmt(a.balance)}</b></td></tr>`).join("")
+          || `<tr><td colspan="5" class="empty">${t("No 11xx cash/bank accounts")}</td></tr>`}
+          <tr class="total"><td colspan="4">${t("Counted as Cash & Bank today")}</td>
+            <td class="num" id="csTot">${fmt(d.accounts.filter(a => a.counted).reduce((s, a) => s + a.balance, 0))}</td></tr>
         </tbody></table></div>`;
     const rows = () => $$("#sBody .cs-in");
-    $("#csAll").onchange = () => rows().forEach(c => { c.checked = $("#csAll").checked; c.disabled = $("#csAll").checked; });
-    if (allOn) rows().forEach(c => c.disabled = true);
-    $("#csSave").onclick = async () => {
-      // "count all" -> save empty list (= default all); otherwise the ticked codes
-      const codes = $("#csAll").checked ? [] : rows().filter(c => c.checked).map(c => c.value);
-      try { await api("/api/settings/cash-accounts", { json: { codes } }); toast("Cash & Bank accounts saved — dashboard updated"); load(); }
+    rows().forEach(c => c.onchange = () => {
+      $("#csTot").textContent = fmt(d.accounts.filter(a => rows().find(x => x.value === a.code).checked).reduce((s, a) => s + a.balance, 0));
+      c.closest("tr").classList.toggle("muted", !c.checked);
+    });
+    const save = async counted => {
+      try { await api("/api/settings/cash-accounts", { json: { counted } }); toast(t("Cash & Bank accounts saved — dashboard updated")); load(); }
       catch (e) { toast(e.message, true); }
     };
+    $("#csSave").onclick = () => save(Object.fromEntries(rows().map(c => [c.value, c.checked])));
+    $("#csReset").onclick = () => save({});
   };
   await load();
 }

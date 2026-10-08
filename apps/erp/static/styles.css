@@ -1180,3 +1180,6 @@ img.ent-thumb { object-fit: cover; }
 .hm-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex: none; max-width: 46%; }
 .hm-info { margin-top: 14px; }
 .hm-info summary { cursor: pointer; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+.ceo-cash-acc { font-size: 12px; margin-top: 6px; }
+.ceo-cash-acc a { text-decoration: none; }
+.ceo-cash-acc a:hover { text-decoration: underline; }

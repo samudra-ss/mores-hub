@@ -1590,17 +1590,63 @@ def get_bank_config():
     return cfg
 
 
-def get_cash_codes():
-    """List of account codes that count as 'Cash & Bank' on the dashboard, or
-    None = every 11xx account (the default)."""
+def _cash_overrides():
+    """{code: counted?} for the cash/bank accounts switched away from their
+    default in Settings -> Cash & Bank. Empty = every default stands."""
     try:
-        row = db().execute("SELECT value FROM app_settings WHERE key='dashboard_cash_codes'").fetchone()
-        parsed = json.loads(row["value"]) if row and row["value"] else None
-        if isinstance(parsed, list) and parsed:
-            return [str(c) for c in parsed]
+        row = db().execute("SELECT value FROM app_settings WHERE key='dashboard_cash_overrides'").fetchone()
+        parsed = json.loads(row["value"]) if row and row["value"] else {}
+        if isinstance(parsed, dict):
+            return {str(k): bool(v) for k, v in parsed.items()}
     except Exception:
         pass
-    return None
+    return {}
+
+
+def _cash_default(code):
+    """Every cash/bank (11xx) account counts, except a credit card - a debt."""
+    return not reports.is_card_code(code)
+
+
+def get_cash_codes():
+    """The account codes counted as 'Cash & Bank' everywhere (dashboard, CEO
+    cash control, the Oracle), or None = every 11xx account except credit cards.
+
+    Settings records only what was switched OFF (or a card switched on), and the
+    list is worked out from the accounts that exist NOW - so an account added
+    later counts from its first entry instead of being silently left out."""
+    ov = _cash_overrides()
+    if not ov:
+        return None
+    codes = [r[0] for r in db().execute(
+        "SELECT DISTINCT code FROM accounts WHERE type='asset' AND code LIKE '11%' ORDER BY code")]
+    keep = [c for c in codes if ov.get(c, _cash_default(c))]
+    return keep or ["-"]          # everything switched off: count nothing, not everything
+
+
+def _cash_breakdown(ids, date_to):
+    """Each cash/bank account in scope with its balance on date_to and whether it
+    is counted - what the dashboard's Cash & Bank figure is made of."""
+    codes = get_cash_codes()
+    counted = (lambda c: c in codes) if codes else _cash_default
+    ph = ",".join("?" * len(ids))
+    ic = " AND a.is_intercompany = 0" if len(ids) > 1 else ""
+    rows = db().execute(
+        "SELECT c.code AS company_code, a.code, a.name,"
+        " COALESCE((SELECT SUM(jl.debit - jl.credit) FROM journal_lines jl"
+        "   JOIN journal_entries je ON je.id = jl.entry_id"
+        "   WHERE jl.account_id = a.id AND je.status = 'posted' AND je.date <= ?), 0) AS balance"
+        " FROM accounts a JOIN companies c ON c.id = a.company_id"
+        " WHERE a.type = 'asset' AND a.code LIKE '11%%' AND a.company_id IN (%s)%s"
+        " ORDER BY a.code, c.code" % (ph, ic), [date_to] + list(ids)).fetchall()
+    out = []
+    for r in rows:
+        bal = round(r["balance"] or 0, 2)
+        if abs(bal) < 0.005 and r["code"] == "1100":
+            continue                # the group header itself
+        out.append({"company_code": r["company_code"], "code": r["code"], "name": r["name"],
+                    "balance": bal, "counted": bool(counted(r["code"])), "card": reports.is_card_code(r["code"])})
+    return out
 
 
 # the dashboard "company information resume" tiles, in display order
@@ -1649,24 +1695,39 @@ def set_dashboard_kpis_api():
 @app.get("/api/settings/cash-accounts")
 @login_required
 def get_cash_accounts_api():
-    """Available 11xx cash/bank accounts (deduped by code) + the current
-    selection. Empty selection = all are counted."""
-    rows = db().execute(
-        "SELECT code, MIN(name) AS name FROM accounts "
-        "WHERE type='asset' AND code LIKE '11%' AND is_active=1 GROUP BY code ORDER BY code"
-    ).fetchall()
-    return jsonify({"accounts": [dict(r) for r in rows], "selected": get_cash_codes() or []})
+    """Every cash/bank (11xx) account code, the companies that have it and what
+    is in it today, and whether it counts as Cash & Bank."""
+    ids = accessible_company_ids()
+    ov = _cash_overrides()
+    by = {}
+    for r in _cash_breakdown(ids, datetime.now().date().isoformat()):
+        e = by.setdefault(r["code"], {"code": r["code"], "name": r["name"], "card": r["card"],
+                                      "default": _cash_default(r["code"]), "balance": 0.0, "companies": []})
+        e["companies"].append({"company_code": r["company_code"], "name": r["name"], "balance": r["balance"]})
+        e["balance"] = round(e["balance"] + r["balance"], 2)
+        # one code, several companies: name the row after the account holding the most
+        if abs(r["balance"]) > max(abs(x["balance"]) for x in e["companies"][:-1] or [{"balance": -1}]):
+            e["name"] = r["name"]
+    for e in by.values():
+        e["counted"] = ov.get(e["code"], e["default"])
+    legacy = db().execute("SELECT value FROM app_settings WHERE key='dashboard_cash_codes_legacy'").fetchone()
+    return jsonify({"accounts": list(by.values()), "overrides": ov,
+                    "legacy": json.loads(legacy[0]) if legacy and legacy[0] else None})
 
 
 @app.post("/api/settings/cash-accounts")
 @role_required("admin")
 def set_cash_accounts_api():
-    d = request.get_json(force=True)
-    codes = [str(c).strip() for c in (d.get("codes") or []) if str(c).strip()]
-    db().execute("INSERT INTO app_settings (key, value) VALUES ('dashboard_cash_codes', ?)"
-                 " ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(codes),))
+    """{counted: {code: true/false}} - only the choices that differ from the
+    default are kept, so a new account always starts out counted."""
+    d = request.get_json(force=True) or {}
+    counted = d.get("counted") or {}
+    ov = {str(k).strip(): bool(v) for k, v in counted.items()
+          if str(k).strip() and bool(v) != _cash_default(str(k).strip())}
+    db().execute("INSERT INTO app_settings (key, value) VALUES ('dashboard_cash_overrides', ?)"
+                 " ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(ov),))
     db().commit()
-    return jsonify({"ok": True, "selected": codes})
+    return jsonify({"ok": True, "overrides": ov})
 
 
 @app.get("/api/settings/bank-config")
@@ -1702,6 +1763,8 @@ def report_dashboard():
                              cash_codes=get_cash_codes())
     data["scope"] = label
     data["kpi_visible"] = get_dashboard_kpis()
+    # what the Cash & Bank figure is made of, and any cash left out of it
+    data["cash_accounts"] = _cash_breakdown(ids, "%d-12-31" % year_param())
     # Active Loan = what is still owed on bills recorded in the Payables module -
     # the obligations people actually enter and chase - rather than the 2100
     # ledger balance, which the Payables tile already shows.

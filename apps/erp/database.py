@@ -1661,6 +1661,14 @@ def migrate_database(conn):
     # ... and for a project (Project Details) and an invoice track (Money Tracker)
     _add_column(conn, "projects", "art", "TEXT")
     _add_column(conn, "money_tracker", "art", "TEXT")
+    # (v1.11) Cash & Bank on the dashboard: the setting now names the accounts
+    # LEFT OUT (dashboard_cash_overrides), so a new bank or wallet account counts
+    # from its first entry. The old "count only these codes" list silently hid
+    # every other cash account's entries; it is retired, its value kept aside.
+    row = conn.execute("SELECT value FROM app_settings WHERE key='dashboard_cash_codes'").fetchone()
+    if row is not None:
+        conn.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('dashboard_cash_codes_legacy', ?)", (row[0],))
+        conn.execute("DELETE FROM app_settings WHERE key='dashboard_cash_codes'")
     # sections added after a user's menu was set must still reach them
     _ensure_menu_routes(conn, ("oracle", "product", "expenses"))
     # Product Finance Analysis (v1.08)
