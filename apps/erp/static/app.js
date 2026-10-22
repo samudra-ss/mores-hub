@@ -352,6 +352,50 @@ function chartDonut(items, opts = {}) {
   return `<div class="chart-wrap" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">${out}${legend}</div>`;
 }
 
+// A donut with its total in the centre (size 200, inner radius 65). Hovering a
+// slice - or its legend line - puts that slice's value and name in the centre,
+// in the slice's colour; leaving the chart brings the total back.
+function chartPie(items, opts = {}) {
+  const size = opts.size || 200, ro = size / 2 - 3, ri = opts.inner || 65, c = size / 2;
+  const list = items.filter(it => it.value > 0);
+  const total = list.reduce((a, it) => a + it.value, 0);
+  if (!total) return `<div class="empty">${t("No data")}</div>`;
+  let a0 = -Math.PI / 2;
+  const pt = (a, r) => `${(c + r * Math.cos(a)).toFixed(2)},${(c + r * Math.sin(a)).toFixed(2)}`;
+  const slices = list.map((it, i) => {
+    const frac = it.value / total, a1 = a0 + frac * Math.PI * 2 - (frac >= 1 ? 1e-4 : 0), large = frac > 0.5 ? 1 : 0;
+    const d = `M ${pt(a0, ro)} A ${ro} ${ro} 0 ${large} 1 ${pt(a1, ro)} L ${pt(a1, ri)} A ${ri} ${ri} 0 ${large} 0 ${pt(a0, ri)} Z`;
+    a0 = a1;
+    return `<path class="pie-slice" data-pie-i="${i}" d="${d}" style="fill:${it.color}"><title>${esc(it.label)}: ${fmtRp(it.value)} (${(frac * 100).toFixed(1)}%)</title></path>`;
+  }).join("");
+  const label = opts.label || t("Total");
+  return `<div class="pie" data-total="${total}" data-label="${esc(label)}" data-items='${esc(JSON.stringify(list.map(it => [it.value, it.label, it.color])))}'>
+    <div class="pie-fig" style="width:${size}px;height:${size}px"><svg viewBox="0 0 ${size} ${size}">${slices}</svg>
+      <div class="pie-center" style="width:${ri * 2 - 10}px"><div class="pie-v">${fmtShort(total)}</div><div class="pie-l">${esc(label)}</div></div></div>
+    ${opts.legend === false ? "" : `<div class="pie-legend">${list.map((it, i) => `<div class="pie-li" data-pie-i="${i}">
+      <span class="dot" style="background:${it.color}"></span><span class="pie-ln">${esc(it.label)}</span><b>${fmtShort(it.value)}</b></div>`).join("")}</div>`}
+  </div>`;
+}
+document.addEventListener("mouseover", e => {
+  const hit = e.target.closest && e.target.closest("[data-pie-i]");
+  const pie = e.target.closest && e.target.closest(".pie");
+  if (!pie) return;
+  const items = JSON.parse(pie.dataset.items || "[]"), v = pie.querySelector(".pie-v"), l = pie.querySelector(".pie-l");
+  if (hit && items[hit.dataset.pieI]) {
+    const [val, lab, col] = items[hit.dataset.pieI];
+    v.textContent = fmtShort(val); v.style.color = col; l.textContent = lab;
+    pie.querySelectorAll("[data-pie-i]").forEach(x => x.classList.toggle("dim", x.dataset.pieI !== hit.dataset.pieI));
+  }
+});
+document.addEventListener("mouseout", e => {
+  const pie = e.target.closest && e.target.closest(".pie");
+  if (!pie || (e.relatedTarget && pie.contains(e.relatedTarget))) return;
+  const v = pie.querySelector(".pie-v");
+  v.textContent = fmtShort(parseFloat(pie.dataset.total)); v.style.color = "";
+  pie.querySelector(".pie-l").textContent = pie.dataset.label;
+  pie.querySelectorAll(".dim").forEach(x => x.classList.remove("dim"));
+});
+
 // Mores design palette — teal family + calm neutrals (one teal accent, restrained)
 const PALETTE = ["#00a2b6", "#0a7d8c", "#7fcdd8", "#13a6b8", "#5b6b80", "#1f9d57", "#c87a08", "#9aa6b1"];
 const C_REV = "#00a2b6", C_EXP = "#9aa6b1", C_PROFIT = "#1f9d57";
@@ -511,6 +555,169 @@ const TR = {
   "unchanged, as it must be.": "tidak berubah, sebagaimana mestinya.",
   "THESE DO NOT MATCH. Do not trust this result.": "TIDAK COCOK. Jangan percayai hasil ini.",
   "How to use": "Cara pakai",
+  "Click a picture for its cash in, cash out and outflow per project.": "Klik gambar untuk kas masuk, kas keluar dan pengeluaran per proyek.",
+  "Budget used = the SBU's cost so far this year (COGS, operating cost, depreciation) against its cost budget for the whole year. Amber = ahead of the budget's pace, red = over the year's budget. Click a picture for its cash in, cash out and outflow per project.": "Anggaran terpakai = biaya SBU tahun ini (HPP, biaya operasional, penyusutan) terhadap anggaran biaya setahun penuh. Kuning = lebih cepat dari laju anggaran, merah = melebihi anggaran setahun. Klik gambar untuk kas masuk, kas keluar dan pengeluaran per proyek.",
+  "Projects of": "Proyek milik",
+  "from its linked projects": "dari proyek yang ditautkan",
+  "Only the projects linked to this SBU": "Hanya proyek yang ditautkan ke SBU ini",
+  "Source company": "Perusahaan sumber",
+  "Automatic — company of the linked projects": "Otomatis — perusahaan dari proyek yang ditautkan",
+  "Cash in": "Kas masuk",
+  "Cash out": "Kas keluar",
+  "Outflow per project": "Pengeluaran per proyek",
+  "linked": "ditautkan",
+  "No projects belong to this SBU yet — link them in the SBU's report settings or pick a source company.": "Belum ada proyek di SBU ini — tautkan di pengaturan laporan SBU atau pilih perusahaan sumber.",
+  "Read like the SBU report's cash flow: revenue booked to these projects is cash in, cost booked to them is cash out (depreciation left out). Every company's books are read, so a cost booked in MDA but tagged to an NX project counts here.": "Dibaca seperti arus kas laporan SBU: pendapatan yang dicatat ke proyek ini = kas masuk, biaya yang dicatat = kas keluar (tanpa penyusutan). Buku semua perusahaan dibaca, jadi biaya yang dicatat di MDA tetapi ditandai ke proyek NX ikut dihitung.",
+  "No data": "Tidak ada data",
+  "Devil in Detail — Petty Cash Monit, Grab Business Input & the corporate credit card": "Devil in Detail — Petty Cash Monit, Grab Business Input & kartu kredit perusahaan",
+  "Total MORES cost · operating expenses (6000)": "Total biaya MORES · beban operasional (6000)",
+  "spent": "terpakai",
+  "topped up": "diisi",
+  "balance": "saldo",
+  "Spent": "Terpakai",
+  "still owed": "masih terutang",
+  "Corporate credit card": "Kartu kredit perusahaan",
+  "charged": "ditagihkan",
+  "paid off": "dilunasi",
+  "Charged": "Ditagihkan",
+  "No corporate credit card account (1170) in this scope.": "Tidak ada akun kartu kredit perusahaan (1170) di cakupan ini.",
+  "Grab": "Grab",
+  "no Grab Payable account": "tidak ada akun Grab Payable",
+  "Grab bills the company later, so each booking is Dr the cost account (Food to Food & Beverage, Transport and Express to Transportation) / Cr Grab Payable of the company — MDA by default. At month end, when the bill is paid: Dr Grab Payable (+ Dr Grab Admin Fee if any) / Cr the bank.": "Grab menagih perusahaan belakangan, jadi setiap pesanan dicatat Dr akun biaya (Food ke Makan & Minum, Transport dan Express ke Transportasi) / Cr Grab Payable perusahaan — bawaan MDA. Di akhir bulan, saat tagihan dibayar: Dr Grab Payable (+ Dr Grab Admin Fee bila ada) / Cr bank.",
+  "Credited to": "Dikreditkan ke",
+  "This company has no Grab Payable account yet.": "Perusahaan ini belum punya akun Grab Payable.",
+  "Create Grab Payable": "Buat Grab Payable",
+  "Pay the Grab bill": "Bayar tagihan Grab",
+  "still owed to Grab": "masih terutang ke Grab",
+  "Bill amount": "Jumlah tagihan",
+  "Grab admin fee": "Biaya admin Grab",
+  "Paid from": "Dibayar dari",
+  "Reference": "Referensi",
+  "Grab statement no.": "No. tagihan Grab",
+  "Book the payment": "Catat pembayaran",
+  "Books Dr": "Mencatat Dr",
+  "Dr": "Dr",
+  "Cr the bank — posted at once.": "Cr bank — langsung diposting.",
+  "Enter the bill amount": "Isi jumlah tagihan",
+  "This company has no Grab Admin Fee account": "Perusahaan ini tidak punya akun Grab Admin Fee",
+  "Grab bill paid": "Tagihan Grab dibayar",
+  "Grab for Business bill paid": "Tagihan Grab for Business dibayar",
+  "Payment booked": "Pembayaran dicatat",
+  "Grab Payable (credited) ": "Grab Payable (dikreditkan) ",
+  "Remuneration": "Remunerasi",
+  "Type 1 — partner deal": "Tipe 1 — kesepakatan partner",
+  "Type 2 — Finance sets PM": "Tipe 2 — Finance menetapkan PM",
+  "Type 3": "Tipe 3",
+  "STP — BOD-defined": "STP — ditetapkan BOD",
+  "Project Manager": "Manajer Proyek",
+  "Team member": "Anggota tim",
+  "Bringer": "Pembawa proyek",
+  "Partner": "Partner",
+  "BOD": "BOD",
+  "Team pool": "Pool tim",
+  "Partner share": "Bagian partner",
+  "BOD share": "Bagian BOD",
+  "Bringer fee": "Fee pembawa proyek",
+  "Analyst": "Analis",
+  "Consultant": "Konsultan",
+  "Payout per project": "Pembayaran per proyek",
+  "People & grades": "Orang & grade",
+  "Simulation": "Simulasi",
+  "Scheme": "Skema",
+  "per project — shares use GP, bringer fees use project value": "per proyek — bagian dari GP, fee pembawa dari nilai proyek",
+  "Which gross profit the shares use": "Laba kotor mana yang dipakai",
+  "Whole project life": "Sepanjang umur proyek",
+  "only": "saja",
+  "assumed": "diasumsikan",
+  "below min GP": "di bawah GP minimum",
+  "min GP met": "GP minimum tercapai",
+  "Projects with a scheme": "Proyek dengan skema",
+  "whole project life": "sepanjang umur proyek",
+  "Team BONUS pool": "Pool BONUS tim",
+  "Partner / BOD": "Partner / BOD",
+  "Bringer fees": "Fee pembawa proyek",
+  "People paid": "Orang yang dibayar",
+  "click a project for its team and each person's share": "klik proyek untuk tim dan bagian tiap orang",
+  "Project value": "Nilai proyek",
+  "Office": "Kantor",
+  "Team": "Tim",
+  "contract value": "nilai kontrak",
+  "revenue": "pendapatan",
+  "BOD sets": "ditetapkan BOD",
+  "after agent": "setelah agen",
+  "no team yet": "belum ada tim",
+  "No project has a remuneration scheme yet — set one below or in Project Details.": "Belum ada proyek dengan skema remunerasi — atur di bawah atau di Detail Proyek.",
+  "Paid per person": "Dibayar per orang",
+  "Grade": "Grade",
+  "Nobody is on a project team yet.": "Belum ada orang di tim proyek.",
+  "Scheme not set yet": "Skema belum diatur",
+  "Pick the type here or in Project Details → Edit project. The project value then picks the tier (Low / Medium / High).": "Pilih tipe di sini atau di Detail Proyek → Ubah proyek. Nilai proyek lalu menentukan tingkat (Low / Medium / High).",
+  "— not set —": "— belum diatur —",
+  "Scheme saved": "Skema tersimpan",
+  "no sector": "tanpa sektor",
+  "value": "nilai",
+  "revenue — no contract value set": "pendapatan — nilai kontrak belum diisi",
+  "set the type below": "atur tipe di bawah",
+  "min": "min",
+  "agent": "agen",
+  "not paid": "tidak dibayar",
+  "of value": "dari nilai",
+  "Agent": "Agen",
+  "Team & payout": "Tim & pembayaran",
+  "Role": "Peran",
+  "Involvement": "Keterlibatan",
+  "Points": "Poin",
+  "sample": "contoh",
+  "Remove from the team": "Hapus dari tim",
+  "Nobody on this project yet.": "Belum ada orang di proyek ini.",
+  "add people in People & grades first": "tambahkan orang di Orang & grade dulu",
+  "Add to team": "Tambah ke tim",
+  "Scheme of this project": "Skema proyek ini",
+  "also in Project Details → Edit project": "juga di Detail Proyek → Ubah proyek",
+  "Type": "Tipe",
+  "STP team pool (% of GP)": "Pool tim STP (% dari GP)",
+  "blank = no agent": "kosong = tanpa agen",
+  "Save scheme": "Simpan skema",
+  "Remove the sample people": "Hapus orang contoh",
+  "Full name": "Nama lengkap",
+  "Add person": "Tambah orang",
+  "Earned": "Diperoleh",
+  "inactive": "tidak aktif",
+  "No one yet — add the consultants, or try the Simulation tab with made-up names.": "Belum ada — tambahkan konsultan, atau coba tab Simulasi dengan nama karangan.",
+  "Grades": "Grade",
+  "A person's points on a project = their grade's weight × their involvement. The team pool is split by points.": "Poin seseorang di proyek = bobot grade × keterlibatannya. Pool tim dibagi menurut poin.",
+  "Person added": "Orang ditambahkan",
+  "Remove every sample person and their places on project teams?": "Hapus semua orang contoh dan tempat mereka di tim proyek?",
+  "removed": "dihapus",
+  "Grades saved": "Grade tersimpan",
+  "Edit person": "Ubah orang",
+  "Delete this person and their places on project teams?": "Hapus orang ini dan tempatnya di tim proyek?",
+  "Made-up people": "Orang karangan",
+  "Projects (highest GP first)": "Proyek (GP tertinggi dulu)",
+  "Projects with no scheme count as": "Proyek tanpa skema dihitung sebagai",
+  "Run simulation": "Jalankan simulasi",
+  "New names": "Nama baru",
+  "Random names and teams on your real projects' actual gross profit — nothing is saved. Projects that already have a scheme keep it.": "Nama dan tim acak di atas laba kotor aktual proyek Anda — tidak ada yang disimpan. Proyek yang sudah punya skema memakai skemanya.",
+  "The made-up team": "Tim karangan",
+  "Keep these names as sample people": "Simpan nama ini sebagai orang contoh",
+  "GP": "GP",
+  "Below the minimum GP — the team pool is not paid.": "Di bawah GP minimum — pool tim tidak dibayar.",
+  "No project with a positive gross profit in this scope.": "Tidak ada proyek dengan laba kotor positif di cakupan ini.",
+  "What each person would earn": "Yang akan diperoleh tiap orang",
+  "sample people added — find them in People & grades": "orang contoh ditambahkan — lihat di Orang & grade",
+  "Remuneration scheme": "Skema remunerasi",
+  "Shares use GP. Bringer fees use project value.": "Bagian memakai GP. Fee pembawa memakai nilai proyek.",
+  "Min. GP": "GP min.",
+  "Not set": "Belum diatur",
+  "of GP": "dari GP",
+  "team + BOD": "tim + BOD",
+  "Within the pool": "Di dalam pool",
+  "Type 1: the partner is PM; office fixed at 60%, partner and team negotiate within 40%. Type 2: Finance sets the PM; the project value picks Low (< Rp100m), Medium (Rp100m–Rp1bn) or High (Rp1bn–Rp5bn), and above Rp5bn it is an STP. Type 3: Low below Rp500m, High from Rp500m.": "Tipe 1: partner adalah PM; kantor tetap 60%, partner dan tim bernegosiasi dalam 40%. Tipe 2: Finance menetapkan PM; nilai proyek menentukan Low (< Rp100jt), Medium (Rp100jt–Rp1M) atau High (Rp1M–Rp5M), dan di atas Rp5M menjadi STP. Tipe 3: Low di bawah Rp500jt, High mulai Rp500jt.",
+  "Agent, if used:": "Agen, jika dipakai:",
+  "of the project value, from the office's share. Eligibility (min GP) is separate from the bringer award.": "dari nilai proyek, diambil dari bagian kantor. Kelayakan (GP minimum) terpisah dari penghargaan pembawa proyek.",
+  "Agent, if used (2.5% of project value, from the office's share)": "Agen, jika dipakai (2,5% nilai proyek, dari bagian kantor)",
+  "name — leave blank when there is no agent": "nama — kosongkan bila tanpa agen",
+  "No remuneration scheme yet — set it in Edit project": "Belum ada skema remunerasi — atur di Ubah proyek",
   "more cash & bank account(s) are counted too, with nothing in them yet.": "akun kas & bank lain juga dihitung, belum ada saldonya.",
   "Dashboard “Cash & Bank” accounts": "Akun “Kas & Bank” di dasbor",
   "Count every cash & bank account": "Hitung semua akun kas & bank",
@@ -1477,7 +1684,7 @@ const NAV_ITEMS = [
   ["oracle", "☾", "The Oracle"],
   // Devil in Detail
   ["journals", "☰", "Journal Entries"], ["expenses", "◔", "Jakarta Cost Office"], ["bank", "⇄", "Account Parsing"],
-  ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
+  ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"], ["remuneration", "♛", "Remuneration"],
   ["budgets", "◎", "Budget Center"], ["reports", "▤", "Reports"],
   ["accountant", "⚖", "Accountant Section"],
   // Admin panel
@@ -1614,7 +1821,7 @@ const routes = {
   dashboard: pageDashboard, projecthv: pageProjectHV, journals: pageJournals, expenses: pageExpenses,
   bank: pageBank, receivables: pageReceivables, payables: pagePayables, budgets: pageBudgets,
   investments: pageInvestments, oracle: pageOracle, product: pageProduct,
-  projects: pageProjects, money: pageMoneyTracker,
+  projects: pageProjects, money: pageMoneyTracker, remuneration: pageRemuneration,
   reports: pageReports, accountant: pageAccountant, settings: pageSettings,
 };
 const INV_CATEGORIES = {
@@ -1631,6 +1838,324 @@ async function render() {
   const el = $("#content");
   el.innerHTML = `<div class="empty">Loading…</div>`;
   try { await fn(el); } catch (e) { el.innerHTML = `<div class="card"><div class="empty">${esc(e.message)}</div></div>`; }
+}
+
+// can this user open a menu section? (admins always can)
+function hasMenu(route) {
+  if (isAdmin()) return true;
+  const ma = String((state.me && state.me.menu_access) || "all").trim();
+  return ma === "all" || ma === "" || ma.split(",").map(s => s.trim()).includes(route);
+}
+
+/* ---- Remuneration (v1.12) ---------------------------------------------------- */
+// Who earns what from a project. Shares use the project's ACTUAL gross profit,
+// bringer fees its value (contract value, else revenue). The scheme (Type 1 / 2
+// / 3 / STP) is set on the project in Project Details; the value picks the
+// tier. The team pool is split by points: grade weight x involvement.
+const REMU_TYPES = [["t1", "Type 1 — partner deal"], ["t2", "Type 2 — Finance sets PM"], ["t3", "Type 3"], ["stp", "STP — BOD-defined"]];
+const REMU_ROLES = { pm: "Project Manager", team: "Team member", bringer: "Bringer", partner: "Partner", bod: "BOD" };
+const REMU_KIND = { pool: "Team pool", partner: "Partner share", bod: "BOD share", bringer: "Bringer fee" };
+const remuPct = v => v == null ? "—" : `${String(Math.round(v * 1000) / 10).replace(".", ",")}%`;
+const remuGrade = (cfg, g) => { const x = cfg.grades.find(y => y.grade === g) || {}; return `${x.code || "G" + g} · ${t(x.title || "")}`; };
+const remuQS = () => `${scopeQS()}&basis=${state.remuBasis || "life"}`;
+
+async function pageRemuneration(el) {
+  if (!state.remuTab) state.remuTab = "payout";
+  if (!state.remuBasis) state.remuBasis = "life";
+  const tabs = [["payout", t("Payout per project")], ["people", t("People & grades")], ["sim", t("Simulation")], ["scheme", t("Scheme")]];
+  el.innerHTML = `
+    <div class="page-head"><h2>${t("Remuneration")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("per project — shares use GP, bringer fees use project value")}</span></h2>
+      <div class="page-actions"><div class="seg-group" id="rmBasis" title="${t("Which gross profit the shares use")}">
+        <button class="seg ${state.remuBasis === "life" ? "active" : ""}" data-b="life">${t("Whole project life")}</button>
+        <button class="seg ${state.remuBasis === "year" ? "active" : ""}" data-b="year">${state.year} ${t("only")}</button></div></div></div>
+    <div class="tabs" id="rmTabs">${tabs.map(([k, l]) => `<button data-t="${k}" class="${state.remuTab === k ? "active" : ""}">${l}</button>`).join("")}</div>
+    <div id="rmBody" class="mt"><div class="card"><div class="empty">${t("Reading…")}</div></div></div>`;
+  const show = async () => {
+    const body = $("#rmBody");
+    body.innerHTML = `<div class="card"><div class="empty">${t("Reading…")}</div></div>`;
+    try {
+      await ({ payout: remuPayout, people: remuPeople, sim: remuSim, scheme: remuScheme })[state.remuTab](body, show);
+    } catch (e) { body.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; }
+  };
+  $$("#rmTabs button").forEach(b => b.onclick = () => {
+    state.remuTab = b.dataset.t;
+    $$("#rmTabs button").forEach(x => x.classList.toggle("active", x === b));
+    show();
+  });
+  $$("#rmBasis .seg").forEach(b => b.onclick = () => { state.remuBasis = b.dataset.b; pageRemuneration(el); });
+  await show();
+}
+
+// one line per project: its scheme and what the GP is split into
+function remuSchemeCell(r) {
+  const R = r.result;
+  if (!R.scheme) return `<span class="muted">—</span>`;
+  return `<b>${esc(t(R.scheme.label))}</b>${r.assumed ? ` <span class="pill draft">${t("assumed")}</span>` : ""}
+    ${R.eligible === false ? `<br><span class="pill bad" title="${esc(R.notes.join(" "))}">${t("below min GP")}</span>`
+      : R.eligible ? `<br><span class="pill posted">${t("min GP met")}</span>` : ""}`;
+}
+async function remuPayout(body, reload) {
+  const d = await api(`/api/remuneration/projects?${remuQS()}`);
+  const cfg = d.config, set = d.projects.filter(p => p.result.scheme), unset = d.projects.filter(p => !p.result.scheme);
+  const sum = k => set.reduce((a, p) => a + (p.result[k] || 0), 0);
+  const names = id => (d.people.find(x => x.id === id) || {}).name || "?";
+  body.innerHTML = `
+    <div class="grid kpis">
+      <div class="kpi"><div class="kpi-label">${t("Projects with a scheme")}</div><div class="kpi-value">${set.length}</div>
+        <div class="kpi-sub">${t("of")} ${d.projects.length} ${t("projects")} · ${esc(d.scope)}</div></div>
+      <div class="kpi hl"><div class="kpi-label">${t("Gross profit")}</div><div class="kpi-value">${fmtShortRp(sum("gp"))}</div>
+        <div class="kpi-sub">${state.remuBasis === "year" ? state.year : t("whole project life")}</div></div>
+      <div class="kpi green"><div class="kpi-label">${t("Team BONUS pool")}</div><div class="kpi-value">${fmtShortRp(sum("pool"))}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Partner / BOD")}</div><div class="kpi-value">${fmtShortRp(sum("partner") + sum("bod"))}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Bringer fees")}</div><div class="kpi-value">${fmtShortRp(sum("bringer"))}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("People paid")}</div><div class="kpi-value">${d.totals.length}</div></div>
+    </div>
+    <div class="card"><h3>${t("Payout per project")} <span class="muted" style="font-weight:500">· ${t("click a project for its team and each person's share")}</span></h3>
+      <div class="pf-scroll"><table class="tbl remu-tbl"><thead><tr><th>${t("Project")}</th><th>${t("Scheme")}</th>
+        <th class="num">${t("Project value")}</th><th class="num">${t("Gross profit")}</th><th class="num">${t("Margin")}</th>
+        <th class="num">${t("Office")}</th><th class="num">${t("Team pool")}</th><th class="num">${t("Partner / BOD")}</th>
+        <th class="num">${t("Bringer")}</th><th>${t("Team")}</th></tr></thead>
+        <tbody>${set.map(r => { const R = r.result; return `<tr class="clickable" data-pid="${r.id}">
+          <td><b>${esc(r.code)}</b> ${esc(r.name)}<div style="margin-top:3px">${sectorChip(r.type_name, r.type_color)}</div></td>
+          <td>${remuSchemeCell(r)}</td>
+          <td class="num">${fmtShortRp(r.value)}<br><span class="muted" style="font-size:11px">${r.value_source === "contract" ? t("contract value") : t("revenue")}</span></td>
+          <td class="num ${r.gp < 0 ? "neg" : ""}">${fmtShortRp(r.gp)}</td><td class="num">${r.margin == null ? "—" : remuPct(r.margin)}</td>
+          <td class="num">${R.scheme.key === "stp" ? `<span class="muted">${t("BOD sets")}</span>` : fmtShortRp(R.office_net)}${R.agent_fee ? `<br><span class="muted" style="font-size:11px">${t("after agent")} ${fmtShortRp(R.agent_fee)}</span>` : ""}</td>
+          <td class="num"><b>${fmtShortRp(R.pool)}</b><br><span class="muted" style="font-size:11px">${remuPct(R.pool_pct)}</span></td>
+          <td class="num">${R.partner + R.bod ? fmtShortRp(R.partner + R.bod) : "—"}</td>
+          <td class="num">${R.bringer ? fmtShortRp(R.bringer) : "—"}</td>
+          <td style="font-size:12px">${r.team.length ? [...new Set(r.team.map(m => names(m.person_id)))].slice(0, 3).map(esc).join(", ") + (new Set(r.team.map(m => m.person_id)).size > 3 ? " …" : "")
+            : `<span class="neg">${t("no team yet")}</span>`}</td></tr>`; }).join("")
+          || `<tr><td colspan="10" class="empty">${t("No project has a remuneration scheme yet — set one below or in Project Details.")}</td></tr>`}</tbody></table></div></div>
+    <div class="card mt"><h3>${t("Paid per person")}</h3>
+      <div class="pf-scroll"><table class="tbl"><thead><tr><th>${t("Person")}</th><th>${t("Grade")}</th><th class="num">${t("Projects")}</th>
+        <th class="num">${t("Team pool")}</th><th class="num">${t("Bringer fee")}</th><th class="num">${t("Partner / BOD")}</th><th class="num">${t("Total")}</th></tr></thead>
+        <tbody>${d.totals.map(x => `<tr><td><b>${esc(x.name || "?")}</b></td><td>${esc(remuGrade(cfg, x.grade))}</td><td class="num">${x.projects}</td>
+          <td class="num">${fmt(x.pool)}</td><td class="num">${fmt(x.bringer)}</td><td class="num">${fmt(x.partner + x.bod)}</td>
+          <td class="num"><b>${fmt(x.total)}</b></td></tr>`).join("") || `<tr><td colspan="7" class="empty">${t("Nobody is on a project team yet.")}</td></tr>`}</tbody></table></div></div>
+    ${unset.length ? `<div class="card mt"><h3>${t("Scheme not set yet")} <span class="muted" style="font-weight:500">· ${unset.length}</span></h3>
+      <p class="muted" style="margin-top:-6px">${t("Pick the type here or in Project Details → Edit project. The project value then picks the tier (Low / Medium / High).")}</p>
+      <div class="pf-scroll"><table class="tbl"><thead><tr><th>${t("Project")}</th><th class="num">${t("Project value")}</th><th class="num">${t("Gross profit")}</th><th>${t("Scheme")}</th></tr></thead>
+        <tbody>${unset.map(r => `<tr><td><b>${esc(r.code)}</b> ${esc(r.name)} <span class="muted">· ${esc(r.company_code)}</span></td>
+          <td class="num">${fmtShortRp(r.value)}</td><td class="num ${r.gp < 0 ? "neg" : ""}">${fmtShortRp(r.gp)}</td>
+          <td>${canWrite() ? `<select class="rm-type" data-pid="${r.id}"><option value="">${t("— not set —")}</option>${cfg.types.map(([k, l]) =>
+            `<option value="${k}">${esc(t(l))}</option>`).join("")}</select>` : `<span class="muted">—</span>`}</td></tr>`).join("")}</tbody></table></div></div>` : ""}`;
+  $$("#rmBody tr[data-pid]").forEach(tr => tr.onclick = () => remuProjectModal(parseInt(tr.dataset.pid, 10), reload));
+  $$("#rmBody .rm-type").forEach(s => s.onchange = async () => {
+    try { await api(`/api/remuneration/projects/${s.dataset.pid}/scheme`, { method: "PUT", json: { remu_type: s.value || null } }); toast(t("Scheme saved")); reload(); }
+    catch (e) { toast(e.message, true); }
+  });
+}
+
+// One project: its scheme, the split of its GP, and its team with each share.
+async function remuProjectModal(pid, reload) {
+  let d;
+  try { d = await api(`/api/remuneration/projects/${pid}?basis=${state.remuBasis || "life"}&year=${state.year}`); }
+  catch (e) { toast(e.message, true); return; }
+  const P = d.project, R = P.result, cfg = d.config, S = R.scheme;
+  const person = id => d.people.find(x => x.id === id) || {};
+  const paid = {};
+  R.payouts.forEach(po => { const k = po.person_id + ":" + po.role; paid[k] = paid[k] || { amount: 0, points: po.points, kind: po.kind }; paid[k].amount += po.amount; });
+  const gp = Math.max(0, R.gp), seg = (v, cls, label) => v > 0 && gp > 0 ? `<span class="${cls}" style="width:${Math.max(2, 100 * v / gp)}%" title="${esc(label)} ${fmtRp(v)}"></span>` : "";
+  openModal(`
+    <p class="muted" style="margin-top:0">${esc(P.company_code)} · ${P.type_name ? esc(P.type_name) : t("no sector")} ·
+      ${t("value")} <b>${fmtRp(P.value)}</b> (${P.value_source === "contract" ? t("contract value") : t("revenue — no contract value set")}) ·
+      ${state.remuBasis === "year" ? state.year : t("whole project life")}</p>
+    <div class="grid kpis">
+      <div class="kpi hl"><div class="kpi-label">${t("Scheme")}</div><div class="kpi-value" style="font-size:17px">${S ? esc(t(S.label)) : "—"}</div>
+        <div class="kpi-sub">${S ? esc(S.value_label) : t("set the type below")}</div></div>
+      <div class="kpi ${R.gp < 0 ? "red" : ""}"><div class="kpi-label">${t("Gross profit")}</div><div class="kpi-value">${fmtShortRp(R.gp)}</div>
+        <div class="kpi-sub">${t("margin")} ${R.margin == null ? "—" : remuPct(R.margin)}${S && S.min_gp != null ? ` · ${t("min")} ${remuPct(S.min_gp)}` : ""}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Office")}</div><div class="kpi-value">${S && S.key === "stp" ? "—" : fmtShortRp(R.office_net)}</div>
+        <div class="kpi-sub">${S && S.office != null ? remuPct(S.office) : ""}${R.agent_fee ? ` · ${t("agent")} −${fmtShortRp(R.agent_fee)}` : ""}</div></div>
+      <div class="kpi green"><div class="kpi-label">${t("Team pool")}</div><div class="kpi-value">${fmtShortRp(R.pool)}</div>
+        <div class="kpi-sub">${remuPct(R.pool_pct)}${R.eligible === false ? ` · <span class="neg">${t("not paid")}</span>` : ""}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Partner / BOD")}</div><div class="kpi-value">${fmtShortRp(R.partner + R.bod)}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Bringer fee")}</div><div class="kpi-value">${fmtShortRp(R.bringer)}</div>
+        <div class="kpi-sub">${S && S.bringer ? remuPct(S.bringer) + " " + t("of value") : ""}</div></div>
+    </div>
+    ${S && gp > 0 ? `<div class="remu-bar">${seg(R.office_net, "o", t("Office"))}${seg(R.agent_fee, "a", t("Agent"))}${seg(R.pool, "p", t("Team pool"))}${seg(R.partner + R.bod, "b", t("Partner / BOD"))}${seg(R.undecided, "u", t("BOD sets"))}</div>
+      <div class="remu-legend"><span><i class="o"></i>${t("Office")}</span>${R.agent_fee ? `<span><i class="a"></i>${t("Agent")}</span>` : ""}<span><i class="p"></i>${t("Team pool")}</span>
+        <span><i class="b"></i>${t("Partner / BOD")}</span>${R.undecided ? `<span><i class="u"></i>${t("BOD sets")}</span>` : ""}</div>` : ""}
+    ${R.notes.map(n => `<div class="warn watch" style="margin-top:8px"><span class="warn-ic">›</span><span>${esc(n)}</span></div>`).join("")}
+    <h3 class="mt">${t("Team & payout")}</h3>
+    <table class="tbl"><thead><tr><th>${t("Person")}</th><th>${t("Grade")}</th><th>${t("Role")}</th><th class="num">${t("Involvement")}</th>
+      <th class="num">${t("Points")}</th><th class="num">${t("Amount")}</th><th></th></tr></thead>
+      <tbody>${P.team.map(m => { const pp = person(m.person_id), k = paid[m.person_id + ":" + m.role] || {}; return `<tr>
+        <td><b>${esc(pp.name || "?")}</b>${pp.is_sample ? ` <span class="pill draft">${t("sample")}</span>` : ""}</td>
+        <td>${esc(remuGrade(cfg, pp.grade))}</td><td>${esc(t(REMU_ROLES[m.role] || m.role))}</td>
+        <td class="num">${canWrite() ? `<input class="rm-inv" data-aid="${m.id}" type="number" min="1" max="100" value="${m.involvement}" style="width:70px;text-align:right">%` : m.involvement + "%"}</td>
+        <td class="num">${k.points == null ? "—" : String(k.points).replace(".", ",")}</td>
+        <td class="num"><b>${k.amount ? fmt(k.amount) : "—"}</b>${k.kind ? `<br><span class="muted" style="font-size:11px">${esc(t(REMU_KIND[k.kind]))}</span>` : ""}</td>
+        <td>${canWrite() ? `<button class="btn btn-sm btn-ghost rm-del" data-aid="${m.id}" title="${t("Remove from the team")}">&times;</button>` : ""}</td></tr>`; }).join("")
+        || `<tr><td colspan="7" class="empty">${t("Nobody on this project yet.")}</td></tr>`}</tbody></table>
+    ${R.unpaid.map(u => `<p class="neg" style="font-size:12.5px">${esc(t(REMU_KIND[u.kind]))} ${fmtRp(u.amount)} — ${esc(u.why)}.</p>`).join("")}
+    ${canWrite() ? `<div class="filters mt rm-add">
+      <label>${t("Person")} <select id="rmP">${d.people.filter(x => x.is_active).map(x => `<option value="${x.id}">${esc(x.name)} · G${x.grade}</option>`).join("")
+        || `<option value="">${t("add people in People & grades first")}</option>`}</select></label>
+      <label>${t("Role")} <select id="rmR">${Object.entries(REMU_ROLES).map(([k, l]) => `<option value="${k}">${esc(t(l))}</option>`).join("")}</select></label>
+      <label>${t("Involvement")} <input id="rmI" type="number" min="1" max="100" value="100" style="width:80px"> %</label>
+      <button class="btn btn-primary" id="rmAdd">${t("Add to team")}</button></div>
+    <div class="card mt" style="background:var(--bg)"><b>${t("Scheme of this project")}</b> <span class="muted">· ${t("also in Project Details → Edit project")}</span>
+      <div class="filters mt"><label>${t("Type")} <select id="rmT"><option value="">${t("— not set —")}</option>${cfg.types.map(([k, l]) =>
+        `<option value="${k}" ${P.remu_type === k ? "selected" : ""}>${esc(t(l))}</option>`).join("")}</select></label>
+        <label>${t("STP team pool (% of GP)")} <input id="rmS" type="number" min="5" max="10" step="0.5" value="${P.remu_stp_pct ?? ""}" style="width:80px"></label>
+        <label>${t("Agent")} <input id="rmA" value="${esc(P.remu_agent || "")}" placeholder="${t("blank = no agent")}"></label>
+        <button class="btn" id="rmSave">${t("Save scheme")}</button></div></div>` : ""}`,
+    { title: `${t("Remuneration")} — ${P.code} ${P.name}`, wide: true });
+  const again = () => { remuProjectModal(pid, reload); if (reload) reload(); };
+  const run = async (p) => { try { await p; again(); } catch (e) { toast(e.message, true); } };
+  $$("#modalRoot .rm-inv").forEach(i => i.onchange = () => run(api(`/api/remuneration/assignments/${i.dataset.aid}`, { method: "PUT", json: { involvement: parseFloat(i.value) } })));
+  $$("#modalRoot .rm-del").forEach(b => b.onclick = () => run(api(`/api/remuneration/assignments/${b.dataset.aid}`, { method: "DELETE" })));
+  if ($("#rmAdd")) $("#rmAdd").onclick = () => run(api(`/api/remuneration/projects/${pid}/team`, { json: {
+    person_id: parseInt($("#rmP").value, 10), role: $("#rmR").value, involvement: parseFloat($("#rmI").value) } }));
+  if ($("#rmSave")) $("#rmSave").onclick = () => run(api(`/api/remuneration/projects/${pid}/scheme`, { method: "PUT", json: {
+    remu_type: $("#rmT").value || null, remu_stp_pct: $("#rmS").value === "" ? null : parseFloat($("#rmS").value), remu_agent: $("#rmA").value } }));
+}
+
+// The consultants and their grades: G1 Analyst, G2 Consultant, G3 Project
+// Manager, G4 Partner - each grade with the weight its points carry.
+async function remuPeople(body, reload) {
+  const [people, cfg] = await Promise.all([api("/api/remuneration/people"), api("/api/remuneration/config")]);
+  const d = await api(`/api/remuneration/projects?${remuQS()}`);
+  const earned = {}; d.totals.forEach(x => earned[x.person_id] = x);
+  const samples = people.filter(p => p.is_sample).length;
+  body.innerHTML = `<div class="grid two-col">
+    <div class="card"><div class="page-head"><h3 style="margin:0">${t("People")} <span class="muted" style="font-weight:500">· ${people.length}</span></h3>
+        ${canWrite() && samples ? `<button class="btn btn-sm btn-danger" id="rmClear">${t("Remove the sample people")} (${samples})</button>` : ""}</div>
+      ${canWrite() ? `<div class="filters" style="margin:6px 0 10px"><input id="rmNewName" placeholder="${t("Full name")}" style="min-width:200px">
+        <select id="rmNewGrade">${cfg.grades.map(g => `<option value="${g.grade}">${esc(g.code)} — ${esc(t(g.title))}</option>`).join("")}</select>
+        <button class="btn btn-primary" id="rmNewAdd">+ ${t("Add person")}</button></div>` : ""}
+      <div class="pf-scroll"><table class="tbl"><thead><tr><th>${t("Name")}</th><th>${t("Grade")}</th><th class="num">${t("Projects")}</th>
+        <th class="num">${t("Earned")}</th><th></th></tr></thead>
+        <tbody>${people.map(p => { const e = earned[p.id] || {}; return `<tr class="${p.is_active ? "" : "muted"}">
+          <td><b>${esc(p.name)}</b>${p.is_sample ? ` <span class="pill draft">${t("sample")}</span>` : ""}${p.is_active ? "" : ` <span class="pill inactive">${t("inactive")}</span>`}
+            ${p.notes ? `<br><span class="muted" style="font-size:11.5px">${esc(p.notes)}</span>` : ""}</td>
+          <td>${esc(remuGrade(cfg, p.grade))}</td><td class="num">${e.projects || 0}</td><td class="num">${fmt(e.total || 0)}</td>
+          <td>${canWrite() ? `<button class="btn btn-sm" data-edit="${p.id}">${t("Edit")}</button>` : ""}</td></tr>`; }).join("")
+          || `<tr><td colspan="5" class="empty">${t("No one yet — add the consultants, or try the Simulation tab with made-up names.")}</td></tr>`}</tbody></table></div></div>
+    <div class="card"><div class="page-head"><h3 style="margin:0">${t("Grades")}</h3>
+        ${isAdmin() ? `<button class="btn btn-sm btn-primary" id="rmGradeSave">${t("Save")}</button>` : ""}</div>
+      <p class="muted" style="margin-top:-6px">${t("A person's points on a project = their grade's weight × their involvement. The team pool is split by points.")}</p>
+      <table class="tbl"><thead><tr><th>${t("Grade")}</th><th>${t("Title")}</th><th class="num">${t("Weight")}</th><th class="num">${t("People")}</th></tr></thead>
+        <tbody>${cfg.grades.map(g => `<tr><td><b>${esc(g.code)}</b></td>
+          <td>${isAdmin() ? `<input class="rm-gt" data-g="${g.grade}" value="${esc(g.title)}">` : esc(t(g.title))}</td>
+          <td class="num">${isAdmin() ? `<input class="rm-gw" data-g="${g.grade}" type="number" min="0.1" step="0.1" value="${g.weight}" style="width:80px;text-align:right">` : g.weight}</td>
+          <td class="num">${people.filter(p => p.grade === g.grade && p.is_active).length}</td></tr>`).join("")}</tbody></table></div></div>`;
+  if ($("#rmNewAdd")) $("#rmNewAdd").onclick = async () => {
+    try { await api("/api/remuneration/people", { json: { name: $("#rmNewName").value, grade: parseInt($("#rmNewGrade").value, 10) } }); toast(t("Person added")); reload(); }
+    catch (e) { toast(e.message, true); }
+  };
+  if ($("#rmClear")) $("#rmClear").onclick = async () => {
+    if (!confirm(t("Remove every sample person and their places on project teams?"))) return;
+    try { const r = await api("/api/remuneration/people/sample", { method: "DELETE" }); toast(`${r.removed} ${t("removed")}`); reload(); }
+    catch (e) { toast(e.message, true); }
+  };
+  $$("#rmBody [data-edit]").forEach(b => b.onclick = () => remuPersonModal(people.find(p => p.id == b.dataset.edit), cfg, reload));
+  if ($("#rmGradeSave")) $("#rmGradeSave").onclick = async () => {
+    const grades = cfg.grades.map(g => ({ grade: g.grade, title: $(`#rmBody .rm-gt[data-g="${g.grade}"]`).value,
+      weight: parseFloat($(`#rmBody .rm-gw[data-g="${g.grade}"]`).value) }));
+    try { await api("/api/remuneration/config", { method: "PUT", json: { grades } }); toast(t("Grades saved")); reload(); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+function remuPersonModal(p, cfg, reload) {
+  openModal(`<div class="form-grid">
+      <label class="full">${t("Name")} <input id="rpName" value="${esc(p.name)}"></label>
+      <label>${t("Grade")} <select id="rpGrade">${cfg.grades.map(g => `<option value="${g.grade}" ${g.grade === p.grade ? "selected" : ""}>${esc(g.code)} — ${esc(t(g.title))}</option>`).join("")}</select></label>
+      <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="rpActive" ${p.is_active ? "checked" : ""} style="width:auto"> ${t("Active")}</label>
+      <label class="full">${t("Notes")} <input id="rpNotes" value="${esc(p.notes || "")}"></label></div>
+    <div class="form-actions"><button class="btn btn-danger" id="rpDel">${t("Delete")}</button><button class="btn btn-primary" id="rpSave">${t("Save")}</button></div>`,
+    { title: t("Edit person"), small: true });
+  $("#rpSave").onclick = async () => {
+    try { await api(`/api/remuneration/people/${p.id}`, { method: "PUT", json: { name: $("#rpName").value, grade: parseInt($("#rpGrade").value, 10),
+      notes: $("#rpNotes").value, is_active: $("#rpActive").checked } }); toast(t("Saved")); closeModal(); reload(); }
+    catch (e) { toast(e.message, true); }
+  };
+  $("#rpDel").onclick = async () => {
+    if (!confirm(t("Delete this person and their places on project teams?"))) return;
+    try { await api(`/api/remuneration/people/${p.id}`, { method: "DELETE" }); toast(t("Deleted")); closeModal(); reload(); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+
+// A what-if with made-up names on the real projects' actual GP. Nothing is saved
+// unless "Keep these names" is pressed.
+async function remuSim(body, reload) {
+  const o = state.remuSimOpts = state.remuSimOpts || { seed: 1, people: 8, projects: 6, assumed: "t2" };
+  body.innerHTML = `<div class="card"><div class="filters">
+      <label>${t("Made-up people")} <input id="rsN" type="number" min="2" max="40" value="${o.people}" style="width:70px"></label>
+      <label>${t("Projects (highest GP first)")} <input id="rsP" type="number" min="1" max="30" value="${o.projects}" style="width:70px"></label>
+      <label>${t("Projects with no scheme count as")} <select id="rsT">${REMU_TYPES.map(([k, l]) => `<option value="${k}" ${o.assumed === k ? "selected" : ""}>${esc(t(l))}</option>`).join("")}</select></label>
+      <button class="btn btn-primary" id="rsRun">${t("Run simulation")}</button>
+      <button class="btn" id="rsNew">&#8635; ${t("New names")}</button></div>
+    <p class="muted" style="margin:6px 0 0">${t("Random names and teams on your real projects' actual gross profit — nothing is saved. Projects that already have a scheme keep it.")}</p></div>
+    <div id="rsOut" class="mt"></div>`;
+  const run = async () => {
+    Object.assign(o, { people: parseInt($("#rsN").value, 10), projects: parseInt($("#rsP").value, 10), assumed: $("#rsT").value });
+    const out = $("#rsOut");
+    out.innerHTML = `<div class="card"><div class="empty">${t("Reading…")}</div></div>`;
+    let d;
+    try { d = await api(`/api/remuneration/simulate?${remuQS()}`, { json: { seed: o.seed, people: o.people, projects: o.projects, assumed_type: o.assumed } }); }
+    catch (e) { out.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; return; }
+    const cfg = d.config, nm = k => (d.people.find(p => p.key === k) || {}).name || "?";
+    out.innerHTML = `
+      <div class="card"><div class="page-head"><h3 style="margin:0">${t("The made-up team")} <span class="muted" style="font-weight:500">· ${d.people.length}</span></h3>
+          ${canWrite() ? `<button class="btn btn-sm" id="rsKeep">${t("Keep these names as sample people")}</button>` : ""}</div>
+        <div class="rs-people">${d.people.map(p => `<span class="rs-chip g${p.grade}"><b>${esc(p.name)}</b> ${esc(remuGrade(cfg, p.grade))}</span>`).join("")}</div></div>
+      <div class="rs-grid mt">${d.projects.map(r => { const R = r.result; return `<div class="card rs-card">
+        <div class="rs-h"><b>${esc(r.code)}</b> ${esc(r.name)}</div>
+        <div class="muted" style="font-size:12px">${R.scheme ? esc(t(R.scheme.label)) : "—"}${r.assumed ? ` · ${t("assumed")}` : ""} · ${t("GP")} ${fmtShortRp(R.gp)} · ${t("margin")} ${R.margin == null ? "—" : remuPct(R.margin)}</div>
+        <div class="rs-split"><span>${t("Team pool")} <b>${fmtShortRp(R.pool)}</b></span>${R.partner + R.bod ? `<span>${t("Partner / BOD")} <b>${fmtShortRp(R.partner + R.bod)}</b></span>` : ""}
+          ${R.bringer ? `<span>${t("Bringer")} <b>${fmtShortRp(R.bringer)}</b></span>` : ""}</div>
+        ${R.eligible === false ? `<div class="neg" style="font-size:12px">${t("Below the minimum GP — the team pool is not paid.")}</div>` : ""}
+        <table class="tbl rs-tbl"><tbody>${R.payouts.map(po => `<tr><td>${esc(nm(po.person_id))}</td><td class="muted">${esc(t(REMU_ROLES[po.role]))}</td>
+          <td class="num"><b>${fmtShortRp(po.amount)}</b></td></tr>`).join("")}</tbody></table></div>`; }).join("")
+        || `<div class="card"><div class="empty">${t("No project with a positive gross profit in this scope.")}</div></div>`}</div>
+      <div class="card mt"><h3>${t("What each person would earn")}</h3>
+        <div class="pf-scroll"><table class="tbl"><thead><tr><th>${t("Person")}</th><th>${t("Grade")}</th><th class="num">${t("Projects")}</th>
+          <th class="num">${t("Team pool")}</th><th class="num">${t("Bringer fee")}</th><th class="num">${t("Partner / BOD")}</th><th class="num">${t("Total")}</th></tr></thead>
+          <tbody>${d.totals.map(x => `<tr><td><b>${esc(nm(x.person_id))}</b></td><td>${esc(remuGrade(cfg, x.grade))}</td><td class="num">${x.projects}</td>
+            <td class="num">${fmt(x.pool)}</td><td class="num">${fmt(x.bringer)}</td><td class="num">${fmt(x.partner + x.bod)}</td><td class="num"><b>${fmt(x.total)}</b></td></tr>`).join("")}</tbody></table></div></div>`;
+    if ($("#rsKeep")) $("#rsKeep").onclick = async () => {
+      try { const r = await api("/api/remuneration/people/sample", { json: { people: d.people } }); toast(`${r.added} ${t("sample people added — find them in People & grades")}`); }
+      catch (e) { toast(e.message, true); }
+    };
+  };
+  $("#rsRun").onclick = run;
+  $("#rsNew").onclick = () => { o.seed += 1; run(); };
+  run();
+}
+
+// The policy sheet: what each scheme gives the office, the team pool, the
+// bringer and the partner / BOD. An admin can change the percentages.
+async function remuScheme(body, reload) {
+  const cfg = await api("/api/remuneration/config");
+  const ed = isAdmin();
+  const cell = (s, k, txt) => ed && s[k] != null ? `<input class="rm-sc" data-s="${s.key}" data-k="${k}" type="number" step="0.5" min="0" max="100"
+      value="${Math.round(s[k] * 1000) / 10}" style="width:70px;text-align:right">%` : (txt != null ? txt : (s[k] == null ? "—" : remuPct(s[k])));
+  const poolTxt = s => s.key === "stp" ? `${remuPct(cfg.stp_range[0])}–${remuPct(cfg.stp_range[1])} ${t("of GP")}` : null;
+  body.innerHTML = `<div class="card"><div class="page-head"><h3 style="margin:0">${t("Remuneration scheme")} <span class="muted" style="font-weight:500">· ${t("per project")}</span></h3>
+      ${ed ? `<button class="btn btn-sm btn-primary" id="rmScSave">${t("Save")}</button>` : ""}</div>
+    <p class="muted" style="margin-top:-6px">${t("Shares use GP. Bringer fees use project value.")}</p>
+    <div class="pf-scroll"><table class="tbl remu-scheme"><thead><tr><th>${t("Scheme")}</th><th>${t("Project value")}</th><th class="num">${t("Min. GP")}</th>
+      <th class="num">${t("Office")}</th><th class="num">${t("Team BONUS pool")}</th><th class="num">${t("Bringer")}</th><th class="num">${t("Partner / BOD")}</th></tr></thead>
+      <tbody>${cfg.schemes.map(s => `<tr><td><b>${esc(t(s.label))}</b></td><td>${esc(s.value_label)}</td>
+        <td class="num">${cell(s, "min_gp")}</td>
+        <td class="num">${cell(s, "office", s.key === "stp" ? t("Not set") : null)}</td>
+        <td class="num">${cell(s, "pool", poolTxt(s))}${s.pool_with_bod ? ` <span class="muted">${t("team + BOD")}</span>` : ""}</td>
+        <td class="num">${cell(s, "bringer", s.key === "stp" ? t("Not set") : null)}</td>
+        <td class="num">${s.partner != null ? `${t("Partner")} ${cell(s, "partner")}` : s.bod != null ? `${t("BOD")} ${cell(s, "bod")}`
+          : s.pool_with_bod ? t("Within the pool") : s.key === "stp" ? t("Not set") : "—"}</td></tr>`).join("")}</tbody></table></div>
+    <p class="muted mt" style="font-size:12.5px">${t("Type 1: the partner is PM; office fixed at 60%, partner and team negotiate within 40%. Type 2: Finance sets the PM; the project value picks Low (< Rp100m), Medium (Rp100m–Rp1bn) or High (Rp1bn–Rp5bn), and above Rp5bn it is an STP. Type 3: Low below Rp500m, High from Rp500m.")}</p>
+    <p class="muted" style="font-size:12.5px">${t("Agent, if used:")} ${ed ? `<input id="rmAgentRate" type="number" step="0.5" min="0" max="100" value="${Math.round(cfg.agent_rate * 1000) / 10}" style="width:70px;text-align:right">%`
+      : remuPct(cfg.agent_rate)} ${t("of the project value, from the office's share. Eligibility (min GP) is separate from the bringer award.")}</p></div>`;
+  if ($("#rmScSave")) $("#rmScSave").onclick = async () => {
+    const schemes = {};
+    $$("#rmBody .rm-sc").forEach(i => { (schemes[i.dataset.s] = schemes[i.dataset.s] || {})[i.dataset.k] = i.value === "" ? null : parseFloat(i.value) / 100; });
+    try { await api("/api/remuneration/config", { method: "PUT", json: { schemes, agent_rate: parseFloat($("#rmAgentRate").value) / 100 } }); toast(t("Scheme saved")); reload(); }
+    catch (e) { toast(e.message, true); }
+  };
 }
 
 /* ---- CEO Dashboard ------------------------------------------------------------ */
@@ -1766,8 +2291,55 @@ function ceoSbuCard(list) {
           : p == null ? t("no cost budget") : `${fmtShortRp(s.cost_ytd)} / ${fmtShortRp(s.cost_budget)}`}</small></span>
         <span class="ceo-pic-bar"><i style="width:${Math.min(100, p || 0)}%"></i></span></button>`; }).join("")}</div>`
       : `<div class="empty">${t("No SBU yet.")}</div>`}
-    <p class="muted ceo-note">${t("Budget used = the SBU's cost so far this year (COGS, operating cost, depreciation) against its cost budget for the whole year. Amber = ahead of the budget's pace, red = over the year's budget. Click a picture to open the SBU.")}</p>
+    <p class="muted ceo-note">${t("Budget used = the SBU's cost so far this year (COGS, operating cost, depreciation) against its cost budget for the whole year. Amber = ahead of the budget's pace, red = over the year's budget. Click a picture for its cash in, cash out and outflow per project.")}</p>
   </div>`;
+}
+
+// (v1.12) The small popup behind an SBU picture: cash in, cash out and the
+// outflow per project, read like the SBU report's cash flow. The projects are
+// the SBU's linked ones plus every project of its source company (SIBERNETIKA
+// - MORES NX on the real data), which can be changed here.
+async function sbuCashPopup(s) {
+  const title = s.title || s.name;
+  const root = openModal(`<div class="sbc"><div class="empty">${t("Reading…")}</div></div>`, { title, small: true });
+  const body = $(".sbc", root);
+  let b;
+  try { b = await api(`/api/products/${s.id}/cash-brief?${scopeQS()}`); }
+  catch (e) { body.innerHTML = `<p class="neg">${esc(e.message)}</p>`; return; }
+  if (!document.body.contains(body)) return;
+  const max = Math.max(1, ...b.projects.map(p => p.cash_out));
+  const src = b.source_company;
+  const srcText = src ? `${t("Projects of")} <b>${esc(src.name)}</b>${b.source === "chosen" ? "" : ` <span class="muted">(${t("from its linked projects")})</span>`}`
+    : t("Only the projects linked to this SBU");
+  const pick = canWrite() && b.companies.length ? `<label class="sbc-pick">${t("Source company")}
+      <select id="sbcSrc"><option value="">${t("Automatic — company of the linked projects")}</option>
+      ${b.companies.map(c => `<option value="${c.id}" ${b.source === "chosen" && src && src.id === c.id ? "selected" : ""}>${esc(c.code)} — ${esc(c.name)}</option>`).join("")}</select></label>` : "";
+  body.innerHTML = `
+    <div class="sbc-hero"><img src="${entPic("product", s)}" alt="" style="object-position:${artFocus("product", s)}">
+      <span><b>${esc(title)}</b><small>SBU ${s.n}${s.sbu_type ? " · " + esc(sbuTypeLabel(s.sbu_type)) : ""} · ${b.year}</small></span></div>
+    <div class="sbc-stats">
+      <div class="in"><small>${t("Cash in")}</small><b>${fmtShortRp(b.cash_in)}</b></div>
+      <div class="out"><small>${t("Cash out")}</small><b>${fmtShortRp(b.cash_out)}</b></div>
+      <div class="${b.net < 0 ? "neg" : "pos"}"><small>${t("Net")}</small><b>${fmtShortRp(b.net)}</b></div>
+    </div>
+    <div class="sbc-src">${srcText} · ${b.projects.length} ${t("projects")}</div>
+    <h4 class="sbc-h">${t("Outflow per project")}</h4>
+    ${b.projects.length ? `<div class="sbc-rows">${b.projects.map(p => `<div class="sbc-row" title="${esc(p.code)} — ${esc(p.name)}">
+        <span class="sbc-nm"><b>${esc(p.code)}</b> ${esc(p.name)}${p.linked ? ` <span class="sbc-link">${t("linked")}</span>` : ""}</span>
+        <span class="sbc-amt">${fmtShortRp(p.cash_out)}</span>
+        <span class="sbc-bar"><i style="width:${(100 * p.cash_out / max).toFixed(1)}%"></i></span>
+        <span class="sbc-in muted">${t("in")} ${fmtShortRp(p.cash_in)}</span></div>`).join("")}</div>`
+      : `<div class="empty">${t("No projects belong to this SBU yet — link them in the SBU's report settings or pick a source company.")}</div>`}
+    ${pick}
+    <p class="muted sbc-note">${t("Read like the SBU report's cash flow: revenue booked to these projects is cash in, cost booked to them is cash out (depreciation left out). Every company's books are read, so a cost booked in MDA but tagged to an NX project counts here.")}</p>
+    <div class="sbc-acts"><button type="button" class="btn primary" id="sbcOpen">${t("Open SBU")} &rarr;</button></div>`;
+  $("#sbcOpen", root).onclick = () => { closeModal(); state.pfId = s.id; state.pfTab = "dash"; location.hash = "#/product"; };
+  if ($("#sbcSrc", root)) $("#sbcSrc", root).onchange = async e => {
+    try {
+      await api(`/api/products/${s.id}/cash-source`, { method: "PUT", json: { company_id: e.target.value || null } });
+      toast(t("Saved")); sbuCashPopup(s);
+    } catch (err) { toast(err.message, true); }
+  };
 }
 
 // Each initiative as its picture: budget used (paid) per budget allocated
@@ -1824,7 +2396,10 @@ function renderCeoBlockWire(box, d, reload) {
   $$(".ceo-hl-row", box).forEach(r => r.onclick = () => r.dataset.track
     ? moneyTrackerDetail(r.dataset.track, () => renderCeoBlock(box, reload))
     : projectDetail(r.dataset.project, r.dataset.name, "completed"));
-  $$(".ceo-sbu", box).forEach(r => r.onclick = () => { state.pfId = parseInt(r.dataset.id, 10); state.pfTab = "dash"; location.hash = "#/product"; });
+  $$(".ceo-sbu", box).forEach(r => r.onclick = () => {
+    const s = (d.sbu || []).find(x => String(x.id) === r.dataset.id);
+    if (s) sbuCashPopup(s);
+  });
   $$(".ceo-pic[data-inv]", box).forEach(p => {
     const go = () => investmentDetail(p.dataset.inv, () => renderCeoBlock(box, reload));
     p.onclick = e => { if (!e.target.closest(".ceo-star")) go(); };
@@ -1998,8 +2573,7 @@ async function pageDashboard(el) {
         <div class="ceo-head"><b>${t("Jakarta Cost Office")}</b>
           <a href="#/expenses" class="muted" title="${t("Petty Cash Monit and Grab, line by line")}">${t("Devil in detail")} &rarr;</a></div>
         <div class="ceo-sub">${t("OPERATING EXPENSES (6000) · REALIZATION VS BUDGET")}</div>
-        ${chartDonut(opexRows.slice(0, 6).map((r, i) => ({
-          label: r.code + " " + r.name, value: r.actual, color: PALETTE[i % PALETTE.length] })), { size: 160 })}
+        ${chartPie(exDonutItems(opexRows, r => r.code + " " + r.name, r => r.actual, 6), { size: 200, label: t("Operating cost") })}
         <div class="office-total mt">
           <span><b>${t("Office cost")}</b> <span class="muted">(${t("rent · utilities · admin")})</span></span>
           <span>${t("Realization")} <b>${fmtShortRp(officeActual)}</b> · ${t("Budget")} <b>${fmtShortRp(officeBudget)}</b>
@@ -2892,7 +3466,7 @@ async function pageBank(el) {
       <div id="bkGrabBox" hidden>
         <p class="muted" style="margin-top:-2px">${t("Upload the Grab for Business CSV reports — Express, Transport and Food. You can pick all three at once.")}
         ${t("Each booking becomes one entry: the date, the employee's name with the type of transaction as the description, and the right-most total on the row (what the company pays after any refund) as the amount.")}
-        ${t("It is charged to the CORP PAY - GRAB cash account of the company — MDA by default — and debits the cost account: Food to Food & Beverage, Transport and Express to Transportation.")}
+        ${t("Grab bills the company later, so each booking is Dr the cost account (Food to Food & Beverage, Transport and Express to Transportation) / Cr Grab Payable of the company — MDA by default. At month end, when the bill is paid: Dr Grab Payable (+ Dr Grab Admin Fee if any) / Cr the bank.")}
         ${t("Re-uploading is safe: bookings already posted are recognised by their Grab Booking ID.")}</p>
         <div class="filters">
           <label>${t("CSV file(s)")} <input type="file" id="bkGrabFile" accept=".csv,.txt" multiple></label>
@@ -2900,6 +3474,7 @@ async function pageBank(el) {
           <span class="muted" id="bkGrabInfo"></span>
         </div>
         <div class="filters" style="margin-top:6px" id="bkGrabAcct"></div>
+        <div class="card mt" id="bkGrabPay" style="background:var(--bg)"></div>
       </div>
       <div id="bkCcBox" hidden>
         <p class="muted" style="margin-top:-2px">Upload the <b>credit-card statement PDF</b> (BCA Kartu Kredit — REKENING KARTU KREDIT).
@@ -2974,22 +3549,61 @@ async function pageBank(el) {
     if (mode === "grab") selectGrabAccount();
   }
 
-  // Grab bookings are charged to the company's CORP PAY - GRAB cash account
-  const grabAccount = () => accounts.find(a => a.type === "asset" && String(a.name).trim().toUpperCase() === "CORP PAY - GRAB");
+  // Grab bookings are credited to the company's Grab Payable (a debt to Grab)
+  const grabAccount = () => accounts.find(a => a.type === "liability" && String(a.name).trim().toUpperCase() === "GRAB PAYABLE");
   function selectGrabAccount() {
     const ga = grabAccount();
-    if (ga) $("#bkBank").value = String(ga.id);
+    if (ga) {
+      if (!Array.from($("#bkBank").options).some(o => o.value === String(ga.id)))
+        $("#bkBank").insertAdjacentHTML("beforeend", `<option value="${ga.id}">${esc(ga.code)} ${esc(ga.name)}</option>`);
+      $("#bkBank").value = String(ga.id);
+    }
     const box = $("#bkGrabAcct");
     if (!box) return;
     box.innerHTML = ga
-      ? `<span class="muted">${t("Charged to")} <b>${esc(ga.code)} ${esc(ga.name)}</b></span>`
-      : `<span class="neg">${t("This company has no CORP PAY - GRAB account yet.")}</span>
-         <button class="btn btn-sm" id="bkGrabMake">+ ${t("Create CORP PAY - GRAB (cash)")}</button>`;
+      ? `<span class="muted">${t("Credited to")} <b>${esc(ga.code)} ${esc(ga.name)}</b></span>`
+      : `<span class="neg">${t("This company has no Grab Payable account yet.")}</span>
+         <button class="btn btn-sm" id="bkGrabMake">+ ${t("Create Grab Payable")}</button>`;
+    grabPayBox();
     if ($("#bkGrabMake")) $("#bkGrabMake").onclick = async () => {
       try {
         const r = await api("/api/bank/grab-account", { json: { company_id: parseInt($("#bkCompany").value, 10) } });
         toast(`${t("Account created")}: ${r.code} ${r.name}`);
         await loadCompanyData();
+      } catch (e) { toast(e.message, true); }
+    };
+  }
+
+  // the month-end Grab bill: Dr Grab Payable (+ Dr Grab Admin Fee) / Cr the bank
+  async function grabPayBox() {
+    const box = $("#bkGrabPay");
+    if (!box) return;
+    const cid = parseInt($("#bkCompany").value, 10);
+    let g;
+    try { g = await api(`/api/bank/grab-payable?company_id=${cid}`); } catch (e) { box.innerHTML = ""; return; }
+    if (!g.account) { box.innerHTML = ""; return; }
+    const banks = accounts.filter(a => a.type === "asset" && String(a.code).startsWith("11") && !String(a.code).startsWith("1170"));
+    box.innerHTML = `<b>${t("Pay the Grab bill")}</b> <span class="muted">· ${t("still owed to Grab")} <b>${fmtRp(g.owed)}</b></span>
+      <div class="filters mt">
+        <label>${t("Date")} <input type="date" id="gpDate" value="${new Date().toISOString().slice(0, 10)}"></label>
+        <label>${t("Bill amount")} <input id="gpAmt" inputmode="numeric" value="${g.owed > 0 ? fmt(g.owed) : ""}" style="width:150px;text-align:right"></label>
+        <label>${t("Grab admin fee")} <input id="gpFee" inputmode="numeric" placeholder="0" style="width:120px;text-align:right"></label>
+        <label>${t("Paid from")} <select id="gpBank">${banks.map(a => `<option value="${a.id}" ${a.code === "1120" ? "selected" : ""}>${esc(a.code)} ${esc(a.name)}</option>`).join("")}</select></label>
+        <label>${t("Reference")} <input id="gpRef" placeholder="${t("Grab statement no.")}" style="width:160px"></label>
+        <button class="btn btn-primary" id="gpBook" ${canWrite() ? "" : "disabled"}>${t("Book the payment")}</button></div>
+      <p class="muted" style="font-size:12px;margin:6px 0 0">${t("Books Dr")} ${esc(g.account.code)} ${esc(g.account.name)}${g.fee_account ? ` + ${t("Dr")} ${esc(g.fee_account.code)} ${esc(g.fee_account.name)}` : ""} / ${t("Cr the bank — posted at once.")}</p>`;
+    $("#gpBook").onclick = async () => {
+      const num = s => parseInt(String(s || "").replace(/[^\d]/g, ""), 10) || 0;
+      const amt = num($("#gpAmt").value), fee = num($("#gpFee").value);
+      if (!amt) { toast(t("Enter the bill amount"), true); return; }
+      if (fee && !g.fee_account) { toast(t("This company has no Grab Admin Fee account"), true); return; }
+      const lines = [{ account_id: g.account.id, debit: amt, credit: 0, description: t("Grab bill paid") }];
+      if (fee) lines.push({ account_id: g.fee_account.id, debit: fee, credit: 0, description: t("Grab admin fee") });
+      lines.push({ account_id: parseInt($("#gpBank").value, 10), debit: 0, credit: amt + fee, description: t("Grab bill paid") });
+      try {
+        const r = await api("/api/journals", { json: { company_id: cid, date: $("#gpDate").value, status: "posted",
+          description: t("Grab for Business bill paid"), reference: $("#gpRef").value, lines } });
+        toast(`${t("Payment booked")}: ${r.entry_no}`); grabPayBox();
       } catch (e) { toast(e.message, true); }
     };
   }
@@ -3097,7 +3711,7 @@ async function pageBank(el) {
     $("#bkBankLabel").firstChild.textContent = mode === "wallet"
       ? "Petty Cash account (deducted from this) "
       : mode === "cc" ? "Credit card / cash account (credited) "
-      : mode === "grab" ? t("CORP PAY - GRAB account (charged) ") + " "
+      : mode === "grab" ? t("Grab Payable (credited) ") + " "
       : "Cash / Bank account (the cash side) ";
   });
   $("#bkSetDefault").onclick = async () => {
@@ -3314,7 +3928,7 @@ async function pageExpenses(el) {
   if (!state.exGrabBy) state.exGrabBy = "service";
   const qs = `${scopeQS()}${state.exMonth ? "&month=" + state.exMonth : ""}`;
   el.innerHTML = `
-    <div class="page-head"><h2>${t("Jakarta Cost Office")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("Devil in Detail — Petty Cash Monit & Grab Business Input")}</span></h2>
+    <div class="page-head"><h2>${t("Jakarta Cost Office")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("Devil in Detail — Petty Cash Monit, Grab Business Input & the corporate credit card")}</span></h2>
       <div class="page-actions">
         <label class="muted">${t("Period")} <select id="exMonth">
           <option value="">${t("Whole year")} ${state.year}</option>
@@ -3329,22 +3943,49 @@ async function pageExpenses(el) {
   catch (e) { root.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; return; }
   if (!document.body.contains(root)) return;
   $("#scopeBadge").textContent = d.scope;
-  const P = d.petty, G = d.grab;
+  const P = d.petty, G = d.grab, C = d.card, O = d.opex;
   const multi = (P.accounts.length + G.accounts.length) > 1 || state.companyId === "all";
   const period = state.exMonth ? `${t(MONTH_NAMES[state.exMonth - 1])} ${d.year}` : `${d.year}`;
+  const used = (a, b) => b ? Math.round(100 * a / b) : null;
+  const ou = used(O.actual, O.budget), oo = used(O.office_actual, O.office_budget);
 
   root.innerHTML = `
-    <div class="ex-two">
+    <div class="card jco-total">
+      <div class="jco-total-head"><div><div class="kpi-label">${t("Total MORES cost · operating expenses (6000)")} · ${period}</div>
+          <div class="jco-big">${fmtRp(O.actual)}</div>
+          <div class="muted">${t("Budget")} ${fmtRp(O.budget)}${ou == null ? "" : ` · <span class="${ou > 100 ? "neg" : "pos"}">${ou}% ${t("used")}</span>`}</div></div>
+        <div class="office-total"><span><b>${t("Office cost")}</b> <span class="muted">(${t("rent · utilities · admin")})</span></span>
+          <span>${t("Realization")} <b>${fmtShortRp(O.office_actual)}</b> · ${t("Budget")} <b>${fmtShortRp(O.office_budget)}</b>
+          ${oo == null ? "" : `· <span class="${oo > 100 ? "neg" : "pos"}">${oo}% ${t("used")}</span>`}</span></div></div>
+      <div class="jco-total-body">
+        ${chartPie(exDonutItems(O.rows, r => `${r.code} ${r.name}`, r => r.actual, 7), { label: t("Operating cost") })}
+        <div class="pf-scroll" style="max-height:300px"><table class="tbl"><thead><tr><th>${t("Account")}</th><th class="num">${t("Realization")}</th>
+          <th class="num">${t("Budget")}</th><th class="num">${t("Used")}</th></tr></thead>
+          <tbody>${O.rows.map(r => { const u = used(r.actual, r.budget); return `<tr><td><a href="#" class="opex-code" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.code)} ${esc(r.name)}</a></td>
+            <td class="num">${fmt(r.actual)}</td><td class="num muted">${fmt(r.budget)}</td>
+            <td class="num ${u != null && u > 100 ? "neg" : ""}">${u == null ? "—" : u + "%"}</td></tr>`; }).join("")
+            || `<tr><td colspan="4" class="empty">${t("No operating expenses")}</td></tr>`}</tbody></table></div>
+      </div>
+    </div>
+
+    <div class="jco-three mt">
       <div class="card"><h3>${t("Petty Cash Monit usage")} <span class="muted" style="font-weight:500">· ${period}</span></h3>
-        <p class="muted" style="margin-top:-6px;font-size:12px">${t("Money out of petty cash, by the cost account it was spent on.")}</p>
-        ${P.accounts.length ? chartDonut(exDonutItems(P.usage, x => `${x.code} ${x.name}`, x => x.amount), { size: 200 })
+        <div class="jco-sum"><b>${fmtShortRp(P.out_total)}</b> <span class="muted">${t("spent")} · ${t("topped up")} ${fmtShortRp(P.in_total)} · ${t("balance")} ${fmtShortRp(P.closing)}</span></div>
+        ${P.accounts.length ? chartPie(exDonutItems(P.usage, x => `${x.code} ${x.name}`, x => x.amount), { label: t("Spent") })
           : `<div class="empty">${t("No Petty Cash Monit account (1130) in this scope.")}</div>`}
       </div>
       <div class="card"><h3>${t("Grab Business Input usage")} <span class="muted" style="font-weight:500">· ${period}</span></h3>
-        <div class="seg-group" id="exGrabBy" style="margin:-4px 0 8px">
+        <div class="jco-sum"><b>${fmtShortRp(G.total)}</b> <span class="muted">${G.count} ${t("rides, deliveries & orders")} · ${t("still owed")} ${fmtShortRp(-Math.min(0, G.closing))}</span></div>
+        <div class="seg-group" id="exGrabBy" style="margin:0 0 8px">
           ${[["service", t("By type")], ["person", t("By person")], ["account", t("By account")]].map(([k, l]) =>
             `<button class="seg ${state.exGrabBy === k ? "active" : ""}" data-k="${k}">${l}</button>`).join("")}</div>
         <div id="exGrabDonut"></div>
+      </div>
+      <div class="card"><h3>${t("Corporate credit card")} <span class="muted" style="font-weight:500">· ${period}</span></h3>
+        <div class="jco-sum"><b>${fmtShortRp(C.out_total)}</b> <span class="muted">${t("charged")} · ${t("paid off")} ${fmtShortRp(C.in_total)} · ${t("balance")} ${fmtShortRp(C.closing)}</span></div>
+        ${C.accounts.length ? chartPie(exDonutItems(C.usage, x => `${x.code} ${x.name}`, x => x.amount), { label: t("Charged") })
+          : `<div class="empty">${t("No corporate credit card account (1170) in this scope.")}</div>`}
+        ${C.accounts.length ? `<p class="muted" style="font-size:11.5px;margin:8px 0 0">${C.accounts.map(a => `${esc(a.company_code)} ${esc(a.code)} ${esc(a.name)}`).join(" · ")}</p>` : ""}
       </div>
     </div>
 
@@ -3386,7 +4027,7 @@ async function pageExpenses(el) {
         ${exTile(t("Grab spending"), G.total, `${G.count} ${t("rides, deliveries & orders")}`, "neg")}
         ${exTile(t("People"), null, G.people ? `${t("average")} ${fmtRp(G.total / G.people)} ${t("each")}` : "", "", String(G.people))}
         ${exTile(t("Average per transaction"), G.average, "")}
-        ${exTile(t("Still owed to Grab"), -Math.min(0, G.closing), G.accounts.length ? `${t("billed")} ${fmt(G.billed)} · ${t("settled")} ${fmt(G.settled)}` : t("no CORP PAY - GRAB account"), G.closing < 0 ? "neg" : "")}
+        ${exTile(t("Still owed to Grab"), -Math.min(0, G.closing), G.accounts.length ? `${t("billed")} ${fmt(G.billed)} · ${t("settled")} ${fmt(G.settled)}` : t("no Grab Payable account"), G.closing < 0 ? "neg" : "")}
       </div>
       ${G.count ? `
       <h4 class="ex-h4 mt">${t("Per person")}</h4>
@@ -3423,7 +4064,7 @@ async function pageExpenses(el) {
       ? G.by_service.filter(s => s.amount > 0).map(s => ({ label: `${t(s.service)} (${s.count})`, value: s.amount, color: GRAB_COLOR[s.service] || GRAB_COLOR.Other }))
       : by === "person" ? exDonutItems(G.by_person, p => p.employee, p => p.total)
       : exDonutItems(G.by_account, a => `${a.code} ${a.name}`, a => a.amount);
-    $("#exGrabDonut").innerHTML = items.length ? chartDonut(items, { size: 200 }) : `<div class="empty">${t("No Grab bookings in this period.")}</div>`;
+    $("#exGrabDonut").innerHTML = items.length ? chartPie(items, { label: t("Grab") }) : `<div class="empty">${t("No Grab bookings in this period.")}</div>`;
   };
   $$("#exGrabBy .seg").forEach(b => b.onclick = () => {
     state.exGrabBy = b.dataset.k;
@@ -3453,6 +4094,7 @@ async function pageExpenses(el) {
       $("#exPcDir").scrollIntoView({ behavior: "smooth", block: "start" }); });
     $$("#exPcRows .ex-open").forEach(tr => tr.onclick = () => viewJournal(parseInt(tr.dataset.id, 10), () => pageExpenses(el)));
   };
+  $$("#exBody .opex-code").forEach(a => a.onclick = e => { e.preventDefault(); accountMonthlyModal(a.dataset.code, a.dataset.name); });
   $$("#exPcDir .seg").forEach(b => b.onclick = () => {
     pcDir = b.dataset.k; pcPage = 1;
     $$("#exPcDir .seg").forEach(x => x.classList.toggle("active", x === b)); pcRows();
@@ -4526,6 +5168,7 @@ async function pageProjects(el) {
           if (a === "detail") projectDetail(p.id, p.name, p.status);
           else if (a === "invoicing") projectInvoicingModal(p.id, load);
           else if (a === "edit") projectEditor(p, load);
+          else if (a === "remu") remuProjectModal(p.id, load);
         }),
         more: async p => prjInvoicingTraits(await api(`/api/projects/${p.id}/invoicing`)),
         open: p => projectDetail(p.id, p.name, p.status),
@@ -4572,6 +5215,9 @@ function prjStage(p, f) {
     html: `${t("Cost")} ${state.year}: <b>${fmtShortRp(f.expense)}</b>${used != null ? ` · ${used}% ${t("of its cost budget")}` : ""}` });
   if (f.revenue || f.expense) traits.push({ tone: f.profit >= 0 ? "good" : "bad",
     html: `${t("Gross profit")} <b>${fmtShortRp(f.profit)}</b> · ${t("margin")} ${f.margin_pct}%` });
+  const rt = REMU_TYPES.find(x => x[0] === p.remu_type);
+  traits.push(rt ? { tone: "info", html: `${t("Remuneration")}: <b>${esc(t(rt[1]))}</b>` }
+                 : { tone: "watch", html: t("No remuneration scheme yet — set it in Edit project") });
   return {
     eyebrow: `${esc(p.code)} · ${esc(p.company_code)} · ${p.type_name ? esc(p.type_name) : t("Unassigned")} · ${esc(t(PRJ_STATUS_LABEL[p.status] || p.status))}`,
     desc: p.description ? esc(p.description) : "",
@@ -4579,6 +5225,7 @@ function prjStage(p, f) {
     actions: `<button class="hc-btn primary" data-act="detail">${t("Open detail")} &rarr;</button>
       <button class="hc-btn" data-act="invoicing">&#128176; ${t("Revenue invoicing")}</button>
       ${canWrite() ? `<button class="hc-btn" data-act="edit">&#9998; ${t("Edit project & picture")}</button>` : ""}
+      ${hasMenu("remuneration") ? `<button class="hc-btn" data-act="remu">&#9819; ${t("Remuneration")}</button>` : ""}
       ${p.status === "completed" ? `<a class="hc-btn" href="/api/projects/${p.id}/closeout.pdf" target="_blank">&#128196; PDF</a>` : ""}`,
   };
 }
@@ -4804,6 +5451,12 @@ async function projectEditor(p, reload, defaultCompanyId) {
       <label>Status <select id="pStatus">${["active", "completed", "on_hold"].map(s =>
         `<option value="${s}" ${p && p.status === s ? "selected" : ""}>${esc(t(PRJ_STATUS_LABEL[s]))}</option>`).join("")}</select></label>
       <label>${t("Sector (project type)")} <select id="pType">${sectorOptions(types, p ? p.type_id : "")}</select></label>
+      <label>${t("Remuneration scheme")} <select id="pRemu"><option value="">${t("— not set —")}</option>${REMU_TYPES.map(([k, l]) =>
+        `<option value="${k}" ${p && p.remu_type === k ? "selected" : ""}>${esc(t(l))}</option>`).join("")}</select></label>
+      <label>${t("STP team pool (% of GP)")} <input id="pStp" type="number" min="5" max="10" step="0.5" placeholder="5–10"
+        value="${p && p.remu_stp_pct != null ? p.remu_stp_pct : ""}"></label>
+      <label class="full">${t("Agent, if used (2.5% of project value, from the office's share)")} <input id="pAgent" value="${esc(p ? p.remu_agent || "" : "")}"
+        placeholder="${t("name — leave blank when there is no agent")}"></label>
       <label>Start date <input type="date" id="pStart" value="${esc(p ? p.start_date || "" : "")}"></label>
       <label>End date <input type="date" id="pEnd" value="${esc(p ? p.end_date || "" : "")}"></label>
       <label class="full">${t("Contract value (Rp)")} <input id="pContract" inputmode="numeric" value="${p && p.contract_value ? fmt(p.contract_value) : ""}"
@@ -4825,6 +5478,8 @@ async function projectEditor(p, reload, defaultCompanyId) {
       start_date: $("#pStart").value, end_date: $("#pEnd").value,
       contract_value: parseInt(($("#pContract").value || "0").replace(/[^\d]/g, ""), 10) || 0,
       type_id: $("#pType").value ? parseInt($("#pType").value, 10) : null,
+      remu_type: $("#pRemu").value || null, remu_stp_pct: $("#pStp").value === "" ? null : parseFloat($("#pStp").value),
+      remu_agent: $("#pAgent").value,
       description: $("#pDesc").value, custom,
     };
     try {

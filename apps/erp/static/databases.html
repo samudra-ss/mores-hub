@@ -3,196 +3,231 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MORES HV — Choose Database</title>
+<title>MORES HV — Database select</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+/* MORES HV database select - a mission-select screen.
+   The list of databases on the left, the highlighted one's picture filling the
+   screen behind it and its briefing in the panel at the bottom right. Same font
+   group as the terminal sign-in (VT323 for the big words, IBM Plex Mono for the
+   rest). Every word sits on a dark plate, so it reads over any picture. */
 :root {
-  --bg: #0a0d0f; --panel: #12161b; --text: #f4f6f8; --muted: #93a0ab;
-  --teal: #00a2b6; --teal-bright: #00bcd2; --border: #1f262d;
-  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --ink: #e4f6ff; --soft: #b4d6e6; --dim: #93bdd0; --line: rgba(180, 225, 245, .38);
+  --accent: #7fe0ff; --accent-2: #3fb8de; --plate: rgba(6, 14, 20, .78); --plate-2: rgba(10, 22, 30, .9);
+  --bad: #ff9d8f; --gold: #ffd36b;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --term: "VT323", "IBM Plex Mono", ui-monospace, monospace;
+  --glow: 0 0 6px rgba(127, 224, 255, .5), 0 0 18px rgba(127, 224, 255, .2);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { min-height: 100%; }
-body {
-  font-family: Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif; color: var(--text);
-  min-height: 100vh; -webkit-font-smoothing: antialiased;
+html, body { height: 100%; }
+body { background: #04080b; color: var(--ink); font-family: var(--mono); -webkit-font-smoothing: antialiased; overflow: hidden; }
+::selection { background: var(--accent); color: #04080b; }
+button { font-family: inherit; }
+@keyframes kb { from { transform: scale(1.04) } to { transform: scale(1.12) translate(-1.5%, -1%) } }
+@keyframes rise { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important } }
+
+/* ---- the picture behind everything: two layers that cross-fade ---- */
+.bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.bg .layer { position: absolute; inset: -2%; background: #0a1016 center/cover no-repeat; opacity: 0; transition: opacity .7s ease;
+  animation: kb 26s ease-in-out infinite alternate; }
+.bg .layer.on { opacity: 1; }
+.bg::after { content: ""; position: absolute; inset: 0; pointer-events: none;
   background:
-    radial-gradient(1100px 600px at 82% -8%, rgba(0,162,182,.16), transparent 55%),
-    radial-gradient(900px 500px at 0% 110%, rgba(0,162,182,.08), transparent 60%),
-    linear-gradient(180deg, #0b0e10 0%, #0a0d0f 100%);
-  background-attachment: fixed;
-}
-/* faint blueprint grid */
-body::before {
-  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
-  background-image:
-    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
-  background-size: 46px 46px;
-}
-.wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 22px 26px 60px; }
-/* top bar */
-.bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 26px; }
-.bar .logo { height: 30px; width: auto; display: block; }
-.bar .who { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
-.bar .who b { color: var(--text); font-weight: 600; }
-.bar .who .role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--teal-bright); border: 1px solid rgba(0,188,210,.35); border-radius: 999px; padding: 3px 9px; }
-.bar .logout { color: var(--muted); text-decoration: none; font-size: 13px; cursor: pointer; }
-.bar .logout:hover { color: var(--text); }
-/* heading */
-.head { margin: 8px 0 22px; }
-.head .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--teal-bright); }
-.head h1 { font-family: "Chakra Petch", sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -.3px; margin-top: 6px; }
-.head p { color: var(--muted); font-size: 13.5px; margin-top: 6px; max-width: 640px; }
-/* tile grid */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(218px, 1fr)); gap: 18px; margin-top: 8px; }
-.tile {
-  position: relative; height: 232px; border-radius: 16px; overflow: hidden; cursor: pointer;
-  border: 1px solid var(--border); background: var(--panel);
-  display: flex; flex-direction: column; transition: transform .14s, box-shadow .14s, border-color .14s;
-}
-.tile:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,.45); border-color: rgba(0,188,210,.5); }
-.tile .art { flex: 1; display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(150deg, #00a2b6 0%, #0a7d8c 100%); }
-.tile .art svg { width: 96px; height: 96px; }
-.tile .label { padding: 13px 15px; background: var(--panel); }
-.tile .name { font-family: var(--mono); font-size: 13px; font-weight: 600; letter-spacing: .02em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.tile .asof { font-size: 10.5px; font-family: var(--mono); color: #ffe6a3; background: #6b5300;
-  display: inline-block; padding: 1px 6px; border-radius: 5px; margin-top: 5px; }
-/* chips on the art */
-.tile .chip { position: absolute; top: 12px; left: 12px; font-family: var(--mono); font-size: 9.5px;
-  font-weight: 600; letter-spacing: .12em; text-transform: uppercase; padding: 4px 8px; border-radius: 6px;
-  background: rgba(8,11,13,.55); color: #fff; backdrop-filter: blur(2px); }
-.tile.active { border-color: var(--teal-bright); box-shadow: 0 0 0 1px var(--teal-bright), 0 14px 34px rgba(0,162,182,.25); }
-.tile.active .chip { background: var(--teal-bright); color: #06181b; }
-.tile .del { position: absolute; top: 10px; right: 10px; width: 26px; height: 26px; border-radius: 7px;
-  border: none; cursor: pointer; background: rgba(8,11,13,.5); color: #fff; font-size: 15px; line-height: 1;
-  display: none; align-items: center; justify-content: center; }
-.tile:hover .del { display: flex; }
-.tile .del:hover { background: #bd362f; }
-.tile .gear { position: absolute; top: 10px; right: 40px; width: 26px; height: 26px; border-radius: 7px;
-  border: none; cursor: pointer; background: rgba(8,11,13,.5); color: #fff; font-size: 14px; line-height: 1;
-  display: none; align-items: center; justify-content: center; }
-.tile:hover .gear { display: flex; }
-.tile .gear:hover { background: var(--teal); }
-.tile .art .emoji { font-size: 64px; line-height: 1; }
-/* frozen / no-access states */
-.tile.frozen .art { filter: grayscale(.7) brightness(.7); }
-.tile .chip.frozenchip { background: #6b5300; color: #ffe6a3; }
-.tile.locked { opacity: .62; cursor: not-allowed; }
-.tile.locked:hover { transform: none; box-shadow: none; border-color: var(--border); }
-.tile.locked .art::after { content: "🔒"; position: absolute; font-size: 30px; }
-/* access roles on the tile */
-.tile .access { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
-.acc-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
-.acc-k { font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); width: 34px; }
-.rb { font-size: 9.5px; font-weight: 600; padding: 1.5px 6px; border-radius: 5px; letter-spacing: .02em; }
-.rb-admin { background: rgba(0,162,182,.2); color: #56c8d8; }
-.rb-finance { background: rgba(31,157,87,.2); color: #7fd3a0; }
-.rb-viewer { background: rgba(154,166,177,.18); color: #aeb8c2; }
-.rb-none { background: rgba(154,166,177,.14); color: var(--muted); }
-/* profile modal pickers */
-.pick-row { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 16px; }
-.pick { width: 38px; height: 38px; border-radius: 9px; border: 1px solid #2a323b; background: #0f1318;
-  cursor: pointer; font-size: 19px; display: flex; align-items: center; justify-content: center; padding: 0; }
-.pick.sel { border-color: var(--teal-bright); box-shadow: 0 0 0 2px rgba(0,188,210,.4); }
-.swatch { width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
-.swatch.sel { border-color: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,.4) inset; }
-.role-grid { display: flex; gap: 16px; flex-wrap: wrap; margin: 2px 0 16px; }
-.role-grid label { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text); font-weight: 500; margin: 0; cursor: pointer; }
-.role-grid input { width: 15px; height: 15px; accent-color: var(--teal); }
-.role-grid input:disabled { accent-color: var(--muted); }
-.freeze-row { display: flex; align-items: center; gap: 9px; margin: 4px 0 16px; padding: 11px 13px;
-  background: rgba(200,122,8,.1); border: 1px solid rgba(200,122,8,.3); border-radius: 9px; color: #f0c489; font-size: 13px; }
-.fld-label { font-size: 12px; font-weight: 600; color: #c2c8cd; margin: 14px 0 4px; }
-/* create tile */
-.tile.create { background: transparent; border: 2px dashed #2b343c; }
-.tile.create:hover { border-color: var(--teal-bright); background: rgba(0,162,182,.05); }
-.tile.create .art { background: transparent; flex-direction: column; gap: 10px; color: var(--teal-bright); }
-.tile.create .plus { font-size: 50px; font-weight: 300; line-height: 1; }
-.tile.create .ct { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-/* modal */
-.backdrop { position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center;
-  background: rgba(4,6,8,.66); padding: 20px; }
+    linear-gradient(90deg, rgba(3,7,10,.92) 0%, rgba(3,7,10,.78) 26%, rgba(3,7,10,.18) 52%, rgba(3,7,10,0) 70%),
+    linear-gradient(0deg, rgba(3,7,10,.85) 0%, rgba(3,7,10,0) 38%),
+    linear-gradient(180deg, rgba(3,7,10,.6) 0%, rgba(3,7,10,0) 22%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px); }
+
+.screen { position: relative; z-index: 1; height: 100vh; display: grid;
+  grid-template-columns: minmax(300px, 470px) 1fr; grid-template-rows: auto 1fr auto;
+  padding: clamp(16px, 2.6vw, 36px) clamp(16px, 3.4vw, 54px); gap: 0 clamp(16px, 3vw, 48px); }
+
+/* ---- header ---- */
+.head { grid-column: 1; grid-row: 1; }
+.kicker { font-size: 13px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); text-shadow: var(--glow); }
+h1 { font-family: var(--term); font-weight: 400; font-size: clamp(46px, 5.4vw, 78px); line-height: .9; letter-spacing: .03em;
+  text-transform: uppercase; text-shadow: var(--glow); margin-top: 2px; }
+.rule { height: 1px; margin-top: 10px; background: linear-gradient(90deg, var(--accent) 0%, rgba(127,224,255,.15) 70%, transparent); }
+.who { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; display: flex; align-items: center; gap: 14px;
+  background: var(--plate); border: 1px solid var(--line); padding: 8px 12px; font-size: 13px; }
+.who b { font-weight: 600; }
+.who .role { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); border: 1px solid var(--accent-2); padding: 2px 7px; }
+.who button { background: none; border: 0; color: var(--ink); cursor: pointer; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; padding: 4px; }
+
+/* ---- the group switch (like ACT 1 with L1/R1) and its tabs ---- */
+.side { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; min-height: 0; margin-top: clamp(14px, 2.4vw, 30px); }
+.groupbar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  background: var(--plate); border: 1px solid var(--line); padding: 6px 8px; }
+.groupbar .key { font-size: 11px; font-weight: 700; color: #04080b; background: var(--soft); padding: 1px 6px; border-radius: 3px; }
+.groupbar button { background: none; border: 0; color: var(--ink); cursor: pointer; font-size: 20px; line-height: 1; padding: 2px 8px; display: flex; align-items: center; gap: 8px; }
+.groupbar button:hover .arr, .groupbar button:focus-visible .arr { color: var(--accent); }
+.groupbar .now { text-align: center; font-family: var(--term); font-size: 30px; letter-spacing: .06em; text-transform: uppercase; }
+.tabs { display: flex; border: 1px solid var(--line); border-top: 0; background: var(--plate); }
+.tabs button { flex: 1; background: none; border: 0; color: var(--soft); cursor: pointer; padding: 9px 4px 8px;
+  font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; position: relative; }
+.tabs button small { font-weight: 500; color: var(--dim); margin-left: 4px; }
+.tabs button.on { color: var(--ink); }
+.tabs button.on::after { content: ""; position: absolute; left: 22%; right: 22%; top: 0; height: 3px; background: var(--accent); box-shadow: var(--glow); }
+
+/* ---- the list ---- */
+.list { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; overflow-y: auto; padding: 2px 14px 10px 2px; min-height: 0;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.item { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer;
+  min-height: 46px; padding: 8px 40px 8px 16px; color: var(--ink); border: 1px solid var(--line);
+  background: linear-gradient(90deg, rgba(14,28,38,.92), rgba(10,20,28,.82));
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
+  font-size: 15px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; animation: rise .35s both; }
+.item .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .tag { flex: 0 0 auto; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; padding: 2px 7px; border: 1px solid currentColor; }
+.item .tag.open { color: var(--accent); }
+.item .tag.frozen { color: var(--gold); }
+.item .tag.lock { color: var(--soft); }
+.item.sel { background: linear-gradient(90deg, rgba(60,170,210,.5), rgba(40,120,160,.35)); border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 24px rgba(127,224,255,.25); text-shadow: var(--glow); }
+.item.sel::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); box-shadow: var(--glow); }
+.item.locked .nm { color: var(--soft); }
+.item.create { border-style: dashed; color: var(--accent); }
+.item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.empty { padding: 18px 4px; color: var(--soft); font-size: 14px; }
+
+/* ---- the briefing (like the mission card) ---- */
+.brief { grid-column: 2; grid-row: 2 / 4; align-self: end; justify-self: end; width: min(640px, 100%);
+  display: grid; grid-template-columns: 1fr 168px; background: var(--plate-2); border: 1px solid var(--line); animation: rise .35s both; }
+.brief .title { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px;
+  background: repeating-linear-gradient(135deg, rgba(180,225,245,.10) 0 6px, rgba(180,225,245,.02) 6px 12px), rgba(14,28,38,.95);
+  border-bottom: 1px solid var(--line); }
+.brief .title b { font-family: var(--term); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: .04em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: var(--glow); }
+.brief .title .chip { flex: 0 0 auto; font-size: 11px; font-weight: 700; letter-spacing: .14em; padding: 3px 8px; background: var(--accent); color: #04080b; }
+.brief .title .chip.frozen { background: var(--gold); }
+.brief .title .chip.sandbox { background: var(--soft); }
+.brief .body { padding: 12px 14px 12px; display: flex; flex-direction: column; gap: 7px; font-size: 13.5px; min-height: 168px; }
+.brief .row { display: flex; gap: 10px; }
+.brief .row .k { width: 112px; flex: 0 0 auto; color: var(--soft); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; padding-top: 1px; }
+.brief .row .v { flex: 1; min-width: 0; }
+.brief .asof { color: var(--gold); font-weight: 600; }
+.rb { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 1px 6px; margin: 0 4px 3px 0; border: 1px solid currentColor; }
+.rb-admin { color: var(--accent); } .rb-finance { color: #9cf0bf; } .rb-viewer { color: var(--soft); } .rb-none { color: var(--dim); }
+.brief .status { margin-top: auto; padding-top: 6px; font-size: 14px; font-weight: 600; }
+.brief .thumb { border-left: 1px solid var(--line); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; min-height: 168px; }
+.brief .thumb .pic { position: absolute; inset: 0; background: center/cover no-repeat; filter: saturate(.9) brightness(.85); }
+.brief .thumb .emb { position: relative; width: 74px; height: 74px; display: flex; align-items: center; justify-content: center; font-size: 40px;
+  border: 2px solid var(--ink); box-shadow: 0 0 0 4px rgba(4,8,11,.6), var(--glow); }
+.brief .thumb .ring { position: absolute; width: 112px; height: 112px; border-radius: 50%; border: 1px solid var(--accent); opacity: .7; }
+.brief .acts { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid var(--line); }
+.btn { font-weight: 600; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; padding: 9px 14px; min-height: 40px; cursor: pointer;
+  border: 1px solid var(--line); background: rgba(4,8,11,.6); color: var(--ink); }
+.btn:hover, .btn:focus-visible { border-color: var(--ink); outline: 0; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #04080b; box-shadow: var(--glow); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.danger:hover { border-color: var(--bad); color: var(--bad); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* ---- key hints ---- */
+.hints { grid-column: 1; grid-row: 3; display: flex; gap: 18px; flex-wrap: wrap; align-items: center; font-size: 13px; padding-top: 12px; }
+.hints span { display: inline-flex; align-items: center; gap: 7px; background: var(--plate); padding: 4px 8px; }
+.hints kbd { font-family: var(--mono); font-size: 11px; font-weight: 700; min-width: 22px; text-align: center; padding: 1px 5px;
+  border: 1px solid var(--ink); border-radius: 50%; }
+.hints kbd.sq { border-radius: 3px; }
+
+/* ---- modals (database settings, users, create) ---- */
+.backdrop { position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: rgba(2,5,8,.74); padding: 16px; }
 .backdrop.show { display: flex; }
-.modal { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-  padding: 24px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
-.modal h3 { font-family: "Chakra Petch", sans-serif; font-size: 19px; margin-bottom: 4px; }
-.modal p { color: var(--muted); font-size: 12.5px; margin-bottom: 16px; }
-.modal label { display: block; font-size: 12px; font-weight: 600; color: #c2c8cd; margin: 0 0 7px; }
-.modal input[type=text] { width: 100%; padding: 11px 13px; font-size: 14px; color: var(--text); font-family: inherit;
-  background: #0f1318; border: 1px solid #262d35; border-radius: 9px; outline: none; }
-.modal input[type=text]:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.2); }
-.modal .seedrow { display: flex; align-items: center; gap: 8px; margin: 14px 0 20px; color: var(--muted); font-size: 13px; }
-.modal .seedrow input { width: 15px; height: 15px; accent-color: var(--teal); }
-.modal .acts { display: flex; justify-content: flex-end; gap: 10px; }
-.btn { font-family: inherit; font-weight: 600; font-size: 13.5px; padding: 10px 16px; border-radius: 9px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); }
-.btn:hover { border-color: var(--muted); }
-.btn.primary { background: var(--teal); border-color: var(--teal); color: #fff; box-shadow: 0 8px 22px rgba(0,162,182,.3); }
-.btn.primary:hover { filter: brightness(1.07); }
-.err { color: #ff9d9d; font-size: 12.5px; margin-top: 10px; min-height: 16px; }
-/* last-used line on tile */
-.tile .used { font-family: var(--mono); font-size: 9.5px; color: var(--muted); margin-top: 6px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile .used b { color: #b9c2cb; font-weight: 600; }
-/* manage-users button on tile */
-.tile .people { position: absolute; top: 10px; right: 70px; width: 26px; height: 26px; border-radius: 7px;
-  border: none; cursor: pointer; background: rgba(8,11,13,.5); color: #fff; font-size: 13px; line-height: 1;
-  display: none; align-items: center; justify-content: center; }
-.tile:hover .people { display: flex; }
-.tile .people:hover { background: var(--teal); }
-/* users modal */
-.modal input[type=password], .modal select { width: 100%; padding: 11px 13px; font-size: 14px; color: var(--text);
-  font-family: inherit; background: #0f1318; border: 1px solid #262d35; border-radius: 9px; outline: none; }
-.modal input[type=password]:focus, .modal select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(0,162,182,.2); }
-.ulist { max-height: 232px; overflow: auto; margin: 4px 0 16px; border: 1px solid var(--border); border-radius: 10px; }
-.urow { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.modal { width: min(440px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: #0a151d; border: 1px solid var(--accent-2);
+  padding: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.7); }
+.modal h3 { font-family: var(--term); font-weight: 400; font-size: 32px; line-height: 1; letter-spacing: .04em; text-transform: uppercase; text-shadow: var(--glow); margin-bottom: 6px; }
+.modal p { color: var(--soft); font-size: 13px; margin-bottom: 14px; }
+.modal label { display: block; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--ink); margin: 0 0 7px; }
+.modal input[type=text], .modal input[type=password], .modal input[type=date], .modal select {
+  width: 100%; padding: 10px 12px; font-size: 14px; color: var(--ink); font-family: var(--mono);
+  background: #050d13; border: 1px solid var(--line); outline: none; color-scheme: dark; }
+.modal input:focus, .modal select:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.modal .seedrow { display: flex; align-items: center; gap: 8px; margin: 14px 0 18px; color: var(--soft); font-size: 13px; font-weight: 500; }
+.modal input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent-2); }
+.modal .acts { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.err { color: var(--bad); font-size: 13px; margin-top: 10px; min-height: 16px; }
+.fld-label { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); margin: 14px 0 6px; }
+.pick-row { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 6px; }
+.pick { width: 38px; height: 38px; border: 1px solid var(--line); background: #050d13; cursor: pointer; font-size: 19px; display: flex; align-items: center; justify-content: center; padding: 0; color: var(--ink); }
+.pick.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(127,224,255,.4); }
+.swatch { width: 30px; height: 30px; cursor: pointer; border: 2px solid transparent; }
+.swatch.sel { border-color: #fff; }
+.scenes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 4px 0 8px; }
+.scene { position: relative; aspect-ratio: 3 / 2; border: 1px solid var(--line); background: #050d13 center/cover no-repeat; cursor: pointer; padding: 0; }
+.scene span { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  background: rgba(4,8,11,.78); color: var(--ink); padding: 2px 5px; text-align: left; }
+.scene.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.uprow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--soft); }
+.role-grid { display: flex; gap: 16px; flex-wrap: wrap; margin: 2px 0 6px; }
+.role-grid label { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; margin: 0; cursor: pointer; }
+.freeze-row { display: flex !important; align-items: center; gap: 9px; margin: 14px 0 6px !important; padding: 10px 12px; font-weight: 500 !important;
+  background: rgba(255,211,107,.08); border: 1px solid rgba(255,211,107,.4); color: var(--gold) !important; font-size: 13px !important; }
+.hint { font-size: 12px; color: var(--soft); margin-top: 5px; }
+.ulist { max-height: 232px; overflow: auto; margin: 4px 0 16px; border: 1px solid var(--line); }
+.urow { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
 .urow:last-child { border-bottom: none; }
-.urow.inactive { opacity: .55; }
+.urow.inactive { opacity: .6; }
 .urow .un { font-weight: 600; }
-.urow .uf { color: var(--muted); font-size: 11.5px; }
+.urow .uf { color: var(--soft); font-size: 12px; }
 .urow .sp { flex: 1; }
-.urow .ub { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 7px;
-  padding: 4px 9px; font-size: 12px; cursor: pointer; font-family: inherit; }
-.urow .ub:hover { border-color: var(--muted); color: var(--text); }
-.urow .ub.danger:hover { border-color: #bd362f; color: #ff9d9d; }
+.urow .ub { background: transparent; border: 1px solid var(--line); color: var(--ink); padding: 4px 9px; font-size: 12px; cursor: pointer; }
+.urow .ub:hover { border-color: var(--ink); }
+.urow .ub.danger:hover { border-color: var(--bad); color: var(--bad); }
 .uform { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
 .uform .full { grid-column: 1 / -1; }
-.uform label { margin-bottom: 5px; }
-.uform .uactive { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--muted); }
-.uform .uactive input { width: 15px; height: 15px; accent-color: var(--teal); }
-.section-t { font-size: 12px; font-weight: 700; color: #c2c8cd; margin: 6px 0 8px; letter-spacing: .02em; }
-/* toast */
-.toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 40;
-  background: #12161b; border: 1px solid var(--border); color: var(--text); padding: 11px 18px; border-radius: 10px;
-  font-size: 13px; box-shadow: 0 14px 34px rgba(0,0,0,.5); opacity: 0; transition: opacity .2s; pointer-events: none; }
+.uform .uactive { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--soft); }
+.section-t { font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); margin: 6px 0 8px; }
+.toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 40; background: #0a151d; border: 1px solid var(--accent-2);
+  color: var(--ink); padding: 10px 16px; font-size: 13px; box-shadow: 0 14px 34px rgba(0,0,0,.6); opacity: 0; transition: opacity .2s; pointer-events: none; }
 .toast.show { opacity: 1; }
-.toast.bad { border-color: rgba(189,54,47,.6); color: #ffb3b3; }
-.empty { color: var(--muted); font-size: 14px; padding: 40px 0; }
-@media (max-width: 540px) { .head h1 { font-size: 24px; } }
+.toast.bad { border-color: var(--bad); color: var(--bad); }
+
+/* ---- small screens: list on top, briefing under it, the page scrolls ---- */
+@media (max-width: 860px) {
+  body { overflow: auto; }
+  .screen { height: auto; min-height: 100vh; grid-template-columns: 1fr; grid-template-rows: auto; gap: 14px; }
+  .head, .who, .side, .brief, .hints { grid-column: 1; grid-row: auto; }
+  .who { justify-self: stretch; justify-content: space-between; }
+  .side { margin-top: 0; }
+  .list { max-height: 46vh; }
+  .brief { justify-self: stretch; grid-template-columns: 1fr; }
+  .brief .thumb { border-left: 0; border-top: 1px solid var(--line); min-height: 120px; order: 3; }
+  .bg::after { background: linear-gradient(0deg, rgba(3,7,10,.9), rgba(3,7,10,.55)), repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px); }
+}
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="bar">
-      <img class="logo" src="/static/assets/mores-logo-ondark.png" alt="Mores HV">
-      <div class="who">
-        <span><b id="whoName">—</b> <span class="role" id="whoRole"></span></span>
-        <a class="logout" id="logout">Logout</a>
-      </div>
-    </div>
+  <div class="bg" aria-hidden="true"><div class="layer" id="bgA"></div><div class="layer" id="bgB"></div></div>
+
+  <div class="screen">
     <div class="head">
-      <div class="kicker">Helicopter View · Group Finance</div>
-      <h1>Choose a Database</h1>
-      <p>Each database is a fully separate set of companies, accounts and journals.
-        Pick one to open the console — you can switch any time from here.</p>
+      <div class="kicker">Helicopter View &middot; Group Finance</div>
+      <h1>Database Select</h1>
+      <div class="rule"></div>
     </div>
-    <div class="grid" id="grid"><div class="empty">Loading databases…</div></div>
+    <div class="who"><span><b id="whoName">—</b></span><span class="role" id="whoRole"></span><button type="button" id="logout">Logout</button></div>
+
+    <div class="side">
+      <div class="groupbar">
+        <button type="button" id="grpPrev" aria-label="Previous group"><span class="key">Q</span><span class="arr">&lsaquo;</span></button>
+        <div class="now" id="grpNow">All</div>
+        <button type="button" id="grpNext" aria-label="Next group"><span class="arr">&rsaquo;</span><span class="key">E</span></button>
+      </div>
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div class="list" id="list" role="listbox" aria-label="Databases"><div class="empty">Loading databases…</div></div>
+    </div>
+
+    <section class="brief" id="brief" aria-live="polite" hidden></section>
+
+    <div class="hints">
+      <span><kbd>Esc</kbd> Logout</span>
+      <span><kbd class="sq">&uarr;&darr;</kbd> Choose</span>
+      <span><kbd class="sq">&crarr;</kbd> Open</span>
+    </div>
   </div>
 
   <!-- create modal -->
@@ -213,21 +248,28 @@ body::before {
 
   <!-- database settings (profile) modal — admin only -->
   <div class="backdrop" id="pBackdrop">
-    <div class="modal" style="width:min(480px,100%)">
+    <div class="modal" style="width:min(520px,100%)">
       <h3>Database Settings</h3>
-      <p id="pName" style="font-family:var(--mono);color:var(--teal-bright);margin-bottom:16px"></p>
+      <p id="pName" style="color:var(--accent);margin-bottom:8px"></p>
 
-      <div class="fld-label">Picture</div>
+      <div class="fld-label">Background picture</div>
+      <div class="scenes" id="pScenes"></div>
+      <div class="uprow">
+        <button type="button" class="btn" id="pUpload">Upload a picture</button>
+        <button type="button" class="btn danger" id="pUnupload" hidden>Remove upload</button>
+        <span id="pUpNote"></span>
+        <input type="file" id="pFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+      </div>
+      <div class="hint">Shown full-screen behind the list when this database is highlighted. An uploaded picture is used instead of the painted scene. Saved at once.</div>
+
+      <div class="fld-label">Emblem</div>
       <div class="pick-row" id="pIcons"></div>
-
-      <div class="fld-label">Tile colour</div>
+      <div class="fld-label">Emblem colour</div>
       <div class="pick-row" id="pColors"></div>
 
       <div class="fld-label">Data complete to (date)</div>
-      <input type="date" id="pAsOf" style="width:100%">
-      <div style="font-size:11px;color:var(--muted);margin-top:5px">Leave empty if this database is
-        kept current. Shown next to the database name everywhere, so a July ledger is never read
-        as today's position.</div>
+      <input type="date" id="pAsOf">
+      <div class="hint">Leave empty if this database is kept current. Shown next to the database name everywhere, so a July ledger is never read as today's position.</div>
 
       <label class="freeze-row"><input type="checkbox" id="pFrozen">
         <span><b>Freeze this database</b> — lock it so no one (except admins) can open or edit it.</span></label>
@@ -238,7 +280,6 @@ body::before {
         <label><input type="checkbox" data-role="finance"> Accountant</label>
         <label><input type="checkbox" data-role="viewer"> Viewer / Auditor</label>
       </div>
-
       <div class="fld-label">Who can EDIT (write) in this database</div>
       <div class="role-grid" id="pEdit">
         <label><input type="checkbox" data-role="admin" checked disabled> Admin</label>
@@ -255,11 +296,11 @@ body::before {
 
   <!-- per-database user management modal — admin only -->
   <div class="backdrop" id="uBackdrop">
-    <div class="modal" style="width:min(520px,100%)">
+    <div class="modal" style="width:min(540px,100%)">
       <h3>Manage Users</h3>
-      <p id="uName" style="font-family:var(--mono);color:var(--teal-bright);margin-bottom:14px"></p>
+      <p id="uName" style="color:var(--accent);margin-bottom:12px"></p>
       <div class="section-t">Accounts in this database</div>
-      <div class="ulist" id="uList"><div class="empty" style="padding:20px 12px">Loading…</div></div>
+      <div class="ulist" id="uList"><div class="empty" style="padding:16px 12px">Loading…</div></div>
       <div class="section-t" id="uFormTitle">Add a new user</div>
       <div class="uform">
         <label class="full">Username <input type="text" id="uUsername" placeholder="e.g. andi.finance" autocomplete="off"></label>
@@ -285,173 +326,315 @@ body::before {
 
 <script>
 const ROLE_LABELS = { admin: "Administrator", finance: "Accountant", viewer: "Viewer / Auditor" };
-const grid = document.getElementById('grid');
-const toastEl = document.getElementById('toast');
+const ROLE_SHORT = { admin: 'Admin', finance: 'Accountant', viewer: 'Viewer' };
+const ICON_PRESETS = ['🏪','🏢','🏦','📊','💼','🧪','📁','⭐','🚀','🧮','🗂️','🔒'];
+const COLOR_PRESETS = ['#00a2b6','#2f6db0','#1f9d57','#c87a08','#bd362f','#7a5af0','#5b6b80','#0c1013'];
+// painted backgrounds - server.DB_ART must hold the same keys
+const SCENES = [['capital', 'Capital'], ['outpost', 'Outpost'], ['beacon', 'Beacon'],
+                ['vault', 'Vault'], ['aurora', 'Aurora'], ['ember', 'Ember']];
+const GROUPS = [['all', 'All'], ['live', 'Live'], ['sandbox', 'Sandbox'], ['frozen', 'Frozen']];
+const $ = id => document.getElementById(id);
+const toastEl = $('toast');
 let toastT;
 function toast(msg, bad) {
   toastEl.textContent = msg; toastEl.className = 'toast show' + (bad ? ' bad' : '');
   clearTimeout(toastT); toastT = setTimeout(() => toastEl.className = 'toast', 2600);
 }
-const SHOP = `<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18l-1 4a3 3 0 0 1-3 2.4H7A3 3 0 0 1 4 13z" fill="rgba(255,255,255,.14)"/>
-  <path d="M5 15.5V20h14v-4.5"/><path d="M10 20v-3.5h4V20"/></svg>`;
-
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 async function jget(url) { const r = await fetch(url); if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.statusText); return r.json(); }
 async function jpost(url, body, method) {
   const r = await fetch(url, { method: method || 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
   if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || r.statusText);
   return r.json().catch(() => ({}));
 }
-
-let canManage = false, defaultDb = 'MORES-GROUP';
-
-async function load() {
-  let me;
-  try { me = await jget('/api/me'); } catch (e) { location.href = '/'; return; }
-  document.getElementById('whoName').textContent = me.full_name || me.username;
-  document.getElementById('whoRole').textContent = ROLE_LABELS[me.role] || me.role;
-  const d = await jget('/api/databases');
-  canManage = d.can_manage; defaultDb = d.default;
-  render(d);
-}
-
-let dbList = [];
-const ROLE_SHORT = { admin: 'Admin', finance: 'Accountant', viewer: 'Viewer' };
-const ICON_PRESETS = ['🏪','🏢','🏦','📊','💼','🧪','📁','⭐','🚀','🧮','🗂️','🔒'];
-const COLOR_PRESETS = ['#00a2b6','#2f6db0','#1f9d57','#c87a08','#bd362f','#7a5af0','#5b6b80','#0c1013'];
+function dmy(v) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? `${m[3]}/${m[2]}/${m[1]}` : (v || ''); }
 function roleBadges(roles) {
   if (!roles || !roles.length) return '<span class="rb rb-none">none</span>';
-  return roles.map(r => `<span class="rb rb-${r}">${ROLE_SHORT[r] || r}</span>`).join(' ');
+  return roles.map(r => `<span class="rb rb-${r}">${ROLE_SHORT[r] || r}</span>`).join('');
 }
-// DD/MM/YYYY for anything shown; the stored value stays ISO
-function dmy(v) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || ''));
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : (v || '');
+
+let canManage = false, defaultDb = 'MORES-GROUP', dbList = [], group = 'all', selName = null;
+
+// which painted scene a database shows when nobody picked one
+function sceneOf(db) {
+  if (db.picture && SCENES.some(s => s[0] === db.picture)) return db.picture;
+  if (db.name === defaultDb) return 'capital';
+  let h = 0; for (const c of db.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return SCENES[1 + h % (SCENES.length - 1)][0];
 }
+const sceneUrl = k => `/static/assets/art/db-${k}.webp`;
+function pictureUrl(db) {
+  return db.picture_v ? `/api/databases/${encodeURIComponent(db.name)}/picture?v=${encodeURIComponent(db.picture_v)}` : sceneUrl(sceneOf(db));
+}
+function groupOf(db) { return db.frozen ? 'frozen' : db.name === defaultDb ? 'live' : 'sandbox'; }
+function visible() { return dbList.filter(db => group === 'all' || groupOf(db) === group); }
+
+// ---- the background: cross-fade between two layers, preload first ----------
+let bgFront = $('bgA'), bgBack = $('bgB'), bgUrl = '';
+function showBackground(url) {
+  if (!url || url === bgUrl) return;
+  bgUrl = url;
+  const img = new Image();
+  img.onload = img.onerror = () => {
+    if (bgUrl !== url) return;
+    bgBack.style.backgroundImage = `url("${url}")`;
+    bgBack.classList.add('on'); bgFront.classList.remove('on');
+    [bgFront, bgBack] = [bgBack, bgFront];
+  };
+  img.src = url;
+}
+
+async function load(keep) {
+  let me;
+  try { me = await jget('/api/me'); } catch (e) { location.href = '/'; return; }
+  $('whoName').textContent = me.full_name || me.username;
+  $('whoRole').textContent = ROLE_LABELS[me.role] || me.role;
+  const d = await jget('/api/databases');
+  canManage = d.can_manage; defaultDb = d.default; dbList = d.databases;
+  if (!keep || !dbList.some(x => x.name === selName)) {
+    const act = dbList.find(x => x.active) || dbList.find(x => x.can_enter) || dbList[0];
+    selName = act ? act.name : null;
+  }
+  // warm the cache so moving through the list never waits for a picture
+  dbList.forEach(db => { const i = new Image(); i.src = pictureUrl(db); });
+  render();
+}
+
+function render() {
+  $('grpNow').textContent = (GROUPS.find(g => g[0] === group) || GROUPS[0])[1];
+  $('tabs').innerHTML = GROUPS.map(([k, label]) => {
+    const n = k === 'all' ? dbList.length : dbList.filter(db => groupOf(db) === k).length;
+    return `<button type="button" role="tab" data-g="${k}" class="${k === group ? 'on' : ''}" aria-selected="${k === group}">${label}<small>${n}</small></button>`;
+  }).join('');
+  $('tabs').querySelectorAll('[data-g]').forEach(b => b.onclick = () => setGroup(b.dataset.g));
+  const rows = visible();
+  if (rows.length && !rows.some(x => x.name === selName)) selName = rows[0].name;
+  const items = rows.map((db, i) => {
+    const tag = db.active ? '<span class="tag open">Open</span>'
+      : db.frozen ? '<span class="tag frozen">Frozen</span>'
+      : !db.can_enter ? '<span class="tag lock">Locked</span>' : '';
+    return `<button type="button" role="option" class="item ${db.name === selName ? 'sel' : ''} ${db.can_enter ? '' : 'locked'}"
+      data-name="${esc(db.name)}" aria-selected="${db.name === selName}" style="animation-delay:${i * 40}ms">
+      <span class="nm">${esc(db.name)}</span>${tag}</button>`;
+  }).join('');
+  const create = canManage ? `<button type="button" class="item create" id="createItem"><span class="nm">+ Create database</span></button>` : '';
+  $('list').innerHTML = (items + create)
+    || '<div class="empty">No databases are available for your account — ask an administrator for access.</div>';
+  $('list').querySelectorAll('.item[data-name]').forEach(b => {
+    b.onmouseenter = () => select(b.dataset.name);
+    b.onfocus = () => select(b.dataset.name);
+    b.onclick = () => openDb(b.dataset.name);
+  });
+  if ($('createItem')) $('createItem').onclick = openCreate;
+  renderBrief();
+}
+
+function select(name) {
+  if (name === selName) return;
+  selName = name;
+  $('list').querySelectorAll('.item[data-name]').forEach(b => {
+    const on = b.dataset.name === name;
+    b.classList.toggle('sel', on); b.setAttribute('aria-selected', on);
+  });
+  renderBrief();
+}
+
 function usedText(db) {
   if (!db.entries) return 'No entries yet';
-  const when = dmy(db.last_entry || (db.last_at || '').slice(0, 10)) || '—';
-  return `Last entry <b>${esc(when)}</b> · ${Number(db.entries).toLocaleString()} entries`;
+  return `Last entry <b>${esc(dmy(db.last_entry || (db.last_at || '').slice(0, 10)) || '—')}</b> · ${Number(db.entries).toLocaleString()} entries`;
 }
 
-function render(d) {
-  dbList = d.databases;
-  const tiles = d.databases.map(db => {
-    const isGroup = db.name === d.default;
-    const frozen = db.frozen;
-    const locked = !db.can_enter;
-    const chip = db.active ? 'ACTIVE' : (frozen ? 'FROZEN' : (isGroup ? 'LIVE · GROUP' : 'SANDBOX'));
-    const meta = db.active ? 'Currently open' : (frozen ? 'Locked by admin' : (isGroup ? 'Your live group data' : 'Separate data store'));
-    const gear = canManage ? `<button class="gear" data-cfg="${esc(db.name)}" title="Database settings">&#9881;</button>` : '';
-    const people = canManage ? `<button class="people" data-usr="${esc(db.name)}" title="Manage users">&#128100;</button>` : '';
-    const del = (canManage && db.deletable && !db.active)
-      ? `<button class="del" data-del="${esc(db.name)}" title="Delete database">&times;</button>` : '';
-    const art = db.icon
-      ? `<div class="art" style="background:${esc(db.color || '#00a2b6')}"><span class="emoji">${esc(db.icon)}</span></div>`
-      : `<div class="art">${SHOP}</div>`;
-    return `<div class="tile ${db.active ? 'active' : ''} ${frozen ? 'frozen' : ''} ${locked ? 'locked' : ''}"
-        data-open="${esc(db.name)}" data-enter="${db.can_enter ? 1 : 0}">
-      <div class="chip ${frozen ? 'frozenchip' : ''}">${chip}</div>${people}${gear}${del}
-      ${art}
-      <div class="label"><div class="name" title="${esc(db.name)}">${esc(db.name)}</div>
-        <div class="meta">${meta}</div>
-        ${db.data_as_of ? `<div class="asof">Data complete to ${esc(dmy(db.data_as_of))}</div>` : ''}
-        <div class="used">${usedText(db)}</div>
-        <div class="access">
-          <span class="acc-row"><span class="acc-k">Enter</span> ${roleBadges(db.enter_roles)}</span>
-          <span class="acc-row"><span class="acc-k">Edit</span> ${roleBadges(db.edit_roles)}</span>
-        </div></div>
+function renderBrief() {
+  const db = dbList.find(x => x.name === selName);
+  const box = $('brief');
+  if (!db) { box.hidden = true; return; }
+  showBackground(pictureUrl(db));
+  const grp = groupOf(db);
+  const chip = db.active ? ['Active', ''] : grp === 'frozen' ? ['Frozen', 'frozen'] : grp === 'live' ? ['Live · Group', ''] : ['Sandbox', 'sandbox'];
+  const status = !db.can_enter ? 'Locked — you do not have access to this database.'
+    : db.active ? 'Currently open. Press Enter to return to the console.'
+    : db.frozen ? 'Frozen by an administrator.' : 'Ready.';
+  box.hidden = false;
+  box.innerHTML = `
+    <div class="title"><b title="${esc(db.name)}">${esc(db.name)}</b><span class="chip ${chip[1]}">${chip[0]}</span></div>
+    <div class="body">
+      <div class="row"><span class="k">Data</span><span class="v">${db.name === defaultDb ? 'Your live group data' : 'A separate data store'}</span></div>
+      ${db.data_as_of ? `<div class="row"><span class="k">Complete to</span><span class="v asof">${esc(dmy(db.data_as_of))}</span></div>` : ''}
+      <div class="row"><span class="k">Activity</span><span class="v">${usedText(db)}</span></div>
+      <div class="row"><span class="k">Enter</span><span class="v">${roleBadges(db.enter_roles)}</span></div>
+      <div class="row"><span class="k">Edit</span><span class="v">${roleBadges(db.edit_roles)}</span></div>
+      <div class="status">${esc(status)}</div>
+    </div>
+    <div class="thumb"><div class="pic" style="background-image:url('${pictureUrl(db)}')"></div><span class="ring"></span>
+      <span class="emb" style="background:${esc(db.color || '#00a2b6')}">${esc(db.icon || '🏪')}</span></div>
+    <div class="acts">
+      <button type="button" class="btn primary" id="bOpen" ${db.can_enter ? '' : 'disabled'}>${db.active ? 'Return' : 'Open'} &#9654;</button>
+      ${canManage ? `<button type="button" class="btn" id="bCfg">Settings</button><button type="button" class="btn" id="bUsers">Users</button>` : ''}
+      ${canManage && db.deletable && !db.active ? `<button type="button" class="btn danger" id="bDel">Delete</button>` : ''}
     </div>`;
-  }).join('');
-  const createTile = canManage
-    ? `<div class="tile create" id="createTile">
-         <div class="art"><div class="plus">+</div><div class="ct">Click to create database</div></div>
-       </div>` : '';
-  grid.innerHTML = (tiles + createTile)
-    || '<div class="empty">No databases are available for your account — ask an administrator for access.</div>';
-
-  grid.querySelectorAll('[data-open]').forEach(t => t.onclick = (e) => {
-    if (e.target.closest('[data-del]') || e.target.closest('[data-cfg]') || e.target.closest('[data-usr]')) return;
-    if (t.dataset.enter !== '1') { toast('You don\'t have access to open this database.', true); return; }
-    open(t.dataset.open, t.classList.contains('active'));
-  });
-  grid.querySelectorAll('[data-cfg]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openProfile(b.dataset.cfg); });
-  grid.querySelectorAll('[data-usr]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openUsers(b.dataset.usr); });
-  grid.querySelectorAll('[data-del]').forEach(b => b.onclick = async (e) => {
-    e.stopPropagation();
-    const name = b.dataset.del;
-    if (!confirm(`Permanently delete the "${name}" database and ALL its data? This cannot be undone.`)) return;
-    try { await jpost('/api/databases/' + encodeURIComponent(name), null, 'DELETE'); toast('Database deleted'); load(); }
-    catch (err) { toast(err.message, true); }
-  });
-  const ct = document.getElementById('createTile');
-  if (ct) ct.onclick = openCreate;
+  $('bOpen').onclick = () => openDb(db.name);
+  if ($('bCfg')) $('bCfg').onclick = () => openProfile(db.name);
+  if ($('bUsers')) $('bUsers').onclick = () => openUsers(db.name);
+  if ($('bDel')) $('bDel').onclick = () => deleteDb(db.name);
 }
 
-/* database settings (profile) modal — admin only */
-const pBackdrop = document.getElementById('pBackdrop');
-let pCurrent = { name: '', icon: '', color: '#00a2b6' };
+function setGroup(k) { group = k; render(); }
+function stepGroup(d) {
+  const i = GROUPS.findIndex(g => g[0] === group);
+  setGroup(GROUPS[(i + d + GROUPS.length) % GROUPS.length][0]);
+}
+$('grpPrev').onclick = () => stepGroup(-1);
+$('grpNext').onclick = () => stepGroup(1);
+
+async function openDb(name) {
+  const db = dbList.find(x => x.name === name);
+  if (!db) return;
+  if (!db.can_enter) { toast('You don\'t have access to open this database.', true); return; }
+  try {
+    if (!db.active) await jpost('/api/databases/switch', { name });
+    location.href = '/app';
+  } catch (e) { toast(e.message, true); }
+}
+async function deleteDb(name) {
+  if (!confirm(`Permanently delete the "${name}" database and ALL its data? This cannot be undone.`)) return;
+  try { await jpost('/api/databases/' + encodeURIComponent(name), null, 'DELETE'); toast('Database deleted'); selName = null; load(); }
+  catch (err) { toast(err.message, true); }
+}
+
+// ---- keyboard: arrows choose, Enter opens, Q/E switch the group, Esc logs out
+const modalOpen = () => document.querySelector('.backdrop.show');
+document.addEventListener('keydown', e => {
+  if (modalOpen()) { if (e.key === 'Escape') { closeProfile(); closeUsers(); closeCreate(); } return; }
+  if (e.target.matches('input, select, textarea')) return;
+  const rows = visible(), i = rows.findIndex(x => x.name === selName);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!rows.length) return;
+    const n = rows[(i + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length];
+    select(n.name);
+    const b = [...$('list').querySelectorAll('.item[data-name]')].find(x => x.dataset.name === n.name);
+    if (b) b.focus({ preventScroll: false });
+  } else if (e.key === 'Enter' && selName && !e.target.closest('.brief, .who, .groupbar, .tabs')) {
+    e.preventDefault(); openDb(selName);
+  } else if (e.key === 'q' || e.key === 'Q') { stepGroup(-1); }
+  else if (e.key === 'e' || e.key === 'E') { stepGroup(1); }
+  else if (e.key === 'Escape') { if (confirm('Log out of MORES HV?')) logout(); }
+});
+
+/* ---- database settings (profile) modal — admin only ---------------------- */
+const pBackdrop = $('pBackdrop');
+let pCurrent = { name: '', icon: '', color: '#00a2b6', picture: '', picture_v: null };
 function pMarkSel() {
   document.querySelectorAll('#pIcons .pick').forEach(b => b.classList.toggle('sel', b.dataset.icon === pCurrent.icon));
   document.querySelectorAll('#pColors .swatch').forEach(b => b.classList.toggle('sel', (b.dataset.color || '').toLowerCase() === (pCurrent.color || '').toLowerCase()));
+  const cur = pCurrent.picture_v ? '' : sceneOf({ name: pCurrent.name, picture: pCurrent.picture });
+  document.querySelectorAll('#pScenes .scene').forEach(b => b.classList.toggle('sel', b.dataset.scene === cur));
+  $('pUnupload').hidden = !pCurrent.picture_v;
+  $('pUpNote').textContent = pCurrent.picture_v ? 'An uploaded picture is in use.' : '';
 }
 function openProfile(name) {
   const db = dbList.find(x => x.name === name);
   if (!db) return;
-  if (!document.getElementById('pIcons').children.length) {
-    document.getElementById('pIcons').innerHTML = `<button class="pick" data-icon="" title="Default shop icon">&#127978;</button>`
+  if (!$('pIcons').children.length) {
+    $('pIcons').innerHTML = `<button class="pick" data-icon="" title="Default shop icon">&#127978;</button>`
       + ICON_PRESETS.map(ic => `<button class="pick" data-icon="${ic}">${ic}</button>`).join('');
-    document.getElementById('pColors').innerHTML = COLOR_PRESETS.map(c => `<button class="swatch" data-color="${c}" style="background:${c}"></button>`).join('');
+    $('pColors').innerHTML = COLOR_PRESETS.map(c => `<button class="swatch" data-color="${c}" style="background:${c}"></button>`).join('');
+    $('pScenes').innerHTML = SCENES.map(([k, label]) => `<button type="button" class="scene" data-scene="${k}" style="background-image:url('${sceneUrl(k)}')"><span>${label}</span></button>`).join('');
   }
-  pCurrent = { name, icon: db.icon || '', color: db.color || '#00a2b6' };
-  document.getElementById('pName').textContent = name;
-  document.getElementById('pFrozen').checked = !!db.frozen;
-  document.getElementById('pAsOf').value = db.data_as_of || '';
+  pCurrent = { name, icon: db.icon || '', color: db.color || '#00a2b6', picture: db.picture || '', picture_v: db.picture_v || null };
+  $('pName').textContent = name;
+  $('pFrozen').checked = !!db.frozen;
+  $('pAsOf').value = db.data_as_of || '';
   document.querySelectorAll('#pEnter input').forEach(i => { if (!i.disabled) i.checked = (db.enter_roles || []).includes(i.dataset.role); });
   document.querySelectorAll('#pEdit input').forEach(i => { if (!i.disabled) i.checked = (db.edit_roles || []).includes(i.dataset.role); });
-  document.getElementById('pErr').textContent = '';
+  $('pErr').textContent = '';
   pMarkSel();
   pBackdrop.classList.add('show');
 }
 function closeProfile() { pBackdrop.classList.remove('show'); }
-document.getElementById('pIcons').onclick = e => { const b = e.target.closest('.pick'); if (b) { pCurrent.icon = b.dataset.icon; pMarkSel(); } };
-document.getElementById('pColors').onclick = e => { const b = e.target.closest('.swatch'); if (b) { pCurrent.color = b.dataset.color; pMarkSel(); } };
-document.getElementById('pCancel').onclick = closeProfile;
+$('pIcons').onclick = e => { const b = e.target.closest('.pick'); if (b) { pCurrent.icon = b.dataset.icon; pMarkSel(); } };
+$('pColors').onclick = e => { const b = e.target.closest('.swatch'); if (b) { pCurrent.color = b.dataset.color; pMarkSel(); } };
+const picPath = () => '/api/databases/' + encodeURIComponent(pCurrent.name) + '/picture';
+// the picture is ONE choice: picking a scene drops an upload, an upload hides the scene
+$('pScenes').onclick = async e => {
+  const b = e.target.closest('.scene'); if (!b) return;
+  try {
+    if (pCurrent.picture_v) {
+      if (!confirm('Use this painted scene instead of the uploaded picture? The upload is removed.')) return;
+      await jpost(picPath(), null, 'DELETE');
+      pCurrent.picture_v = null;
+    }
+    await jpost('/api/databases/' + encodeURIComponent(pCurrent.name) + '/profile', { picture: b.dataset.scene }, 'PUT');
+    pCurrent.picture = b.dataset.scene;
+    pMarkSel(); toast('Background saved'); await load(true);
+  } catch (err) { $('pErr').textContent = err.message; }
+};
+async function shrink(file, max = 1920) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error('That file is not a picture the browser can read')); i.src = url; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    let blob = await new Promise(r => c.toBlob(r, 'image/webp', 0.86));
+    if (!blob || blob.type !== 'image/webp' || blob.size > 2900000) blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.84));
+    return blob;
+  } finally { URL.revokeObjectURL(url); }
+}
+$('pUpload').onclick = () => $('pFile').click();
+$('pFile').onchange = async () => {
+  const f = $('pFile').files[0]; $('pFile').value = '';
+  if (!f) return;
+  try {
+    $('pUpNote').textContent = 'Uploading…';
+    const blob = await shrink(f);
+    const fd = new FormData();
+    fd.append('file', blob, blob.type === 'image/jpeg' ? 'picture.jpg' : 'picture.webp');
+    const r = await fetch(picPath(), { method: 'POST', body: fd });
+    const out = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(out.error || r.statusText);
+    pCurrent.picture_v = out.v || String(Date.now());
+    pMarkSel(); toast('Picture uploaded'); await load(true);
+  } catch (err) { $('pUpNote').textContent = ''; $('pErr').textContent = err.message; }
+};
+$('pUnupload').onclick = async () => {
+  try { await jpost(picPath(), null, 'DELETE'); pCurrent.picture_v = null; pMarkSel(); toast('Upload removed'); await load(true); }
+  catch (err) { $('pErr').textContent = err.message; }
+};
+$('pCancel').onclick = closeProfile;
 pBackdrop.addEventListener('mousedown', e => { if (e.target === pBackdrop) closeProfile(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeProfile(); });
-document.getElementById('pSave').onclick = async () => {
+$('pSave').onclick = async () => {
   const enter_roles = [...document.querySelectorAll('#pEnter input:checked')].map(i => i.dataset.role);
   const edit_roles = [...document.querySelectorAll('#pEdit input:checked')].map(i => i.dataset.role);
   try {
     await jpost('/api/databases/' + encodeURIComponent(pCurrent.name) + '/profile',
-      { icon: pCurrent.icon, color: pCurrent.color, frozen: document.getElementById('pFrozen').checked,
-        data_as_of: document.getElementById('pAsOf').value || '', enter_roles, edit_roles }, 'PUT');
-    closeProfile(); toast('Database settings saved'); load();
-  } catch (e) { document.getElementById('pErr').textContent = e.message; }
+      { icon: pCurrent.icon, color: pCurrent.color, frozen: $('pFrozen').checked,
+        data_as_of: $('pAsOf').value || '', enter_roles, edit_roles }, 'PUT');
+    closeProfile(); toast('Database settings saved'); load(true);
+  } catch (e) { $('pErr').textContent = e.message; }
 };
 
-/* per-database user management modal — admin only */
-const uBackdrop = document.getElementById('uBackdrop');
+/* ---- per-database user management modal — admin only -------------------- */
+const uBackdrop = $('uBackdrop');
 const uState = { name: '', editId: null, users: [] };
 function openUsers(name) {
   uState.name = name;
-  document.getElementById('uName').textContent = name;
-  document.getElementById('uErr').textContent = '';
+  $('uName').textContent = name;
+  $('uErr').textContent = '';
   resetUserForm();
-  document.getElementById('uList').innerHTML = '<div class="empty" style="padding:20px 12px">Loading…</div>';
+  $('uList').innerHTML = '<div class="empty" style="padding:16px 12px">Loading…</div>';
   uBackdrop.classList.add('show');
   loadUsers();
 }
 function closeUsers() { uBackdrop.classList.remove('show'); }
 async function loadUsers() {
-  try {
-    uState.users = await jget('/api/databases/' + encodeURIComponent(uState.name) + '/users');
-    renderUsers();
-  } catch (e) { document.getElementById('uList').innerHTML = `<div class="empty" style="padding:20px 12px">${esc(e.message)}</div>`; }
+  try { uState.users = await jget('/api/databases/' + encodeURIComponent(uState.name) + '/users'); renderUsers(); }
+  catch (e) { $('uList').innerHTML = `<div class="empty" style="padding:16px 12px">${esc(e.message)}</div>`; }
 }
 function renderUsers() {
-  const list = document.getElementById('uList');
-  if (!uState.users.length) { list.innerHTML = '<div class="empty" style="padding:20px 12px">No users yet.</div>'; return; }
+  const list = $('uList');
+  if (!uState.users.length) { list.innerHTML = '<div class="empty" style="padding:16px 12px">No users yet.</div>'; return; }
   list.innerHTML = uState.users.map(u => `<div class="urow ${u.is_active ? '' : 'inactive'}">
       <span class="rb rb-${u.role}">${ROLE_SHORT[u.role] || u.role}</span>
       <span class="un">${esc(u.username)}</span>
@@ -466,34 +649,20 @@ function renderUsers() {
 }
 function resetUserForm() {
   uState.editId = null;
-  document.getElementById('uUsername').value = '';
-  document.getElementById('uUsername').disabled = false;
-  document.getElementById('uFullName').value = '';
-  document.getElementById('uPassword').value = '';
-  document.getElementById('uPassword').placeholder = 'set a password';
-  document.getElementById('uRole').value = 'viewer';
-  document.getElementById('uActive').checked = true;
-  document.getElementById('uActiveWrap').style.display = 'none';
-  document.getElementById('uFormTitle').textContent = 'Add a new user';
-  document.getElementById('uSave').textContent = 'Add user';
-  document.getElementById('uReset').style.display = 'none';
-  document.getElementById('uErr').textContent = '';
+  $('uUsername').value = ''; $('uUsername').disabled = false;
+  $('uFullName').value = ''; $('uPassword').value = ''; $('uPassword').placeholder = 'set a password';
+  $('uRole').value = 'viewer'; $('uActive').checked = true; $('uActiveWrap').style.display = 'none';
+  $('uFormTitle').textContent = 'Add a new user'; $('uSave').textContent = 'Add user';
+  $('uReset').style.display = 'none'; $('uErr').textContent = '';
 }
 function editUser(u) {
   if (!u) return;
   uState.editId = u.id;
-  document.getElementById('uUsername').value = u.username;
-  document.getElementById('uUsername').disabled = true;
-  document.getElementById('uFullName').value = u.full_name || '';
-  document.getElementById('uPassword').value = '';
-  document.getElementById('uPassword').placeholder = 'leave blank to keep current';
-  document.getElementById('uRole').value = u.role;
-  document.getElementById('uActive').checked = !!u.is_active;
-  document.getElementById('uActiveWrap').style.display = 'flex';
-  document.getElementById('uFormTitle').textContent = 'Edit user — ' + u.username;
-  document.getElementById('uSave').textContent = 'Save changes';
-  document.getElementById('uReset').style.display = '';
-  document.getElementById('uErr').textContent = '';
+  $('uUsername').value = u.username; $('uUsername').disabled = true;
+  $('uFullName').value = u.full_name || ''; $('uPassword').value = ''; $('uPassword').placeholder = 'leave blank to keep current';
+  $('uRole').value = u.role; $('uActive').checked = !!u.is_active; $('uActiveWrap').style.display = 'flex';
+  $('uFormTitle').textContent = 'Edit user — ' + u.username; $('uSave').textContent = 'Save changes';
+  $('uReset').style.display = ''; $('uErr').textContent = '';
 }
 async function deleteUser(u) {
   if (!u) return;
@@ -501,19 +670,15 @@ async function deleteUser(u) {
   try {
     await jpost('/api/databases/' + encodeURIComponent(uState.name) + '/users/' + u.id, null, 'DELETE');
     toast('User deleted'); if (uState.editId === u.id) resetUserForm(); loadUsers();
-  } catch (e) { document.getElementById('uErr').textContent = e.message; }
+  } catch (e) { $('uErr').textContent = e.message; }
 }
-document.getElementById('uSave').onclick = async () => {
-  const username = document.getElementById('uUsername').value.trim();
-  const password = document.getElementById('uPassword').value;
-  const body = {
-    full_name: document.getElementById('uFullName').value.trim(),
-    role: document.getElementById('uRole').value,
-  };
-  const err = document.getElementById('uErr'); err.textContent = '';
+$('uSave').onclick = async () => {
+  const username = $('uUsername').value.trim(), password = $('uPassword').value;
+  const body = { full_name: $('uFullName').value.trim(), role: $('uRole').value };
+  const err = $('uErr'); err.textContent = '';
   try {
     if (uState.editId) {
-      body.is_active = document.getElementById('uActive').checked;
+      body.is_active = $('uActive').checked;
       if (password) body.password = password;
       await jpost('/api/databases/' + encodeURIComponent(uState.name) + '/users/' + uState.editId, body, 'PUT');
       toast('User updated');
@@ -527,46 +692,31 @@ document.getElementById('uSave').onclick = async () => {
     resetUserForm(); loadUsers();
   } catch (e) { err.textContent = e.message; }
 };
-document.getElementById('uReset').onclick = resetUserForm;
-document.getElementById('uClose').onclick = closeUsers;
+$('uReset').onclick = resetUserForm;
+$('uClose').onclick = closeUsers;
 uBackdrop.addEventListener('mousedown', e => { if (e.target === uBackdrop) closeUsers(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeUsers(); });
 
-async function open(name, isActive) {
-  try {
-    if (!isActive) await jpost('/api/databases/switch', { name });
-    location.href = '/app';
-  } catch (e) { toast(e.message, true); }
-}
-
-/* create modal */
-const backdrop = document.getElementById('backdrop');
+/* ---- create modal --------------------------------------------------------- */
+const backdrop = $('backdrop');
 function openCreate() {
-  document.getElementById('dbName').value = '';
-  document.getElementById('dbSeed').checked = true;
-  document.getElementById('cErr').textContent = '';
+  $('dbName').value = ''; $('dbSeed').checked = true; $('cErr').textContent = '';
   backdrop.classList.add('show');
-  setTimeout(() => document.getElementById('dbName').focus(), 40);
+  setTimeout(() => $('dbName').focus(), 40);
 }
 function closeCreate() { backdrop.classList.remove('show'); }
-document.getElementById('cCancel').onclick = closeCreate;
+$('cCancel').onclick = closeCreate;
 backdrop.addEventListener('mousedown', e => { if (e.target === backdrop) closeCreate(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCreate(); });
-document.getElementById('cCreate').onclick = async () => {
-  const name = document.getElementById('dbName').value.trim();
-  const seed = document.getElementById('dbSeed').checked;
-  if (!name) { document.getElementById('cErr').textContent = 'Please enter a database name.'; return; }
+$('cCreate').onclick = async () => {
+  const name = $('dbName').value.trim(), seed = $('dbSeed').checked;
+  if (!name) { $('cErr').textContent = 'Please enter a database name.'; return; }
   try {
     const r = await jpost('/api/databases', { name, seed_demo: seed });
-    closeCreate(); toast(`Database "${r.name}" created`); load();
-  } catch (e) { document.getElementById('cErr').textContent = e.message; }
+    closeCreate(); toast(`Database "${r.name}" created`); selName = r.name; load(true);
+  } catch (e) { $('cErr').textContent = e.message; }
 };
 
-document.getElementById('logout').onclick = async () => {
-  await fetch('/api/logout', { method: 'POST' }); location.href = '/';
-};
-
-function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+async function logout() { await fetch('/api/logout', { method: 'POST' }); location.href = '/'; }
+$('logout').onclick = logout;
 load();
 </script>
 </body>

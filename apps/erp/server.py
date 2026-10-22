@@ -18,11 +18,13 @@ import excel_io
 import expense_detail
 import fpa_cash
 import harmony
+import remuneration
 import product_fa
 import pdf_export
 import ceo
 import reports
 import sbu_report
+import sbu_cash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -279,6 +281,11 @@ def as_of_from_request():
 @app.errorhandler(ValueError)
 def on_value_error(e):
     return jsonify({"error": str(e)}), 400
+
+
+@app.errorhandler(PermissionError)
+def on_permission_error(e):
+    return jsonify({"error": str(e)}), 403
 
 
 # --------------------------------------------------------------------------
@@ -880,6 +887,7 @@ def create_project():
          d.get("end_date") or None, d.get("description", ""),
          max(0.0, float(d.get("contract_value") or 0)), _type_id_or_none(d.get("type_id"))))
     _save_custom_values(d.get("custom", {}), "project", cur.lastrowid)
+    _save_remu_scheme(cur.lastrowid, d)
     db().commit()
     return jsonify({"id": cur.lastrowid}), 201
 
@@ -902,6 +910,7 @@ def update_project(pid):
     # not wipe the project's
     if "type_id" in d:
         db().execute("UPDATE projects SET type_id=? WHERE id=?", (_type_id_or_none(d["type_id"]), pid))
+    _save_remu_scheme(pid, d)
     _save_custom_values(d.get("custom", {}), "project", pid)
     db().commit()
     return jsonify({"ok": True})
@@ -2597,9 +2606,10 @@ def parse_grab():
 
 
 def _grab_account(company_id):
+    """The account Grab bookings are credited to: Grab Payable (v1.12)."""
     return db().execute(
-        "SELECT id, code, name FROM accounts WHERE company_id=? AND UPPER(TRIM(name))=?",
-        (company_id, database.GRAB_ACCOUNT_NAME)).fetchone()
+        "SELECT id, code, name FROM accounts WHERE company_id=? AND UPPER(TRIM(name))=UPPER(?)",
+        (company_id, database.GRAB_PAYABLE_NAME)).fetchone()
 
 
 def _resolve_grab_accounts(company_id, txs):
@@ -2617,12 +2627,32 @@ def _resolve_grab_accounts(company_id, txs):
 @app.post("/api/bank/grab-account")
 @role_required("admin", "finance")
 def make_grab_account():
-    """Create the CORP PAY - GRAB cash account in a company that has none yet."""
+    """Create Grab Payable (and Grab Admin Fee) in a company that has none yet."""
     company_id = int((request.get_json(force=True) or {}).get("company_id"))
     check_company_access(company_id)
-    row = database.ensure_grab_account(db(), company_id)
+    row = database.ensure_grab_payable(db(), company_id)
+    database.ensure_grab_fee(db(), company_id)
     db().commit()
     return jsonify({"id": row["id"], "code": row["code"], "name": row["name"]})
+
+
+@app.get("/api/bank/grab-payable")
+@login_required
+def grab_payable():
+    """What is still owed to Grab - for the month-end payment."""
+    company_id = int(request.args.get("company_id") or 0)
+    check_company_access(company_id)
+    acc = _grab_account(company_id)
+    fee = db().execute("SELECT id, code, name FROM accounts WHERE company_id=? AND UPPER(TRIM(name))=UPPER(?)",
+                       (company_id, database.GRAB_FEE_NAME)).fetchone()
+    owed = 0.0
+    if acc:
+        owed = db().execute(
+            "SELECT COALESCE(SUM(jl.credit - jl.debit), 0) FROM journal_lines jl"
+            " JOIN journal_entries je ON je.id = jl.entry_id WHERE jl.account_id=? AND je.status='posted'",
+            (acc["id"],)).fetchone()[0]
+    return jsonify({"account": dict(acc) if acc else None, "fee_account": dict(fee) if fee else None,
+                    "owed": round(owed, 2)})
 
 
 # --------------------------------------------------------------------------
@@ -3203,6 +3233,335 @@ def money_harmony_fix():
         raise ValueError("Nothing to fix for '%s'" % kind)
     db().commit()
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Remuneration (v1.12) - per project: shares of the actual GP, bringer fees of
+# the project value, the team pool split by grade weight x involvement
+# ---------------------------------------------------------------------------
+
+def _save_remu_scheme(pid, d):
+    """remu_type / remu_stp_pct / remu_agent, each only when it is sent."""
+    if "remu_type" in d:
+        t = (d.get("remu_type") or "").strip() or None
+        if t is not None and t not in remuneration.TYPE_KEYS:
+            raise ValueError("Unknown remuneration type")
+        db().execute("UPDATE projects SET remu_type=? WHERE id=?", (t, pid))
+    if "remu_stp_pct" in d:
+        v = d.get("remu_stp_pct")
+        v = None if v in (None, "") else float(v)
+        lo, hi = (x * 100 for x in remuneration.STP_RANGE)
+        if v is not None and not lo <= v <= hi:
+            raise ValueError("The STP team pool is %g%% to %g%% of GP" % (lo, hi))
+        db().execute("UPDATE projects SET remu_stp_pct=? WHERE id=?", (v, pid))
+    if "remu_agent" in d:
+        db().execute("UPDATE projects SET remu_agent=? WHERE id=?", ((d.get("remu_agent") or "").strip(), pid))
+
+
+def _remu_guard():
+    """Pay data: admins, and users whose menu includes Remuneration."""
+    u = g.user
+    if u["role"] == "admin":
+        return
+    ma = (u["menu_access"] or "all").strip()
+    if ma not in ("", "all") and "remuneration" not in {x.strip() for x in ma.split(",")}:
+        raise PermissionError("Remuneration is not in your menu")
+
+
+def _remu_people(include_inactive=True):
+    return {r["id"]: dict(r) for r in db().execute(
+        "SELECT * FROM remu_people %s ORDER BY grade DESC, name" % ("" if include_inactive else "WHERE is_active=1"))}
+
+
+def _remu_teams(pids):
+    teams = {}
+    if not pids:
+        return teams
+    for r in db().execute("SELECT * FROM remu_assignments WHERE project_id IN (%s) ORDER BY id"
+                          % ",".join("?" * len(pids)), list(pids)):
+        teams.setdefault(r["project_id"], []).append(dict(r))
+    return teams
+
+
+def _remu_year():
+    return year_param() if request.args.get("basis") == "year" else None
+
+
+def _remu_rows(ids):
+    cfg = remuneration.config(db())
+    figs = remuneration.project_figures(db(), ids, _remu_year())
+    people = _remu_people()
+    teams = _remu_teams([f["id"] for f in figs])
+    rows = []
+    for f in figs:
+        team = teams.get(f["id"], [])
+        res = remuneration.compute(f, team, people, cfg)
+        rows.append({**f, "team": team, "result": res})
+    return cfg, people, rows
+
+
+def _remu_totals(rows, people):
+    tot = {}
+    for r in rows:
+        for po in r["result"]["payouts"]:
+            t = tot.setdefault(po["person_id"], {"person_id": po["person_id"], "pool": 0.0, "bringer": 0.0,
+                                                 "partner": 0.0, "bod": 0.0, "total": 0.0, "projects": set()})
+            t[po["kind"]] += po["amount"]
+            t["total"] += po["amount"]
+            t["projects"].add(r["id"])
+    out = []
+    for pid, t in tot.items():
+        p = people.get(pid) or {}
+        out.append({**{k: (round(v, 2) if isinstance(v, float) else v) for k, v in t.items() if k != "projects"},
+                    "projects": len(t["projects"]), "name": p.get("name"), "grade": p.get("grade")})
+    out.sort(key=lambda x: -x["total"])
+    return out
+
+
+@app.get("/api/remuneration/config")
+@login_required
+def remu_config():
+    _remu_guard()
+    return jsonify(remuneration.config(db()))
+
+
+@app.put("/api/remuneration/config")
+@role_required("admin")
+def remu_config_save():
+    """Grade titles and weights, the scheme percentages and the agent rate."""
+    d = request.get_json(force=True) or {}
+    if "grades" in d:
+        g_over = {}
+        for g_ in d["grades"] or []:
+            w = float(g_.get("weight") or 0)
+            if w <= 0:
+                raise ValueError("A grade weight must be above zero")
+            g_over[str(int(g_["grade"]))] = {"title": (g_.get("title") or "").strip(), "weight": w}
+        db().execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('remu_grades', ?)", (json.dumps(g_over),))
+    if "schemes" in d:
+        s_over = {}
+        keys = {x["key"] for x in remuneration.DEFAULT_SCHEMES}
+        for k, vals in (d["schemes"] or {}).items():
+            if k not in keys:
+                continue
+            clean = {}
+            for f, v in (vals or {}).items():
+                if f in remuneration.EDITABLE:
+                    v = None if v in (None, "") else float(v)
+                    if v is not None and not 0 <= v <= 1:
+                        raise ValueError("Scheme percentages are between 0% and 100%")
+                    clean[f] = v
+            s_over[k] = clean
+        db().execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('remu_schemes', ?)", (json.dumps(s_over),))
+    if "agent_rate" in d:
+        r = float(d.get("agent_rate") or 0)
+        if not 0 <= r <= 1:
+            raise ValueError("The agent rate is between 0% and 100%")
+        db().execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('remu_agent_rate', ?)", (json.dumps({"rate": r}),))
+    db().commit()
+    return jsonify(remuneration.config(db()))
+
+
+@app.get("/api/remuneration/projects")
+@login_required
+def remu_projects():
+    _remu_guard()
+    ids, label = scope_from_request()
+    cfg, people, rows = _remu_rows(ids)
+    return jsonify({"scope": label, "basis": "year" if _remu_year() else "life", "config": cfg,
+                    "projects": rows, "people": list(people.values()), "totals": _remu_totals(rows, people)})
+
+
+@app.get("/api/remuneration/projects/<int:pid>")
+@login_required
+def remu_project(pid):
+    _remu_guard()
+    cid = _project_company(pid)
+    cfg, people, rows = _remu_rows([cid])
+    row = next(r for r in rows if r["id"] == pid)
+    return jsonify({"config": cfg, "project": row, "people": list(people.values())})
+
+
+@app.put("/api/remuneration/projects/<int:pid>/scheme")
+@role_required("admin", "finance")
+def remu_project_scheme(pid):
+    _remu_guard()
+    _project_company(pid)
+    _save_remu_scheme(pid, request.get_json(force=True) or {})
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.post("/api/remuneration/projects/<int:pid>/team")
+@role_required("admin", "finance")
+def remu_add_member(pid):
+    _remu_guard()
+    _project_company(pid)
+    d = request.get_json(force=True) or {}
+    role = d.get("role") or "team"
+    if role not in remuneration.ROLES:
+        raise ValueError("Unknown role")
+    person = db().execute("SELECT id FROM remu_people WHERE id=?", (int(d.get("person_id") or 0),)).fetchone()
+    if not person:
+        raise ValueError("Pick a person")
+    inv = float(d.get("involvement") or 100)
+    if not 0 < inv <= 100:
+        raise ValueError("Involvement is between 1% and 100%")
+    if db().execute("SELECT 1 FROM remu_assignments WHERE project_id=? AND person_id=? AND role=?",
+                    (pid, person["id"], role)).fetchone():
+        raise ValueError("That person already has this role on the project")
+    cur = db().execute("INSERT INTO remu_assignments (project_id, person_id, role, involvement) VALUES (?,?,?,?)",
+                       (pid, person["id"], role, inv))
+    db().commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.put("/api/remuneration/assignments/<int:aid>")
+@role_required("admin", "finance")
+def remu_update_member(aid):
+    _remu_guard()
+    row = db().execute("SELECT project_id FROM remu_assignments WHERE id=?", (aid,)).fetchone()
+    if not row:
+        raise ValueError("Not found")
+    _project_company(row["project_id"])
+    d = request.get_json(force=True) or {}
+    if "involvement" in d:
+        inv = float(d.get("involvement") or 0)
+        if not 0 < inv <= 100:
+            raise ValueError("Involvement is between 1% and 100%")
+        db().execute("UPDATE remu_assignments SET involvement=? WHERE id=?", (inv, aid))
+    if "role" in d:
+        if d["role"] not in remuneration.ROLES:
+            raise ValueError("Unknown role")
+        db().execute("UPDATE remu_assignments SET role=? WHERE id=?", (d["role"], aid))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/remuneration/assignments/<int:aid>")
+@role_required("admin", "finance")
+def remu_remove_member(aid):
+    _remu_guard()
+    row = db().execute("SELECT project_id FROM remu_assignments WHERE id=?", (aid,)).fetchone()
+    if not row:
+        raise ValueError("Not found")
+    _project_company(row["project_id"])
+    db().execute("DELETE FROM remu_assignments WHERE id=?", (aid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/remuneration/people")
+@login_required
+def remu_people():
+    _remu_guard()
+    return jsonify(list(_remu_people().values()))
+
+
+def _remu_person_fields(d):
+    name = (d.get("name") or "").strip()
+    if not name:
+        raise ValueError("A person needs a name")
+    grade = int(d.get("grade") or 1)
+    if grade not in (1, 2, 3, 4):
+        raise ValueError("Grade is G1 to G4")
+    return name, grade, (d.get("notes") or "").strip(), 0 if d.get("is_active") is False else 1
+
+
+@app.post("/api/remuneration/people")
+@role_required("admin", "finance")
+def remu_add_person():
+    _remu_guard()
+    name, grade, notes, active = _remu_person_fields(request.get_json(force=True) or {})
+    cur = db().execute("INSERT INTO remu_people (name, grade, notes, is_active) VALUES (?,?,?,?)",
+                       (name, grade, notes, active))
+    db().commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.put("/api/remuneration/people/<int:person_id>")
+@role_required("admin", "finance")
+def remu_update_person(person_id):
+    _remu_guard()
+    if not db().execute("SELECT 1 FROM remu_people WHERE id=?", (person_id,)).fetchone():
+        raise ValueError("Not found")
+    name, grade, notes, active = _remu_person_fields(request.get_json(force=True) or {})
+    db().execute("UPDATE remu_people SET name=?, grade=?, notes=?, is_active=? WHERE id=?",
+                 (name, grade, notes, active, person_id))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/remuneration/people/<int:person_id>")
+@role_required("admin", "finance")
+def remu_delete_person(person_id):
+    """Removes the person and their places on project teams (planning data, not the ledger)."""
+    _remu_guard()
+    db().execute("DELETE FROM remu_assignments WHERE person_id=?", (person_id,))
+    db().execute("DELETE FROM remu_people WHERE id=?", (person_id,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.post("/api/remuneration/people/sample")
+@role_required("admin", "finance")
+def remu_keep_sample():
+    """Keep the simulation's made-up names as sample people (marked, removable)."""
+    _remu_guard()
+    n = 0
+    for p in (request.get_json(force=True) or {}).get("people") or []:
+        name, grade, _, _ = _remu_person_fields(p)
+        db().execute("INSERT INTO remu_people (name, grade, notes, is_sample) VALUES (?,?,?,1)",
+                     (name, grade, "sample - from the simulation"))
+        n += 1
+    db().commit()
+    return jsonify({"ok": True, "added": n})
+
+
+@app.delete("/api/remuneration/people/sample")
+@role_required("admin", "finance")
+def remu_clear_sample():
+    _remu_guard()
+    ids = [r[0] for r in db().execute("SELECT id FROM remu_people WHERE is_sample=1")]
+    if ids:
+        ph = ",".join("?" * len(ids))
+        db().execute("DELETE FROM remu_assignments WHERE person_id IN (%s)" % ph, ids)
+        db().execute("DELETE FROM remu_people WHERE id IN (%s)" % ph, ids)
+    db().commit()
+    return jsonify({"ok": True, "removed": len(ids)})
+
+
+@app.post("/api/remuneration/simulate")
+@login_required
+def remu_simulate():
+    """A what-if on the real projects' actual GP with made-up names. Nothing is
+    saved. Projects with no scheme yet are treated as the assumed type."""
+    _remu_guard()
+    ids, _ = scope_from_request()
+    d = request.get_json(force=True) or {}
+    seed = int(d.get("seed") or 1)
+    n_people = max(2, min(40, int(d.get("people") or 8)))
+    n_projects = max(1, min(30, int(d.get("projects") or 6)))
+    assumed = d.get("assumed_type") or "t2"
+    if assumed not in remuneration.TYPE_KEYS:
+        raise ValueError("Unknown remuneration type")
+    cfg = remuneration.config(db())
+    sim_people = d.get("names") or remuneration.random_people(n_people, seed)
+    people = {p["key"]: {"name": p["name"], "grade": int(p["grade"])} for p in sim_people}
+    figs = [f for f in remuneration.project_figures(db(), ids, _remu_year()) if f["gp"] > 0]
+    figs.sort(key=lambda f: -f["gp"])
+    import random as _random
+    rnd = _random.Random(seed * 7919)
+    rows = []
+    for f in figs[:n_projects]:
+        f = dict(f)
+        f["assumed"] = not f.get("remu_type")
+        f["remu_type"] = f.get("remu_type") or assumed
+        team = [{"person_id": m["person_key"], "role": m["role"], "involvement": m["involvement"]}
+                for m in remuneration.random_team(f["remu_type"], sim_people, rnd)]
+        rows.append({**f, "team": team, "result": remuneration.compute(f, team, people, cfg)})
+    return jsonify({"seed": seed, "people": sim_people, "projects": rows,
+                    "totals": _remu_totals(rows, people), "config": cfg})
 
 
 @app.get("/api/money-tracker/phases")
@@ -4493,6 +4852,34 @@ def delete_entity_image(kind, eid):
     return jsonify({"ok": True})
 
 
+@app.get("/api/products/<int:pid>/cash-brief")
+@login_required
+def product_cash_brief(pid):
+    """Cash in, cash out and outflow per project for the CEO Dashboard popup."""
+    p = _product_access(pid)
+    out = sbu_cash.brief(db(), p, accessible_company_ids(), year_param())
+    out["name"] = p["name"]
+    out["companies"] = [dict(r) for r in db().execute(
+        "SELECT id, code, name FROM companies WHERE id IN (%s) ORDER BY code"
+        % ",".join("?" * len(accessible_company_ids())), accessible_company_ids())] if accessible_company_ids() else []
+    return jsonify(out)
+
+
+@app.put("/api/products/<int:pid>/cash-source")
+@role_required("admin", "finance")
+def product_cash_source(pid):
+    """Choose the company whose projects make up the SBU's cash brief (blank =
+    the company of its linked projects)."""
+    _product_access(pid)
+    cid = (request.get_json(force=True) or {}).get("company_id")
+    cid = int(cid) if cid not in (None, "", 0, "0") else None
+    if cid is not None:
+        check_company_access(cid)
+    db().execute("UPDATE products SET cash_company_id=? WHERE id=?", (cid, pid))
+    db().commit()
+    return jsonify({"ok": True, "company_id": cid})
+
+
 @app.get("/api/products/<int:pid>/report")
 @login_required
 def product_report(pid):
@@ -4799,10 +5186,12 @@ def list_databases_api():
             # as a locked tile rather than 500-ing the picker
             prof = dict(database.DEFAULT_DB_PROFILE, frozen=True)
         act = _db_last_activity(n)
+        pic_v = _db_picture_version(n)
         dbs.append({
             "name": n, "active": n == active, "deletable": n != database.DEFAULT_DB,
             "icon": prof["icon"], "color": prof["color"], "frozen": prof["frozen"],
             "data_as_of": prof.get("data_as_of", ""),
+            "picture": prof.get("picture", ""), "picture_v": pic_v,
             "enter_roles": prof["enter_roles"], "edit_roles": prof["edit_roles"],
             "can_enter": _can_enter(prof, role), "can_edit": _can_edit(prof, role),
             "last_entry": act["last_entry"], "last_at": act["last_at"],
@@ -4828,6 +5217,11 @@ def set_database_profile_api(name):
     for key in ("icon", "color"):
         if key in d:
             updates[key] = str(d.get(key) or "")
+    if "picture" in d:
+        pic = str(d.get("picture") or "")
+        if pic and pic not in DB_ART:
+            raise ValueError("Unknown picture")
+        updates["picture"] = pic
     if "data_as_of" in d:
         v = str(d.get("data_as_of") or "").strip()[:10]
         if v and not _valid_date(v):
@@ -4847,6 +5241,96 @@ def set_database_profile_api(name):
         finally:
             conn.close()
     return jsonify({"ok": True, "profile": prof})
+
+
+# (v1.12) The database-select screen shows each database over a background: a
+# painted scene from static/assets/art/db-*.webp, or a picture an admin uploads.
+# The upload lives INSIDE that database (entity_images, kind 'database', id 1),
+# so it travels with the file.
+DB_ART = ("capital", "outpost", "beacon", "vault", "aurora", "ember")
+DB_PICTURE_MAX = 3 * 1024 * 1024
+
+
+def _db_picture_version(name):
+    try:
+        conn = database.get_db(name)
+    except Exception:
+        return None
+    try:
+        row = conn.execute("SELECT updated_at FROM entity_images WHERE kind='database' AND entity_id=1").fetchone()
+        return row[0] if row else None
+    except Exception:
+        return None
+    finally:
+        conn.close()
+
+
+def _db_picture_conn(name, admin=False):
+    """The named database's connection for its picture. Seeing the picture needs
+    the right to enter the database (admins always may); changing it is admin."""
+    if admin and g.user["role"] != "admin":
+        raise PermissionError("Only an administrator can change the picture")
+    conn, close = _open_named_db(name)
+    if not admin and g.user["role"] != "admin" and not _can_enter(database.get_db_profile(conn), g.user["role"]):
+        if close:
+            conn.close()
+        raise PermissionError("You don't have access to this database")
+    conn.execute("CREATE TABLE IF NOT EXISTS entity_images (kind TEXT NOT NULL, entity_id INTEGER NOT NULL,"
+                 " mime TEXT NOT NULL, data BLOB NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')),"
+                 " PRIMARY KEY (kind, entity_id))")
+    return conn, close
+
+
+@app.get("/api/databases/<name>/picture")
+@login_required
+def get_database_picture(name):
+    conn, close = _db_picture_conn(name)
+    try:
+        row = conn.execute("SELECT mime, data FROM entity_images WHERE kind='database' AND entity_id=1").fetchone()
+    finally:
+        if close:
+            conn.close()
+    if not row:
+        return jsonify({"error": "No picture"}), 404
+    resp = send_file(io.BytesIO(row["data"]), mimetype=row["mime"], max_age=30 * 86400)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
+
+
+@app.post("/api/databases/<name>/picture")
+@login_required
+def put_database_picture(name):
+    f = request.files.get("file")
+    if f is None:
+        raise ValueError("No picture uploaded")
+    data = f.read(DB_PICTURE_MAX + 1)
+    if len(data) > DB_PICTURE_MAX:
+        raise ValueError("The picture is larger than 3 MB")
+    mime = _image_mime(data)
+    if not mime:
+        raise ValueError("That file is not a PNG, JPG, WebP or GIF picture")
+    conn, close = _db_picture_conn(name, admin=True)
+    try:
+        conn.execute("INSERT OR REPLACE INTO entity_images (kind, entity_id, mime, data, updated_at)"
+                     " VALUES ('database', 1, ?, ?, strftime('%Y-%m-%d %H:%M:%f','now'))", (mime, data))
+        conn.commit()
+    finally:
+        if close:
+            conn.close()
+    return jsonify({"ok": True, "v": _db_picture_version(name)})
+
+
+@app.delete("/api/databases/<name>/picture")
+@login_required
+def delete_database_picture(name):
+    conn, close = _db_picture_conn(name, admin=True)
+    try:
+        conn.execute("DELETE FROM entity_images WHERE kind='database' AND entity_id=1")
+        conn.commit()
+    finally:
+        if close:
+            conn.close()
+    return jsonify({"ok": True})
 
 
 @app.post("/api/databases")
@@ -5422,7 +5906,7 @@ def project_investment(pid):
 # left-nav routes a user may be granted; kept in sync with the frontend NAV_ITEMS
 MENU_ROUTES = {"dashboard", "projecthv", "journals", "expenses", "bank", "receivables", "payables",
                "budgets", "investments", "oracle", "product", "projects", "money", "reports",
-               "accountant", "settings"}
+               "accountant", "settings", "remuneration"}
 
 
 def _clean_menu_access(val):

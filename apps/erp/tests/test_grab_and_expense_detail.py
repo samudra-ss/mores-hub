@@ -125,11 +125,14 @@ assert c.post("/api/login", json={"username": "admin", "password": "MoresMores20
 companies = c.get("/api/companies").get_json()
 mda = next(x for x in companies if x["code"] == "MDA")
 
-print("=== the CORP PAY - GRAB cash account ===")
+print("=== Grab Payable (v1.12: Grab bills us later - a debt, not cash) ===")
 accts = c.get("/api/accounts?company_id=%d" % mda["id"]).get_json()
-grab_acc = [a for a in accts if a["name"] == "CORP PAY - GRAB"]
-check("ACCOUNT", len(grab_acc) == 1 and grab_acc[0]["type"] == "asset"
-      and grab_acc[0]["code"].startswith("11"), "%s %s under Cash & Bank" % (grab_acc[0]["code"], grab_acc[0]["name"]))
+grab_acc = [a for a in accts if a["name"] == "Grab Payable"]
+fee_acc = [a for a in accts if a["name"] == "Grab Admin Fee"]
+check("ACCOUNT", len(grab_acc) == 1 and grab_acc[0]["type"] == "liability" and grab_acc[0]["code"].startswith("2100-")
+      and len(fee_acc) == 1 and fee_acc[0]["type"] == "expense" and fee_acc[0]["code"].startswith("66"),
+      "%s %s under Accounts Payable, %s %s under 6600" % (grab_acc[0]["code"], grab_acc[0]["name"], fee_acc[0]["code"], fee_acc[0]["name"]))
+check("NO-CORP-PAY", not any(a["name"] == "CORP PAY - GRAB" for a in accts), "the old cash account is no longer created")
 other = next(x for x in companies if x["code"] != "MDA")
 r = c.post("/api/bank/grab-account", json={"company_id": other["id"]}).get_json()
 r2 = c.post("/api/bank/grab-account", json={"company_id": other["id"]}).get_json()
@@ -164,8 +167,22 @@ d = c.get("/api/expense-detail?company_id=%d&year=2026" % mda["id"]).get_json()
 g = d["grab"]
 want = sum(t["amount"] for t in txs)
 check("GRAB-TOTAL", abs(g["total"] - want) < 0.01 and g["count"] == 5 and abs(g["billed"] - want) < 0.01,
-      "trips %s = CORP PAY - GRAB charged %s" % (g["total"], g["billed"]))
-check("OWED", abs(g["closing"] + want) < 0.01, "the account runs negative by what is owed to Grab")
+      "trips %s = Grab Payable credited %s" % (g["total"], g["billed"]))
+check("OWED", abs(g["closing"] + want) < 0.01, "the payable stands at what is owed to Grab")
+gp = c.get("/api/bank/grab-payable?company_id=%d" % mda["id"]).get_json()
+check("PAYABLE", abs(gp["owed"] - want) < 0.01 and gp["fee_account"]["id"] == fee_acc[0]["id"], "still owed to Grab: %s" % gp["owed"])
+bank = next(a for a in accts if a["code"] == "1120")
+pay = c.post("/api/journals", json={"company_id": mda["id"], "date": "2026-09-30", "status": "posted", "description": "Grab bill paid",
+                                    "lines": [{"account_id": grab_acc[0]["id"], "debit": want, "credit": 0},
+                                              {"account_id": fee_acc[0]["id"], "debit": 5000, "credit": 0},
+                                              {"account_id": bank["id"], "debit": 0, "credit": want + 5000}]})
+gp2 = c.get("/api/bank/grab-payable?company_id=%d" % mda["id"]).get_json()
+d2 = c.get("/api/expense-detail?company_id=%d&year=2026" % mda["id"]).get_json()
+check("SETTLED", pay.status_code == 201 and abs(gp2["owed"]) < 0.01 and abs(d2["grab"]["settled"] - want) < 0.01
+      and any(r["code"] == fee_acc[0]["code"] and r["actual"] == 5000 for r in d2["opex"]["rows"]),
+      "Dr Grab Payable + Dr Grab Admin Fee 5,000 / Cr BCA: nothing owed, the fee is an operating cost")
+check("OPEX", abs(d2["opex"]["actual"] - sum(r["actual"] for r in d2["opex"]["rows"])) < 0.01 and "card" in d2,
+      "the page's total MORES cost adds up its 6000 accounts; the card column is there")
 rina = next(p for p in g["by_person"] if p["employee"] == "Rina Putri")
 check("PERSON", rina["count"] == 3 and abs(rina["total"] - 90500) < 0.01
       and rina["services"]["Transport"]["count"] == 2, "Rina: 1 express + 2 rides = 90,500")

@@ -6,240 +6,134 @@
 <title>MORES HV — Sign in</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=Archivo+Black&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<script>
+  try { document.documentElement.dataset.level = localStorage.getItem("erp.termLevel") || "high"; } catch (_) {}
+</script>
+<link rel="stylesheet" href="/static/terminal.css">
 <style>
-/* MORES HV sign-in — brutalist plate.
-   Heavy rules, one accent, no rounded corners: the console behind this is a set
-   of financial statements, and the door to it should look like a press plate
-   rather than a consumer app. */
-:root { --accent: #00b8d4; --ink: #eef4f5; --void: #0b0f10; --panel: #11171a; --deep: #04191d; }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
-body { background: var(--void); color: var(--ink); font-family: "Archivo", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
-a:hover { color: var(--void); background: var(--accent); }
-::selection { background: var(--accent); color: var(--void); }
-input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-input::placeholder { color: #6d7a7d; opacity: 1; }
-.mono { font-family: "JetBrains Mono", ui-monospace, Consolas, monospace; }
-
-@keyframes marq  { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-@keyframes driftA { 0%,100% { transform: translate3d(0,0,0) } 50% { transform: translate3d(10px,-12px,0) } }
-@keyframes driftB { 0%,100% { transform: translate3d(0,0,0) } 50% { transform: translate3d(-14px,10px,0) } }
-@keyframes blink { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
-@keyframes slam  { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition: none !important }
+/* MORES HV sign-in - the terminal theme (terminal.css) plus the form. */
+h1 {
+  font-family: var(--term); font-weight: 400; text-align: center; line-height: 1.05;
+  font-size: clamp(34px, 5vw, 64px); letter-spacing: .04em; color: var(--ink); margin-bottom: clamp(26px, 4vw, 48px);
 }
-
-.shell { min-height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-
-/* ---- masthead ---- */
-.top { display: flex; align-items: stretch; border-bottom: 3px solid var(--ink); flex-wrap: wrap; }
-.top .brand { display: flex; align-items: center; gap: 11px; padding: 12px 20px; border-right: 3px solid var(--ink); flex: 0 0 auto; }
-.bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 26px; }
-.bars i { display: block; width: 5px; background: var(--ink); }
-.bars i:nth-child(1) { height: 17px } .bars i:nth-child(2) { height: 26px }
-.bars i:nth-child(3) { height: 11px; background: var(--accent) } .bars i:nth-child(4) { height: 21px }
-.wordmark { display: flex; flex-direction: column; gap: 3px; font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px; line-height: 1; letter-spacing: .24em; text-transform: uppercase; }
-.wordmark sup { font-size: 7px; letter-spacing: 0; }
-.ticker { flex: 1 1 240px; min-width: 0; overflow: hidden; display: flex; align-items: center; white-space: nowrap; background: var(--ink); color: var(--void); }
-.ticker > div { display: inline-block; animation: marq 34s linear infinite; font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
-.ticker span { padding: 0 30px; }
-.status { flex: 0 0 auto; display: flex; align-items: center; padding: 12px 20px; border-left: 3px solid var(--ink); font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
-.status i { display: inline-block; width: 9px; height: 9px; background: var(--accent); margin-left: 10px; animation: blink 1.6s steps(1) infinite; }
-
-/* ---- body split ---- */
-.split { flex: 1; display: flex; flex-wrap: wrap; align-items: stretch; }
-.left { flex: 1 1 460px; min-width: 320px; padding: 44px 36px; display: flex; flex-direction: column; justify-content: center; position: relative; }
-.grid-bg { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(#ffffff0f 1px, transparent 1px), linear-gradient(90deg, #ffffff0f 1px, transparent 1px); background-size: 28px 28px; }
-.head { position: relative; animation: slam 500ms cubic-bezier(.2,.8,.2,1) both; }
-.eyebrow { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .24em; text-transform: uppercase; margin-bottom: 14px; color: var(--accent); }
-h1 { font-family: "Archivo Black", system-ui, sans-serif; font-size: clamp(44px, 7vw, 92px); line-height: .88; letter-spacing: -.03em; text-transform: uppercase; font-weight: 400; }
-h1 .cur { color: var(--accent); }
-.lead { margin-top: 22px; max-width: 30em; font-size: 17px; line-height: 1.45; color: #c3cfd1; }
-
-/* ---- the plate ---- */
-form { position: relative; margin-top: 38px; max-width: 460px; display: flex; flex-direction: column; border: 3px solid var(--ink); background: var(--panel); box-shadow: 10px 10px 0 var(--accent); }
-form label.cap { display: block; padding: 12px 16px 0; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: #9fb0b3; }
-form input[type=text], form input[type=password] {
-  border: 0; background: transparent; padding: 8px 16px 16px; font-family: "Archivo", system-ui, sans-serif;
-  font-size: 19px; font-weight: 600; color: var(--ink); min-height: 44px; width: 100%;
-}
-.fld { border-bottom: 3px solid var(--ink); }
-.fld.pw { display: flex; align-items: stretch; }
-.fld.pw input { flex: 1; min-width: 0; }
-.peek { flex: 0 0 auto; border: 0; border-left: 3px solid var(--ink); background: transparent; cursor: pointer; padding: 0 16px; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink); min-height: 44px; }
-.peek:hover { background: var(--accent); color: var(--void); }
-.optrow { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 3px solid var(--ink); }
-.optrow label { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #c3cfd1; }
-.optrow input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
-.optrow .forgot { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; padding: 0; }
-.optrow .forgot:hover { color: var(--void); background: var(--accent); }
-button[type=submit] { border: 0; background: var(--accent); color: var(--deep); cursor: pointer; padding: 0 22px; min-height: 60px; font-family: "Archivo Black", system-ui, sans-serif; font-size: 20px; letter-spacing: .02em; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; text-align: left; }
-button[type=submit]:hover { background: var(--ink); color: var(--void); }
-button[type=submit][disabled] { cursor: progress; }
-button[type=submit] .arrow { font-family: "JetBrains Mono", monospace; font-size: 14px; letter-spacing: .1em; }
-
-/* an error has to shout as loudly as everything else here */
-.err { border-bottom: 3px solid var(--ink); background: #2a0d0d; color: #ffb4b4; padding: 12px 16px; font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-.note { margin-top: 16px; max-width: 460px; border: 3px solid #2a3438; padding: 12px 14px; font-family: "JetBrains Mono", monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: #9fb0b3; }
-
-.motto { position: relative; margin-top: 44px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.motto .latin { background: var(--accent); border: 3px solid var(--ink); padding: 8px 12px; font-family: "Archivo Black", system-ui, sans-serif; font-size: 16px; text-transform: uppercase; letter-spacing: -.01em; color: var(--deep); }
-.motto .en { font-family: "JetBrains Mono", monospace; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #9fb0b3; }
-.madeby { position: relative; margin-top: 18px; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #6d7a7d; }
-
-/* ---- hero ---- */
-.right { flex: 1 1 380px; min-width: 280px; min-height: 58vh; position: relative; border-left: 3px solid var(--ink); background: var(--deep); overflow: hidden; }
-.plate { position: absolute; inset: -7%; will-change: transform; transition: transform 200ms cubic-bezier(.2,.7,.2,1); }
-.plate .shot { position: absolute; inset: 0; filter: grayscale(1) contrast(1.35) brightness(.85); background: url("/static/assets/hero-building.jpg") center/cover no-repeat; }
-.plate .wash { position: absolute; inset: 0; pointer-events: none; background: var(--accent); mix-blend-mode: screen; opacity: .22; }
-.plate .scan { position: absolute; inset: 0; pointer-events: none; background-image: repeating-linear-gradient(0deg, #00000073 0 1px, transparent 1px 3px); }
-.chips { position: absolute; left: 18px; bottom: 64px; pointer-events: none; will-change: transform; transition: transform 300ms cubic-bezier(.2,.7,.2,1); display: flex; flex-direction: column; gap: 10px; }
-.chips span { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; border: 3px solid var(--ink); padding: 7px 12px; }
-.chips .c1 { background: var(--void); animation: driftA 9s ease-in-out infinite; }
-.chips .c2 { background: var(--accent); color: var(--deep); animation: driftB 11s ease-in-out infinite; align-self: flex-start; }
-
-@media (max-width: 900px) { .right { min-height: 40vh; border-left: 0; border-top: 3px solid var(--ink); } .left { padding: 32px 22px; } }
+.sub { font-size: clamp(12px, 1.05vw, 14px); letter-spacing: .18em; text-transform: uppercase; color: var(--soft);
+  margin: calc(-1 * clamp(14px, 2.6vw, 34px)) 0 clamp(22px, 3vw, 36px); text-align: center; }
+form { width: min(520px, 100%); display: flex; flex-direction: column; }
+label.cap { display: block; font-weight: 600; font-size: clamp(13px, 1.1vw, 15px); letter-spacing: .06em; color: var(--ink); margin: 0 0 8px; }
+label.cap small { font-weight: 500; color: var(--soft); letter-spacing: .04em; margin-left: 8px; }
+.field { display: flex; align-items: stretch; border: 1px solid var(--line); background: var(--field); margin-bottom: 22px;
+  box-shadow: inset 0 0 18px rgba(0,0,0,.6); }
+.field:focus-within { border-color: var(--ink); box-shadow: inset 0 0 18px rgba(0,0,0,.6), 0 0 0 1px var(--ink); }
+.field .pr { display: flex; align-items: center; padding-left: 12px; color: var(--soft); font-weight: 600; }
+.field input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); caret-color: var(--ink);
+  font-family: var(--mono); font-weight: 500; font-size: clamp(15px, 1.25vw, 18px); letter-spacing: .06em; padding: 12px; min-height: 48px; }
+.field input::placeholder { color: var(--dim); opacity: 1; }
+.peek { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer;
+  font: 600 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; padding: 0 14px; min-width: 64px; }
+.peek:hover, .peek:focus-visible { background: var(--ink); color: var(--screen); outline: 0; }
+.opts { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: -6px 0 22px; }
+.opts label { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px; letter-spacing: .08em; color: var(--ink); text-transform: uppercase; }
+.opts input[type=checkbox] { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border: 1px solid var(--ink); background: var(--field);
+  display: inline-grid; place-content: center; cursor: pointer; margin: 0; }
+.opts input[type=checkbox]::before { content: ""; width: 10px; height: 10px; background: var(--ink); transform: scale(0); }
+.opts input[type=checkbox]:checked::before { transform: scale(1); }
+.opts input[type=checkbox]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.linkbtn { background: none; border: 0; padding: 4px 0; cursor: pointer; color: var(--ink); font: 600 13px var(--mono);
+  letter-spacing: .08em; text-transform: uppercase; text-decoration: underline; text-underline-offset: 4px; }
+.linkbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+.msg { margin-bottom: 18px; padding: 10px 12px; border: 1px solid currentColor; font-size: 14px; font-weight: 600; letter-spacing: .04em; }
+.msg.bad { color: var(--bad); }
+.msg.ok { color: var(--ok); }
+.msg::before { content: "> "; }
 </style>
 </head>
 <body>
-<div class="shell">
-
+<div class="crt">
   <div class="top">
-    <div class="brand">
-      <span class="bars"><i></i><i></i><i></i><i></i></span>
-      <span class="wordmark"><span>MORES</span><span>STRATEGICS<sup>TM</sup></span></span>
+    <a class="brand" href="/" aria-label="MORES Strategics home"><img src="/static/assets/mores-logo-ondark.png" alt="MORES Strategics"></a>
+    <div class="right">
+      <div class="level" role="group" aria-label="Display level">
+        <button type="button" data-level="low">Low</button>
+        <button type="button" data-level="high">High</button>
+      </div>
+      <span class="glow" id="clock">--/--/---- --:--:--</span>
     </div>
-    <div class="ticker"><div id="ticker"></div></div>
-    <div class="status">synced <i></i></div>
   </div>
 
-  <div class="split">
-    <div class="left">
-      <div class="grid-bg"></div>
+  <main class="stage">
+    <h1 class="glow"><span data-type>Welcome to MORES HV</span><span class="cur">_</span></h1>
+    <p class="sub">Helicopter View &middot; Group Finance</p>
 
-      <div class="head">
-        <div class="eyebrow">01 / access</div>
-        <h1>Sign<br>in.<span class="cur">_</span></h1>
-        <p class="lead">Help The Director Make (Or) Break Deals</p>
+    <form id="loginForm" autocomplete="on" novalidate>
+      <div id="loginMsg" class="msg bad" role="alert" hidden></div>
+
+      <label class="cap glow" for="username">Employee ID:<small>username or e-mail</small></label>
+      <div class="field">
+        <span class="pr" aria-hidden="true">&gt;</span>
+        <input type="text" id="username" name="username" autocomplete="username" placeholder="name@mores.id" required autofocus spellcheck="false">
       </div>
 
-      <form id="loginForm" autocomplete="on">
-        <div id="loginError" class="err" hidden></div>
-
-        <label class="cap" for="username">username / email</label>
-        <div class="fld">
-          <input type="text" id="username" name="username" autocomplete="username" placeholder="name@mores.id" required autofocus>
-        </div>
-
-        <label class="cap" for="password">password</label>
-        <div class="fld pw">
-          <input type="password" id="password" name="password" autocomplete="current-password" placeholder="••••••••" required>
-          <button type="button" class="peek" id="peek" aria-label="Show password">show</button>
-        </div>
-
-        <div class="optrow">
-          <label><input type="checkbox" id="remember"> remember this desk</label>
-          <button type="button" class="forgot" id="forgot">forgot?</button>
-        </div>
-
-        <button type="submit" id="submitBtn"><span id="cta">Sign in</span><span class="arrow">&rarr;</span></button>
-      </form>
-
-      <div id="forgotNote" class="note" hidden>Password resets are manual — ask your system administrator.</div>
-
-      <div class="motto">
-        <span class="latin">Audentes fortuna iuvat</span>
-        <span class="en">fortune favors the brave</span>
+      <label class="cap glow" for="password">Password:</label>
+      <div class="field">
+        <span class="pr" aria-hidden="true">&gt;</span>
+        <input type="password" id="password" name="password" autocomplete="current-password" placeholder="********" required>
+        <button type="button" class="peek" id="peek" aria-label="Show password">Show</button>
       </div>
-      <div class="madeby">Made by Uncle Sam &mdash; With Love</div>
-    </div>
 
-    <div class="right">
-      <div class="plate" id="plate">
-        <div class="shot"></div><div class="wash"></div><div class="scan"></div>
+      <div class="opts">
+        <label><input type="checkbox" id="remember"> Remember this desk</label>
+        <button type="button" class="linkbtn" id="forgot">Forgot?</button>
       </div>
-      <div class="chips" id="chips">
-        <span class="c1">encrypted session</span>
-        <span class="c2">role-scoped view</span>
-      </div>
-    </div>
+
+      <button type="submit" class="go" id="submitBtn"><span id="cta">Login</span></button>
+    </form>
+  </main>
+
+  <div class="foot">
+    <div><b>Audentes fortuna iuvat</b> &mdash; fortune favors the brave</div>
+    <div class="mid glow" id="version">Version 1.12 &middot; updated 22 October 2026</div>
+    <div class="end">Made by Uncle Sam &mdash; With Love</div>
   </div>
 </div>
 
+<script src="/static/terminal.js"></script>
 <script>
-// ---- masthead ticker. It carries the local clock and what this door is for -
-// deliberately NOT "latest database update", because nothing here is signed in
-// yet and the app must not state a data cut-off it cannot know.
-function stamp() {
-  const d = new Date(), p = n => String(n).padStart(2, "0");
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} · ${p(d.getHours())}:${p(d.getMinutes())} LOCAL`;
-}
-function paintTicker() {
-  const line = ["helicopter view · group finance", "secure sign-in required",
-                "roles — admin · accountant · viewer", stamp()];
-  // duplicated once so the -50% marquee loop is seamless
-  document.getElementById("ticker").innerHTML =
-    [...line, ...line].map(t => `<span>${t}</span>`).join("");
-}
-paintTicker();
-setInterval(paintTicker, 30000);
+const $ = id => document.getElementById(id);
 
-// ---- parallax, skipped entirely when the viewer asked for less motion -------
-if (!window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-  const plate = document.getElementById("plate"), chips = document.getElementById("chips");
-  window.addEventListener("pointermove", e => {
-    const nx = (e.clientX / window.innerWidth - 0.5) * 2;
-    const ny = (e.clientY / window.innerHeight - 0.5) * 2;
-    plate.style.transform = `translate3d(${(-nx * 24).toFixed(1)}px, ${(-ny * 18).toFixed(1)}px, 0) scale(1.03)`;
-    chips.style.transform = `translate3d(${(nx * 30).toFixed(1)}px, ${(ny * 22).toFixed(1)}px, 0)`;
-  }, { passive: true });
-}
-
-// ---- show / hide password --------------------------------------------------
-const pw = document.getElementById("password"), peek = document.getElementById("peek");
-peek.addEventListener("click", () => {
+const pw = $("password"), peek = $("peek");
+peek.onclick = () => {
   const showing = pw.type === "text";
   pw.type = showing ? "password" : "text";
-  peek.textContent = showing ? "show" : "hide";
+  peek.textContent = showing ? "Show" : "Hide";
   peek.setAttribute("aria-label", showing ? "Show password" : "Hide password");
   pw.focus();
-});
+};
 
-document.getElementById("forgot").addEventListener("click", () => {
-  document.getElementById("forgotNote").hidden = false;
-});
+function say(text, ok) {
+  const m = $("loginMsg");
+  m.textContent = text; m.className = "msg " + (ok ? "ok" : "bad"); m.hidden = false;
+}
+$("forgot").onclick = () => say("Password resets are manual - ask your system administrator.", true);
 
-// ---- sign in ---------------------------------------------------------------
-const form = document.getElementById("loginForm");
-const btn = document.getElementById("submitBtn"), cta = document.getElementById("cta");
-form.addEventListener("submit", async (e) => {
+const form = $("loginForm"), btn = $("submitBtn"), cta = $("cta");
+form.addEventListener("submit", async e => {
   e.preventDefault();
-  const err = document.getElementById("loginError");
-  err.hidden = true;
-  btn.disabled = true;
-  cta.textContent = "Authenticating";
+  $("loginMsg").hidden = true;
+  if (!$("username").value.trim() || !pw.value) { say("Enter your Employee ID and password."); return; }
+  btn.disabled = true; cta.textContent = "Authenticating...";
   try {
     const res = await fetch("/api/login", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: document.getElementById("username").value,
-        password: pw.value,
-        remember: document.getElementById("remember").checked,
-      }),
+      body: JSON.stringify({ username: $("username").value, password: pw.value, remember: $("remember").checked }),
     });
-    if (res.ok) { cta.textContent = "Access granted"; window.location.href = "/databases"; return; }
+    if (res.ok) { cta.textContent = "Access granted"; say("Access granted. Opening the database select...", true); location.href = "/databases"; return; }
     const data = await res.json().catch(() => ({}));
-    err.textContent = data.error || "Login failed";
-    err.hidden = false;
+    say(data.error || "Login failed");
   } catch (_) {
-    err.textContent = "Cannot reach the server";
-    err.hidden = false;
+    say("Cannot reach the server");
   }
-  btn.disabled = false;
-  cta.textContent = "Sign in";
+  btn.disabled = false; cta.textContent = "Login";
 });
 </script>
 </body>

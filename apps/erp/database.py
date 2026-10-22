@@ -54,6 +54,9 @@ DEFAULT_DB_PROFILE = {
     # that stops in July is not the same claim as a ledger that is current, and
     # every report drawn off it should say which one it is.
     "icon": "", "color": "#00a2b6", "frozen": False, "data_as_of": "",
+    # (v1.12) the background on the database-select screen: a painted scene key
+    # (server.DB_ART); an uploaded picture, when there is one, wins
+    "picture": "",
     "enter_roles": ["admin", "finance", "viewer"],
     "edit_roles": ["admin", "finance"],
 }
@@ -78,6 +81,7 @@ def get_db_profile(conn):
     prof["icon"] = str(prof.get("icon") or "")[:8]
     prof["color"] = str(prof.get("color") or "#00a2b6")[:16]
     prof["data_as_of"] = str(prof.get("data_as_of") or "")[:10]
+    prof["picture"] = str(prof.get("picture") or "")[:24]
     prof["enter_roles"] = [r for r in DB_ROLES if r in set(prof.get("enter_roles") or []) | {"admin"}]
     prof["edit_roles"] = [r for r in DB_ROLES if r in set(prof.get("edit_roles") or []) | {"admin"}]
     return prof
@@ -96,6 +100,7 @@ def set_db_profile(conn, updates):
     prof["icon"] = str(prof.get("icon") or "")[:8]
     prof["color"] = str(prof.get("color") or "#00a2b6")[:16]
     prof["data_as_of"] = str(prof.get("data_as_of") or "")[:10]
+    prof["picture"] = str(prof.get("picture") or "")[:24]
     prof["enter_roles"] = [r for r in DB_ROLES if r in set(prof.get("enter_roles") or []) | {"admin"}]
     prof["edit_roles"] = [r for r in DB_ROLES if r in set(prof.get("edit_roles") or []) | {"admin"}]
     conn.execute("INSERT INTO app_settings (key, value) VALUES ('db_profile', ?)"
@@ -930,9 +935,17 @@ def ensure_product_tables(conn):
     # (v1.11) what kind of SBU it is - SaaS / Event Based (INTEL) / Media Owned
     # (Creative) / SEAL - SECTIONS (server.SBU_TYPES); blank = not typed yet
     _add_column(conn, "products", "sbu_type", "TEXT")
+    # (v1.12) the company whose projects make up the SBU's cash brief on the CEO
+    # Dashboard; blank = the company most of its linked projects belong to
+    _add_column(conn, "products", "cash_company_id", "INTEGER")
 
 
-GRAB_ACCOUNT_NAME = "CORP PAY - GRAB"
+GRAB_ACCOUNT_NAME = "CORP PAY - GRAB"      # until v1.12: Grab was booked against this cash account
+# (v1.12) Grab for Business bills the company later, so a ride or meal is a
+# debt to Grab, not cash leaving: Dr cost / Cr Grab Payable. At month end the
+# bill is paid: Dr Grab Payable (+ Dr Grab Admin Fee if any) / Cr the bank.
+GRAB_PAYABLE_NAME = "Grab Payable"
+GRAB_FEE_NAME = "Grab Admin Fee"
 
 # the starting list of project types (sectors); renamed, recoloured or removed in Settings
 DEFAULT_PROJECT_TYPES = (
@@ -962,6 +975,31 @@ def ensure_grab_account(conn, company_id):
                  " VALUES (?,?,?,'asset',?)", (company_id, code, GRAB_ACCOUNT_NAME, parent))
     return conn.execute("SELECT * FROM accounts WHERE company_id=? AND code=?",
                         (company_id, code)).fetchone()
+
+
+def _ensure_named(conn, company_id, name, acc_type, candidates, parent):
+    row = conn.execute("SELECT * FROM accounts WHERE company_id=? AND UPPER(TRIM(name))=UPPER(?)",
+                       (company_id, name)).fetchone()
+    if row:
+        return row
+    taken = {r[0] for r in conn.execute("SELECT code FROM accounts WHERE company_id=?", (company_id,))}
+    code = next(c for c in candidates if c not in taken)
+    conn.execute("INSERT INTO accounts (company_id, code, name, type, parent_code) VALUES (?,?,?,?,?)",
+                 (company_id, code, name, acc_type, parent if parent in taken else None))
+    return conn.execute("SELECT * FROM accounts WHERE company_id=? AND code=?", (company_id, code)).fetchone()
+
+
+def ensure_grab_payable(conn, company_id):
+    """Grab Payable, a liability under 2100 Accounts Payable (2100-01 when free).
+    Idempotent by name."""
+    return _ensure_named(conn, company_id, GRAB_PAYABLE_NAME, "liability",
+                         ["2100-%02d" % n for n in range(1, 100)], "2100")
+
+
+def ensure_grab_fee(conn, company_id):
+    """Grab Admin Fee, an expense under 6600 Office & Administration."""
+    return _ensure_named(conn, company_id, GRAB_FEE_NAME, "expense",
+                         ["66%02d" % n for n in range(50, 100)], "6600")
 
 
 def apply_product_template(conn, product_id, template, company_ids=None, link_code=None):
@@ -1620,7 +1658,10 @@ def migrate_database(conn):
     # the MORES entity Grab bills (PT MORES DATA ANALITIK) gets its account now;
     # any other company gets one the first time it imports a Grab report
     for r in conn.execute("SELECT id FROM companies WHERE code='MDA'").fetchall():
-        ensure_grab_account(conn, r["id"])
+        # (v1.12) Grab is a payable now; the old CORP PAY - GRAB account is no
+        # longer created, an existing one keeps its history
+        ensure_grab_payable(conn, r["id"])
+        ensure_grab_fee(conn, r["id"])
     # (v1.10) a picture for an SBU or an investment initiative, shown beside its
     # name in the lists. Stored in the database it belongs to, so switching
     # databases and backups carry it; one row per entity, replaced on upload.
@@ -1669,6 +1710,28 @@ def migrate_database(conn):
     if row is not None:
         conn.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('dashboard_cash_codes_legacy', ?)", (row[0],))
         conn.execute("DELETE FROM app_settings WHERE key='dashboard_cash_codes'")
+    # (v1.12) Remuneration: the consultants (grade G1 Analyst .. G4 Partner) and
+    # who did what on each project. Pay data - deliberately NOT added to the
+    # restricted menus below; an admin grants it per user.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS remu_people ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "name TEXT NOT NULL, grade INTEGER NOT NULL DEFAULT 1 CHECK (grade BETWEEN 1 AND 4),"
+        "notes TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1,"
+        "is_sample INTEGER NOT NULL DEFAULT 0,"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS remu_assignments ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,"
+        "person_id INTEGER NOT NULL REFERENCES remu_people(id) ON DELETE CASCADE,"
+        "role TEXT NOT NULL DEFAULT 'team',"
+        "involvement REAL NOT NULL DEFAULT 100,"
+        "UNIQUE (project_id, person_id, role))")
+    # the project's remuneration scheme, set in Project Details
+    _add_column(conn, "projects", "remu_type", "TEXT")
+    _add_column(conn, "projects", "remu_stp_pct", "REAL")
+    _add_column(conn, "projects", "remu_agent", "TEXT NOT NULL DEFAULT ''")
     # sections added after a user's menu was set must still reach them
     _ensure_menu_routes(conn, ("oracle", "product", "expenses"))
     # Product Finance Analysis (v1.08)

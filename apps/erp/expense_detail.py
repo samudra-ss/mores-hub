@@ -14,7 +14,9 @@ entry edited after import still reports what the ledger now says.
 """
 import calendar
 
-GRAB_ACCOUNT_NAME = "CORP PAY - GRAB"
+GRAB_ACCOUNT_NAME = "CORP PAY - GRAB"      # the pre-v1.12 cash account, still read for its history
+GRAB_PAYABLE_NAME = "Grab Payable"
+CARD_PREFIX = "1170"
 GRAB_SERVICES = ("Express", "Transport", "Food")
 _CHUNK = 800  # stay well under SQLite's bound-parameter limit
 
@@ -32,15 +34,15 @@ def _in(ids):
     return ",".join("?" * len(ids))
 
 
-def _accounts(conn, company_ids, where, params=()):
+def _accounts(conn, company_ids, where, params=(), types=("asset",)):
     if not company_ids:
         return []
     return [dict(r) for r in conn.execute(
-        "SELECT a.id, a.company_id, a.code, a.name, c.code AS company_code"
+        "SELECT a.id, a.company_id, a.code, a.name, a.type, c.code AS company_code"
         " FROM accounts a JOIN companies c ON c.id = a.company_id"
-        " WHERE a.company_id IN (%s) AND a.type = 'asset' AND (%s)"
-        " ORDER BY c.code, a.code" % (_in(company_ids), where),
-        list(company_ids) + list(params))]
+        " WHERE a.company_id IN (%s) AND a.type IN (%s) AND (%s)"
+        " ORDER BY c.code, a.code" % (_in(company_ids), _in(types), where),
+        list(company_ids) + list(types) + list(params))]
 
 
 def petty_accounts(conn, company_ids):
@@ -48,7 +50,48 @@ def petty_accounts(conn, company_ids):
 
 
 def grab_accounts(conn, company_ids):
-    return _accounts(conn, company_ids, "UPPER(TRIM(a.name)) = ?", (GRAB_ACCOUNT_NAME,))
+    """Grab Payable (v1.12) plus the old CORP PAY - GRAB cash account. On both,
+    a credit is Grab billing us and a debit is us paying Grab."""
+    return _accounts(conn, company_ids, "UPPER(TRIM(a.name)) IN (?, ?)",
+                     (GRAB_ACCOUNT_NAME, GRAB_PAYABLE_NAME.upper()), types=("asset", "liability"))
+
+
+def card_accounts(conn, company_ids):
+    """The corporate credit card (1170): a credit on it is a purchase."""
+    return _accounts(conn, company_ids, "a.code LIKE ?", (CARD_PREFIX + "%",), types=("asset", "liability"))
+
+
+def opex(conn, company_ids, year, month=None):
+    """The whole MORES cost: every operating-expense (6000) account, realization
+    and budget for the period - the CEO Dashboard's Jakarta Cost Office figure."""
+    start, end = period(year, month)
+    if not company_ids:
+        return {"rows": [], "actual": 0.0, "budget": 0.0}
+    ph = _in(company_ids)
+    act = {r["code"]: dict(r) for r in conn.execute(
+        "SELECT a.code, MIN(a.name) AS name, SUM(jl.debit - jl.credit) AS amount"
+        " FROM journal_lines jl JOIN journal_entries je ON je.id = jl.entry_id"
+        " JOIN accounts a ON a.id = jl.account_id"
+        " WHERE je.status='posted' AND je.company_id IN (%s) AND a.type='expense' AND a.code LIKE '6%%'"
+        " AND je.date BETWEEN ? AND ? GROUP BY a.code" % ph, list(company_ids) + [start, end])}
+    mcond = " AND b.month = ?" if month else ""
+    bud = {r["code"]: dict(r) for r in conn.execute(
+        "SELECT a.code, MIN(a.name) AS name, SUM(b.amount) AS amount FROM budgets b"
+        " JOIN accounts a ON a.id = b.account_id"
+        " WHERE b.company_id IN (%s) AND a.type='expense' AND a.code LIKE '6%%' AND b.year = ?%s"
+        " GROUP BY a.code" % (ph, mcond), list(company_ids) + [int(year)] + ([int(month)] if month else []))}
+    rows = []
+    for code in sorted(set(act) | set(bud)):
+        a, b = act.get(code, {}), bud.get(code, {})
+        rows.append({"code": code, "name": a.get("name") or b.get("name"),
+                     "actual": round(a.get("amount") or 0, 2), "budget": round(b.get("amount") or 0, 2)})
+    rows = [r for r in rows if r["actual"] or r["budget"]]
+    rows.sort(key=lambda r: -r["actual"])
+    office = [r for r in rows if r["code"] in ("6200", "6300") or r["code"].startswith("66")]
+    return {"rows": rows, "actual": round(sum(r["actual"] for r in rows), 2),
+            "budget": round(sum(r["budget"] for r in rows), 2),
+            "office_actual": round(sum(r["actual"] for r in office), 2),
+            "office_budget": round(sum(r["budget"] for r in office), 2)}
 
 
 def movements(conn, account_ids, start, end):
@@ -248,8 +291,10 @@ def expense_detail(conn, company_ids, year, month=None):
                  "billed": gacc["out_total"], "settled": gacc["in_total"],
                  "opening": gacc["opening"], "closing": gacc["closing"],
                  "account_rows": gacc["rows"], "months": _grab_months(trips, year)})
+    card = account_section(conn, card_accounts(conn, company_ids), year, month)
     return {"year": int(year), "month": int(month) if month else None,
-            "start": petty["start"], "end": petty["end"], "petty": petty, "grab": grab}
+            "start": petty["start"], "end": petty["end"], "petty": petty, "grab": grab,
+            "card": card, "opex": opex(conn, company_ids, year, month)}
 
 
 def _grab_months(trips, year):

@@ -1183,3 +1183,75 @@ img.ent-thumb { object-fit: cover; }
 .ceo-cash-acc { font-size: 12px; margin-top: 6px; }
 .ceo-cash-acc a { text-decoration: none; }
 .ceo-cash-acc a:hover { text-decoration: underline; }
+
+/* Remuneration (v1.12) */
+.remu-tbl td { vertical-align: top; }
+.remu-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; margin: 12px 0 4px; background: var(--bg); }
+.remu-bar span, .remu-legend i { display: block; height: 100%; }
+.remu-bar .o, .remu-legend .o { background: #5b6b80; }
+.remu-bar .a, .remu-legend .a { background: #9aa6b1; }
+.remu-bar .p, .remu-legend .p { background: #1f9d57; }
+.remu-bar .b, .remu-legend .b { background: #c87a08; }
+.remu-bar .u, .remu-legend .u { background: repeating-linear-gradient(45deg, #b9c2cc, #b9c2cc 4px, #dfe4e9 4px, #dfe4e9 8px); }
+.remu-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.remu-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.remu-legend i { width: 12px; height: 10px; border-radius: 2px; }
+.rs-people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rs-chip { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: var(--bg); border: 1px solid var(--border); }
+.rs-chip.g4 { border-color: #c87a08; } .rs-chip.g3 { border-color: var(--accent); } .rs-chip.g2 { border-color: #1f9d57; }
+.rs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.rs-card .rs-h { font-size: 13.5px; margin-bottom: 2px; }
+.rs-split { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; margin: 8px 0; }
+.rs-split b { font-family: var(--font-mono); }
+.rs-tbl td { padding: 4px 6px; font-size: 12.5px; }
+.rs-tbl td.num { white-space: nowrap; }
+
+/* pie: total in the centre, hovered slice in its colour (v1.12) */
+.pie { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.pie-fig { position: relative; flex: none; }
+.pie-fig svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.pie-slice { stroke: var(--card); stroke-width: 2; transition: opacity .15s, transform .15s; transform-origin: center; cursor: pointer; }
+.pie-slice.dim, .pie-li.dim { opacity: .35; }
+.pie-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+.pie-v { font-weight: 700; font-size: 20px; font-family: var(--font-mono); line-height: 1.15; transition: color .15s; }
+.pie-l { font-size: 11.5px; color: var(--muted); line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pie-legend { width: 100%; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.pie-li { display: grid; grid-template-columns: auto 1fr auto; gap: 7px; align-items: center; cursor: default; transition: opacity .15s; }
+.pie-ln { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pie-li b { font-family: var(--font-mono); font-weight: 600; }
+/* Jakarta Cost Office page */
+.jco-total-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 12px; }
+.jco-big { font-family: var(--font-mono); font-size: 28px; font-weight: 700; margin: 4px 0; }
+.jco-total-body { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.jco-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.jco-sum { margin: -4px 0 10px; font-size: 12.5px; }
+.jco-sum b { font-family: var(--font-mono); font-size: 18px; margin-right: 4px; }
+@media (max-width: 1100px) { .jco-three { grid-template-columns: 1fr; } .jco-total-body { grid-template-columns: 1fr; } }
+
+/* (v1.12) SBU cash popup on the CEO Dashboard */
+.sbc { display: flex; flex-direction: column; gap: 12px; }
+.sbc-hero { position: relative; height: 110px; border-radius: 10px; overflow: hidden; }
+.sbc-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sbc-hero span { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 12px 9px; color: #fff; display: flex; flex-direction: column;
+  background: linear-gradient(0deg, rgba(0,0,0,.82), transparent); }
+.sbc-hero b { font-size: 16px; } .sbc-hero small { font-size: 12px; opacity: .92; }
+.sbc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sbc-stats > div { border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.sbc-stats small { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.sbc-stats b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.sbc-stats .in b { color: var(--success, #1f9d57); } .sbc-stats .out b { color: var(--danger, #bd362f); }
+.sbc-stats .neg b { color: var(--danger, #bd362f); }
+.sbc-src { font-size: 12.5px; }
+.sbc-h { margin: 2px 0 0; font-size: 13px; }
+.sbc-rows { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow: auto; padding-right: 4px; }
+.sbc-row { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; font-size: 12.5px; }
+.sbc-nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sbc-link { font-size: 10.5px; border: 1px solid var(--border); border-radius: 5px; padding: 0 5px; color: var(--muted); }
+.sbc-amt { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.sbc-bar { height: 7px; border-radius: 4px; background: var(--border); overflow: hidden; }
+.sbc-bar i { display: block; height: 100%; background: var(--danger, #bd362f); border-radius: 4px; }
+.sbc-in { font-size: 11.5px; text-align: right; font-variant-numeric: tabular-nums; }
+.sbc-pick { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; }
+.sbc-pick select { font-weight: 400; }
+.sbc-note { font-size: 11.5px; margin: 0; }
+.sbc-acts { display: flex; justify-content: flex-end; }
