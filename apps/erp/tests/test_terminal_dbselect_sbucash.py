@@ -70,7 +70,7 @@ check("LOGIN", r.status_code == 200 and "Welcome to MORES HV<" in html and 'data
 r = anon.get("/")
 home = r.data.decode("utf-8")
 r.close()
-ver = lambda h: re.search(r"Version ([0-9.]+)", h)
+ver = lambda h: re.search(r"Version ([0-9.]+[a-z]?)", h)
 check("HOME", r.status_code == 200 and "/static/terminal.css" in home and "/static/terminal.css" in html
       and "mores-logo-ondark.png" in home and "mores-logo-ondark.png" in html, "home and sign-in share the terminal theme and the MORES logo")
 check("VERSION", ver(home) and ver(html) and ver(home).group(1) == ver(html).group(1) and 'class="mid' in html,

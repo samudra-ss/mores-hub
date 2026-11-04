@@ -94,8 +94,9 @@ def export_receivables(aging, scope_label):
                 "As of %s" % aging["as_of"])
     _header_row(ws, 4, ["No", "Client", "Invoice", "Invoice Date", "Due Date",
                         "Amount", "Outstanding", "Not Due", "1-30 d", "31-60 d",
-                        "61-90 d", "> 90 d", "Days Late", "Status"],
-                [5, 28, 16, 13, 13, 16, 16, 14, 12, 12, 12, 12, 10, 20])
+                        "61-90 d", "> 90 d", "Days Late", "Status", "Scheme", "Interest / profit share",
+                        "Total to repay"],
+                [5, 28, 16, 13, 13, 16, 16, 14, 12, 12, 12, 12, 10, 20, 22, 18, 18])
     bcol = {"not_due": 8, "d1_30": 9, "d31_60": 10, "d61_90": 11, "d90": 12}
     r = 5
     for i, it in enumerate(aging["items"], 1):
@@ -110,12 +111,20 @@ def export_receivables(aging, scope_label):
             _num(ws, r, bcol[it["bucket"]], it["outstanding"])
         ws.cell(row=r, column=13, value=it["days_overdue"] or 0)
         ws.cell(row=r, column=14, value=it["status_label"])
+        ret = it.get("ret") or {}
+        if ret.get("type"):
+            ws.cell(row=r, column=15, value="%s %s%%%s" % (ret["label"], ("%g" % ret["rate"]),
+                                                          " a year" if ret["type"] == "interest" and ret["basis"] == "annual" else ""))
+        _num(ws, r, 16, it.get("extra") or 0)
+        _num(ws, r, 17, it.get("total_repay") or it["amount"])
         r += 1
     ws.cell(row=r, column=2, value="TOTAL").font = BOLD
     _num(ws, r, 6, aging["total_amount"], bold=True)
     _num(ws, r, 7, aging["total_outstanding"], bold=True)
     for b, col in bcol.items():
         _num(ws, r, col, aging["buckets"][b], bold=True)
+    _num(ws, r, 16, aging.get("total_extra") or 0, bold=True)
+    _num(ws, r, 17, aging.get("total_repay") or aging["total_amount"], bold=True)
     r += 3
     ws.cell(row=r, column=2, value="AGING SUMMARY").font = BOLD
     r += 1
@@ -136,8 +145,9 @@ def export_payables(aging, scope_label):
                 "As of %s" % aging["as_of"])
     _header_row(ws, 4, ["No", "Vendor", "Bill", "Bill Date", "Due Date",
                         "Amount", "Outstanding", "Not Due", "1-30 d", "31-60 d",
-                        "61-90 d", "> 90 d", "Days Late", "Status"],
-                [5, 28, 16, 13, 13, 16, 16, 14, 12, 12, 12, 12, 10, 20])
+                        "61-90 d", "> 90 d", "Days Late", "Status", "Scheme", "Interest / profit share",
+                        "Total to repay"],
+                [5, 28, 16, 13, 13, 16, 16, 14, 12, 12, 12, 12, 10, 20, 22, 18, 18])
     bcol = {"not_due": 8, "d1_30": 9, "d31_60": 10, "d61_90": 11, "d90": 12}
     r = 5
     for i, it in enumerate(aging["items"], 1):
@@ -152,12 +162,20 @@ def export_payables(aging, scope_label):
             _num(ws, r, bcol[it["bucket"]], it["outstanding"])
         ws.cell(row=r, column=13, value=it["days_overdue"] or 0)
         ws.cell(row=r, column=14, value=it["status_label"])
+        ret = it.get("ret") or {}
+        if ret.get("type"):
+            ws.cell(row=r, column=15, value="%s %s%%%s" % (ret["label"], ("%g" % ret["rate"]),
+                                                          " a year" if ret["type"] == "interest" and ret["basis"] == "annual" else ""))
+        _num(ws, r, 16, it.get("extra") or 0)
+        _num(ws, r, 17, it.get("total_repay") or it["amount"])
         r += 1
     ws.cell(row=r, column=2, value="TOTAL").font = BOLD
     _num(ws, r, 6, aging["total_amount"], bold=True)
     _num(ws, r, 7, aging["total_outstanding"], bold=True)
     for b, col in bcol.items():
         _num(ws, r, col, aging["buckets"][b], bold=True)
+    _num(ws, r, 16, aging.get("total_extra") or 0, bold=True)
+    _num(ws, r, 17, aging.get("total_repay") or aging["total_amount"], bold=True)
     r += 3
     ws.cell(row=r, column=2, value="AGING SUMMARY").font = BOLD
     r += 1
@@ -2133,4 +2151,41 @@ def export_quarter_template(year, quarter, company_label, opening, weeks, accoun
         "Import it in The Oracle - Import cashflow. It becomes a new scenario; the Budget Center is not touched.",
     ], start=1):
         how.cell(row=i, column=1, value=line).font = BOLD if i == 1 else Font()
+    return _to_bytes(wb)
+
+
+def export_account_ledger(d):
+    """One account's posted lines for a period, with its budget and how much of
+    it is used - the download behind the dashboard's account popup."""
+    wb = Workbook()
+    ws = _sheet(wb, "Account %s" % d["code"], "%s - %s" % (d["code"], d.get("name") or ""),
+                "%s  |  %s to %s  |  %d entries" % (d.get("scope", ""), d.get("date_from", ""),
+                                                    d.get("date_to", ""), len(d["entries"])))
+    ws["A4"], ws["A5"], ws["A6"] = "Budget (year)", "Realization", "Budget used"
+    for c in ("A4", "A5", "A6"):
+        ws[c].font = BOLD
+    _num(ws, 4, 2, d.get("budget") or 0)
+    _num(ws, 5, 2, d.get("actual") or 0)
+    ws["B6"] = (d["used_pct"] / 100.0) if d.get("used_pct") is not None else "no budget"
+    if d.get("used_pct") is not None:
+        ws["B6"].number_format = "0.0%"
+    hdr = 8
+    _header_row(ws, hdr, ["Date", "Entry", "Company", "Description", "Reference", "Source", "Debit", "Credit"],
+                [12, 16, 10, 48, 16, 16, 16, 16])
+    row = hdr
+    for e in d["entries"]:
+        row += 1
+        ws.cell(row=row, column=1, value=e["date"])
+        ws.cell(row=row, column=2, value=e["entry_no"])
+        ws.cell(row=row, column=3, value=e.get("company_code") or "")
+        ws.cell(row=row, column=4, value=e.get("description") or e.get("line_desc") or "")
+        ws.cell(row=row, column=5, value=e.get("reference") or "")
+        ws.cell(row=row, column=6, value=e.get("source_label") or e.get("source") or "")
+        _num(ws, row, 7, e.get("debit") or 0)
+        _num(ws, row, 8, e.get("credit") or 0)
+    row += 1
+    ws.cell(row=row, column=1, value="TOTAL").font = BOLD
+    _num(ws, row, 7, d["total_debit"], bold=True)
+    _num(ws, row, 8, d["total_credit"], bold=True)
+    ws.freeze_panes = ws.cell(row=hdr + 1, column=1)
     return _to_bytes(wb)

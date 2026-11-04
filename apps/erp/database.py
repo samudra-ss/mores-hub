@@ -1732,6 +1732,17 @@ def migrate_database(conn):
     _add_column(conn, "projects", "remu_type", "TEXT")
     _add_column(conn, "projects", "remu_stp_pct", "REAL")
     _add_column(conn, "projects", "remu_agent", "TEXT NOT NULL DEFAULT ''")
+    # (v1.12b) a short code per project for the CEO Dashboard's highlight tiles;
+    # blank = made from the project's name
+    _add_column(conn, "projects", "abbr", "TEXT NOT NULL DEFAULT ''")
+    # (v1.12b) receivables and payables can carry a return on top of the base:
+    # interest (% a year over the term, or a flat %) or profit sharing (% of a
+    # profit base). Blank ret_type = the plain amount, exactly as before.
+    for tbl in ("receivables", "payables"):
+        _add_column(conn, tbl, "ret_type", "TEXT NOT NULL DEFAULT ''")
+        _add_column(conn, tbl, "ret_rate", "REAL NOT NULL DEFAULT 0")
+        _add_column(conn, tbl, "ret_basis", "TEXT NOT NULL DEFAULT 'annual'")
+        _add_column(conn, tbl, "ret_base", "REAL")
     # sections added after a user's menu was set must still reach them
     _ensure_menu_routes(conn, ("oracle", "product", "expenses"))
     # Product Finance Analysis (v1.08)

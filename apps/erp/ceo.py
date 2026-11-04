@@ -141,7 +141,8 @@ def project_highlights(conn, company_ids, phases, today=None, limit=8):
     order = [p[0] for p in phases]
     by_key = {p[0]: p for p in phases}
     tracks = [dict(r) for r in conn.execute(
-        "SELECT m.*, c.code AS company_code, p.code AS project_code, p.name AS project_name"
+        "SELECT m.*, c.code AS company_code, p.code AS project_code, p.name AS project_name,"
+        " COALESCE(p.abbr, '') AS project_abbr"
         " FROM money_tracker m JOIN companies c ON c.id = m.company_id"
         " LEFT JOIN projects p ON p.id = m.project_id"
         " WHERE m.company_id IN (%s) AND m.status <> 'cancelled'" % _in(company_ids), list(company_ids))]
@@ -162,6 +163,7 @@ def project_highlights(conn, company_ids, phases, today=None, limit=8):
         due = entered + datetime.timedelta(days=int(plan or 0)) if entered else None
         late = (today - due).days if (due and t["status"] == "active") else 0
         row = {"id": t["id"], "project_code": t["project_code"] or "", "project_name": t["project_name"] or "",
+               "project_abbr": t.get("project_abbr") or "", "project_id": t.get("project_id"),
                "title": t["title"] or "", "client": t["client"] or "", "company_code": t["company_code"],
                "amount": round(t["amount"] or 0, 2), "status": t["status"], "phase_key": key,
                "phase_label": by_key[key][1], "phase_name": by_key[key][2], "phase_no": idx + 1,
@@ -178,11 +180,12 @@ def project_highlights(conn, company_ids, phases, today=None, limit=8):
     # projects marked Done in Project Details that the tracker has not covered
     seen = {r["project_code"] for r in done if r["project_code"]}
     for p in conn.execute(
-            "SELECT p.id, p.code, p.name, p.end_date, c.code AS company_code FROM projects p"
+            "SELECT p.id, p.code, p.name, p.end_date, COALESCE(p.abbr, '') AS abbr, c.code AS company_code FROM projects p"
             " JOIN companies c ON c.id = p.company_id WHERE p.status='completed' AND p.company_id IN (%s)"
             % _in(company_ids), list(company_ids)):
         if p["code"] not in seen:
             done.append({"id": None, "project_id": p["id"], "project_code": p["code"], "project_name": p["name"],
+                         "project_abbr": p["abbr"],
                          "title": "", "client": "", "company_code": p["company_code"], "amount": 0.0,
                          "status": "done", "phase_label": "Project done", "phase_name": "marked Done in Project Details",
                          "due": p["end_date"], "days_late": 0, "is_hot": False})

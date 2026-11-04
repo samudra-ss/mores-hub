@@ -1960,9 +1960,28 @@ def report_account_ledger():
     code = (request.args.get("code") or "").strip()
     if not code:
         raise ValueError("An account code is required")
+    return jsonify(_account_ledger_data(ids, label, code, date_from, date_to))
+
+
+def _account_ledger_data(ids, label, code, date_from, date_to):
     data = reports.account_ledger(db(), ids, code, date_from, date_to)
     data.update(scope=label, date_from=date_from, date_to=date_to)
-    return jsonify(data)
+    # (v1.12b) the account's budget for the year and how much of it is used
+    data.update(reports.ledger_budget_used(data, reports.account_budget(db(), ids, code, int(date_from[:4]))))
+    return data
+
+
+@app.get("/api/reports/account-ledger.xlsx")
+@login_required
+def report_account_ledger_xlsx():
+    ids, label = scope_from_request()
+    date_from, date_to = date_range_from_request()
+    code = (request.args.get("code") or "").strip()
+    if not code:
+        raise ValueError("An account code is required")
+    data = _account_ledger_data(ids, label, code, date_from, date_to)
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", code)
+    return _xlsx(excel_io.export_account_ledger(data), "account_%s_%s.xlsx" % (safe, date_from[:4]))
 
 
 # --------------------------------------------------------------------------
@@ -1978,6 +1997,31 @@ def _receivable_fields(d):
             (d.get("invoice_date") or None), (d.get("due_date") or None),
             round(float(d.get("amount") or 0), 2), round(float(d.get("paid") or 0), 2),
             d.get("notes", "").strip())
+
+
+def _save_return_terms(table, rid, d):
+    """(v1.12b) interest / profit-sharing terms, each only when it is sent."""
+    if "ret_type" in d:
+        t = (d.get("ret_type") or "").strip()
+        if t not in reports.RETURN_TYPES:
+            raise ValueError("The scheme must be none, interest or profit sharing")
+        db().execute("UPDATE %s SET ret_type=? WHERE id=?" % table, (t, rid))
+    if "ret_rate" in d:
+        v = float(d.get("ret_rate") or 0)
+        if not 0 <= v <= 100:
+            raise ValueError("The rate is a percentage from 0 to 100")
+        db().execute("UPDATE %s SET ret_rate=? WHERE id=?" % table, (v, rid))
+    if "ret_basis" in d:
+        b = d.get("ret_basis") or "annual"
+        if b not in ("annual", "flat"):
+            raise ValueError("Interest is a yearly rate or a flat rate")
+        db().execute("UPDATE %s SET ret_basis=? WHERE id=?" % table, (b, rid))
+    if "ret_base" in d:
+        v = d.get("ret_base")
+        v = None if v in (None, "") else round(float(v), 2)
+        if v is not None and v < 0:
+            raise ValueError("The profit base cannot be negative")
+        db().execute("UPDATE %s SET ret_base=? WHERE id=?" % table, (v, rid))
 
 
 @app.get("/api/receivables")
@@ -2000,6 +2044,7 @@ def create_receivable():
     cur = db().execute(
         "INSERT INTO receivables (company_id, client, invoice_no, invoice_date, due_date, amount, paid, notes)"
         " VALUES (?,?,?,?,?,?,?,?)", (company_id,) + _receivable_fields(d))
+    _save_return_terms("receivables", cur.lastrowid, d)
     db().commit()
     return jsonify({"id": cur.lastrowid}), 201
 
@@ -2015,6 +2060,7 @@ def update_receivable(rid):
     db().execute(
         "UPDATE receivables SET client=?, invoice_no=?, invoice_date=?, due_date=?,"
         " amount=?, paid=?, notes=? WHERE id=?", _receivable_fields(d) + (rid,))
+    _save_return_terms("receivables", rid, d)
     db().commit()
     return jsonify({"ok": True})
 
@@ -2071,6 +2117,7 @@ def create_payable():
     cur = db().execute(
         "INSERT INTO payables (company_id, vendor, bill_no, bill_date, due_date, amount, paid, notes)"
         " VALUES (?,?,?,?,?,?,?,?)", (company_id,) + _payable_fields(d))
+    _save_return_terms("payables", cur.lastrowid, d)
     db().commit()
     return jsonify({"id": cur.lastrowid}), 201
 
@@ -2086,6 +2133,7 @@ def update_payable(pid):
     db().execute(
         "UPDATE payables SET vendor=?, bill_no=?, bill_date=?, due_date=?,"
         " amount=?, paid=?, notes=? WHERE id=?", _payable_fields(d) + (pid,))
+    _save_return_terms("payables", pid, d)
     db().commit()
     return jsonify({"ok": True})
 
@@ -3256,6 +3304,10 @@ def _save_remu_scheme(pid, d):
         db().execute("UPDATE projects SET remu_stp_pct=? WHERE id=?", (v, pid))
     if "remu_agent" in d:
         db().execute("UPDATE projects SET remu_agent=? WHERE id=?", ((d.get("remu_agent") or "").strip(), pid))
+    # (v1.12b) the project's short code for the CEO Dashboard tiles
+    if "abbr" in d:
+        a = re.sub(r"\s+", "", (d.get("abbr") or "")).upper()[:6]
+        db().execute("UPDATE projects SET abbr=? WHERE id=?", (a, pid))
 
 
 def _remu_guard():

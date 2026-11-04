@@ -356,6 +356,26 @@ def account_ledger(conn, company_ids, code, date_from, date_to):
             "total_debit": round(total_d, 2), "total_credit": round(total_c, 2)}
 
 
+def account_budget(conn, company_ids, code, year):
+    """The year's budget on one account code - the same company-level budget the
+    dashboard's budget-vs-realization tables read (budget_vs_actual)."""
+    ph, ids = _company_filter(company_ids)
+    row = conn.execute(
+        "SELECT COALESCE(SUM(b.amount), 0) FROM budgets b JOIN accounts a ON a.id = b.account_id"
+        " WHERE b.company_id IN (%s) AND b.year = ? AND b.project_id IS NULL AND a.code = ?" % ph,
+        ids + [int(year), code]).fetchone()
+    return round(row[0] or 0, 2)
+
+
+def ledger_budget_used(ledger, budget):
+    """Realization of a ledger (debit - credit for costs, credit - debit for
+    revenue) against a budget: {actual, budget, used_pct}."""
+    net = (ledger["total_debit"] or 0) - (ledger["total_credit"] or 0)
+    actual = round(-net if ledger.get("type") == "revenue" else net, 2)
+    return {"actual": actual, "budget": budget,
+            "used_pct": round(100.0 * actual / budget, 1) if budget else None}
+
+
 def audit_ledger(conn, company_ids, date_from=None, date_to=None,
                  code=None, created_by=None, source=None):
     """Audit trail: every posted journal LINE with its account, source and the
@@ -872,6 +892,46 @@ AR_BUCKET_LABELS = {
 }
 
 
+RETURN_TYPES = {"": "None", "interest": "Interest", "profit_share": "Profit sharing"}
+
+
+def return_terms(row, start_key):
+    """The extra a receivable or payable carries on top of its base amount.
+    interest  + annual: base x rate% x days(start -> due) / 365 (a missing date = one year)
+    interest  + flat:   base x rate%, once
+    profit_share:       profit base x rate% (no profit base entered = the base amount)
+    Returns {type, label, rate, basis, base, days, extra, total}."""
+    keys = row.keys() if hasattr(row, "keys") else row
+    get = lambda k, dflt=None: row[k] if k in keys else dflt
+    amount = round(get("amount") or 0, 2)
+    typ = (get("ret_type") or "").strip()
+    rate = float(get("ret_rate") or 0)
+    basis = get("ret_basis") or "annual"
+    out = {"type": typ if typ in RETURN_TYPES else "", "rate": rate, "basis": basis,
+           "base": None, "days": None, "extra": 0.0}
+    if out["type"] == "interest" and rate:
+        if basis == "flat":
+            out["extra"] = amount * rate / 100.0
+        else:
+            days = 365
+            try:
+                s = datetime.date.fromisoformat(get(start_key) or "")
+                e = datetime.date.fromisoformat(get("due_date") or "")
+                days = max(0, (e - s).days)
+            except (ValueError, TypeError):
+                pass
+            out["days"] = days
+            out["extra"] = amount * rate / 100.0 * days / 365.0
+    elif out["type"] == "profit_share" and rate:
+        base = get("ret_base")
+        out["base"] = round(base if base is not None else amount, 2)
+        out["extra"] = out["base"] * rate / 100.0
+    out["extra"] = round(out["extra"], 2)
+    out["total"] = round(amount + out["extra"], 2)
+    out["label"] = RETURN_TYPES[out["type"]]
+    return out
+
+
 def receivables_aging(conn, company_ids, as_of):
     """Per-invoice AR aging as of a report date, plus bucket totals & summary.
     Aging runs on the OUTSTANDING amount (amount − paid); fully-paid rows drop
@@ -888,10 +948,14 @@ def receivables_aging(conn, company_ids, as_of):
         as_of_d = datetime.date.today()
     items, buckets = [], {b: 0.0 for b in AR_BUCKETS}
     total_amount = total_out = 0.0
+    total_extra = 0.0
     for r in rows:
         amount = round(r["amount"] or 0, 2)
         paid = round(r["paid"] or 0, 2)
-        outstanding = round(amount - paid, 2)
+        ret = return_terms(r, "invoice_date")
+        total_extra = round(total_extra + ret["extra"], 2)
+        # (v1.12b) what is owed is the base plus its interest / profit share
+        outstanding = round(ret["total"] - paid, 2)
         total_amount = round(total_amount + amount, 2)
         bucket, days = None, None
         if outstanding <= 0.005:
@@ -923,7 +987,7 @@ def receivables_aging(conn, company_ids, as_of):
             "outstanding": outstanding,
             "days_overdue": (max(days, 0) if days is not None else None),
             "bucket": bucket, "status": status, "status_label": AR_STATUS.get(status, status),
-            "notes": r["notes"],
+            "notes": r["notes"], "ret": ret, "extra": ret["extra"], "total_repay": ret["total"],
         })
     summary = [{"bucket": b, "label": AR_BUCKET_LABELS[b], "amount": buckets[b],
                 "pct": round(100.0 * buckets[b] / total_out, 1) if total_out else 0.0}
@@ -931,6 +995,7 @@ def receivables_aging(conn, company_ids, as_of):
     return {
         "as_of": as_of_d.isoformat(), "items": items, "buckets": buckets, "summary": summary,
         "total_amount": total_amount, "total_outstanding": total_out, "risky": buckets["d90"],
+        "total_extra": total_extra, "total_repay": round(total_amount + total_extra, 2),
         "status_labels": AR_STATUS, "bucket_labels": AR_BUCKET_LABELS,
     }
 
@@ -950,10 +1015,14 @@ def payables_aging(conn, company_ids, as_of):
         as_of_d = datetime.date.today()
     items, buckets = [], {b: 0.0 for b in AR_BUCKETS}
     total_amount = total_out = 0.0
+    total_extra = 0.0
     for r in rows:
         amount = round(r["amount"] or 0, 2)
         paid = round(r["paid"] or 0, 2)
-        outstanding = round(amount - paid, 2)
+        ret = return_terms(r, "bill_date")
+        total_extra = round(total_extra + ret["extra"], 2)
+        # (v1.12b) what is owed is the base plus its interest / profit share
+        outstanding = round(ret["total"] - paid, 2)
         total_amount = round(total_amount + amount, 2)
         bucket, days = None, None
         if outstanding <= 0.005:
@@ -984,7 +1053,7 @@ def payables_aging(conn, company_ids, as_of):
             "amount": amount, "paid": paid, "outstanding": outstanding,
             "days_overdue": (max(days, 0) if days is not None else None),
             "bucket": bucket, "status": status, "status_label": AR_STATUS.get(status, status),
-            "notes": r["notes"],
+            "notes": r["notes"], "ret": ret, "extra": ret["extra"], "total_repay": ret["total"],
         })
     summary = [{"bucket": b, "label": AR_BUCKET_LABELS[b], "amount": buckets[b],
                 "pct": round(100.0 * buckets[b] / total_out, 1) if total_out else 0.0}
@@ -992,6 +1061,7 @@ def payables_aging(conn, company_ids, as_of):
     return {
         "as_of": as_of_d.isoformat(), "items": items, "buckets": buckets, "summary": summary,
         "total_amount": total_amount, "total_outstanding": total_out, "risky": buckets["d90"],
+        "total_extra": total_extra, "total_repay": round(total_amount + total_extra, 2),
         "status_labels": AR_STATUS, "bucket_labels": AR_BUCKET_LABELS,
     }
 

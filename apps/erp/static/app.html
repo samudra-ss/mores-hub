@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MORES HV — Console</title>
 <script>document.documentElement.dataset.theme = localStorage.getItem("erp.theme") || "light";
-document.documentElement.dataset.fontsize = localStorage.getItem("erp.fontsize") || "normal";</script>
+document.documentElement.dataset.fontsize = localStorage.getItem("erp.fontsize") || "normal";
+document.documentElement.dataset.nav = localStorage.getItem("erp.nav") || "full";</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Cinzel:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -19,6 +20,7 @@ document.documentElement.dataset.fontsize = localStorage.getItem("erp.fontsize")
       <div class="brand-row">
         <span class="brand-sub">Helicopter&nbsp;View</span>
         <span class="brand-chip">HV</span>
+        <button type="button" class="nav-collapse" id="navCollapse" title="Collapse menu">&laquo;</button>
       </div>
     </div>
     <nav id="nav">
@@ -31,15 +33,15 @@ document.documentElement.dataset.fontsize = localStorage.getItem("erp.fontsize")
       <a href="#/investments" data-route="investments" data-sec="hv">&#x2726; Investment Center</a>
       <a href="#/oracle" data-route="oracle" data-sec="hv">&#x263E; The Oracle</a>
       <div class="nav-sec" data-sec="detail">Devil in Detail</div>
+      <a href="#/bank" data-route="bank" data-sec="detail">&#x21C4; Account Parsing</a>
       <a href="#/journals" data-route="journals" data-sec="detail">&#x2630; Journal Entries</a>
       <a href="#/expenses" data-route="expenses" data-sec="detail">&#x25D4; Jakarta Cost Office</a>
-      <a href="#/bank" data-route="bank" data-sec="detail">&#x21C4; Account Parsing</a>
       <a href="#/receivables" data-route="receivables" data-sec="detail">&#x25F0; Receivables</a>
       <a href="#/payables" data-route="payables" data-sec="detail">&#x25F1; Payables</a>
-      <a href="#/remuneration" data-route="remuneration" data-sec="detail">&#x265B; Remuneration</a>
       <a href="#/budgets" data-route="budgets" data-sec="detail">&#x25CE; Budget Center</a>
       <a href="#/reports" data-route="reports" data-sec="detail">&#x25A4; Reports</a>
       <a href="#/accountant" data-route="accountant" data-sec="detail">&#x2696; Accountant Section</a>
+      <a href="#/remuneration" data-route="remuneration" data-sec="detail">&#x265B; Remuneration</a>
       <div class="nav-sec" data-sec="admin">Admin Panel</div>
       <a href="#/settings" data-route="settings" data-sec="admin">&#x2699; Settings</a>
     </nav>
@@ -48,6 +50,7 @@ document.documentElement.dataset.fontsize = localStorage.getItem("erp.fontsize")
   <div class="main">
     <header class="topbar">
       <div class="topbar-left">
+        <button type="button" class="nav-cycle" id="navCycle" title="Collapse menu (Ctrl+B)" aria-label="Collapse menu"><span></span><span></span><span></span></button>
         <div class="topbar-field"><span id="lblCompany">Company</span>
           <div class="seg-group" id="companyChoice"></div>
         </div>

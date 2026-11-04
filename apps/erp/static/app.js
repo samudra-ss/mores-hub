@@ -128,35 +128,113 @@ function renderTbDetailed(d, consolidated) {
       source (manual, BCA bank, Monit wallet, &hellip;).</p>`;
 }
 
-// click-through popup: every posted journal entry that hit one account
-async function openAccountLedger(code, fallbackName) {
-  const from = ($("#rdFrom") && $("#rdFrom").value) || `${state.year}-01-01`;
-  const to = ($("#rdTo") && $("#rdTo").value) || `${state.year}-12-31`;
-  openModal(`<div id="alBody"><div class="empty">Loading…</div></div>`, { title: "Account " + code });
-  try {
-    const d = await api(`/api/reports/account-ledger?${scopeQS()}&date_from=${from}&date_to=${to}&code=${encodeURIComponent(code)}`);
-    const consolidated = state.companyId === "all";
-    const rows = d.entries.map(e => `<tr>
-      <td class="muted" style="white-space:nowrap">${esc(fmtDate(e.date))}</td>
-      <td><b>${esc(e.entry_no)}</b>${consolidated ? ` <span class="muted">${esc(e.company_code)}</span>` : ""}</td>
-      <td>${esc(e.description || e.line_desc || "")}${e.reference ? ` <span class="muted">ref ${esc(e.reference)}</span>` : ""}</td>
-      <td><span class="pill ${SOURCE_CLASS[e.source] || "inactive"}">${esc(e.source_label || e.source)}</span></td>
-      <td class="num">${e.debit ? fmt(e.debit) : ""}</td>
-      <td class="num">${e.credit ? fmt(e.credit) : ""}</td></tr>`).join("")
-      || `<tr><td colspan="6" class="empty">No posted entries in this period</td></tr>`;
-    $("#alBody").innerHTML = `
-      <div class="ledger-head">
-        <div><b>${esc(d.code)} — ${esc(d.name || fallbackName)}</b>
-          ${d.type ? ` <span class="pill">${esc(d.type)}</span>` : ""}</div>
-        <div class="muted">${esc(d.scope)} · ${esc(fmtDate(d.date_from))} → ${esc(fmtDate(d.date_to))} · ${d.entries.length} entr${d.entries.length === 1 ? "y" : "ies"}</div>
-      </div>
-      <div class="ledger-scroll"><table class="tbl">
-        <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th>Source</th>
-          <th class="num">Debit</th><th class="num">Credit</th></tr></thead>
-        <tbody>${rows}
-        <tr class="total"><td colspan="4">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
-          <td class="num">${fmt(d.total_credit)}</td></tr></tbody></table></div>`;
-  } catch (e) { $("#alBody").innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+// (v1.12b) one popup for an account, wherever it is clicked: the monthly
+// spending first (budget vs realization per month), the posted entries in a
+// tab of their own. A month in the first tab opens the entries of that month.
+async function openAccountLedger(code, fallbackName, tab) { return accountPopup(code, fallbackName, tab || "monthly"); }
+// any link marked .acct-pop opens the account popup
+document.addEventListener("click", e => {
+  const a = e.target.closest && e.target.closest("a.acct-pop");
+  if (!a) return;
+  e.preventDefault(); accountPopup(a.dataset.code, a.dataset.name, "monthly");
+});
+async function accountPopup(code, name, tab) {
+  const from0 = ($("#rdFrom") && $("#rdFrom").value) || `${state.year}-01-01`;
+  const to0 = ($("#rdTo") && $("#rdTo").value) || `${state.year}-12-31`;
+  const root = openModal(`<div class="tabs ap-tabs" id="apTabs">
+      <button data-t="monthly">&#x25A5; ${t("Monthly spending")}</button>
+      <button data-t="details">&#x2630; ${t("Account details")}</button></div>
+    <div id="apBody" class="mt"><div class="empty">Loading…</div></div>`, { title: `${code} — ${name || ""}`, wide: true });
+  let range = { from: from0, to: to0, month: null };
+  const show = async k => {
+    $$("#apTabs button", root).forEach(b => b.classList.toggle("active", b.dataset.t === k));
+    const box = $("#apBody", root);
+    box.innerHTML = `<div class="empty">Loading…</div>`;
+    try {
+      if (k === "monthly") await apMonthly(box, code, m => {
+        const y = state.year, last = new Date(y, m, 0).getDate(), mm = String(m).padStart(2, "0");
+        range = { from: `${y}-${mm}-01`, to: `${y}-${mm}-${last}`, month: m };
+        show("details");
+      });
+      else await apLedger(box, code, name, range, range.month ? () => { range = { from: from0, to: to0, month: null }; show("details"); } : null);
+    } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  };
+  $$("#apTabs button", root).forEach(b => b.onclick = () => { if (b.dataset.t === "details") range = { from: from0, to: to0, month: null }; show(b.dataset.t); });
+  show(tab === "details" ? "details" : "monthly");
+}
+
+async function apMonthly(box, code, onMonth) {
+  const d = await api(`/api/reports/account-monthly?${scopeQS()}&attribution=${state.dashAttr || "project"}&code=${encodeURIComponent(code)}`);
+  if (!document.body.contains(box)) return;
+  const used = d.budget_total ? Math.round(1000 * d.actual_total / d.budget_total) / 10 : null;
+  let run = 0, runB = 0;
+  box.innerHTML = `
+    <div class="muted" style="margin-top:-4px">${esc(d.scope)} · ${state.year} · ${t("realization vs budget by month")}</div>
+    <div class="grid kpis mt">
+      <div class="kpi"><div class="kpi-label">${t("Realization YTD")}</div><div class="kpi-value">${fmtShortRp(d.actual_total)}</div></div>
+      <div class="kpi"><div class="kpi-label">${t("Budget")}</div><div class="kpi-value">${fmtShortRp(d.budget_total)}</div></div>
+      <div class="kpi ${used != null && used > 100 ? "red" : ""}"><div class="kpi-label">${t("Budget used")}</div>
+        <div class="kpi-value">${used == null ? "—" : String(used).replace(".", ",") + "%"}</div></div>
+    </div>
+    ${chartBars(MONTH_NAMES, [
+      { name: t("Budget"), color: "#c87a08", values: d.budget_months },
+      { name: t("Realization"), color: C_REV, values: d.actual_months },
+    ], { height: 200, valueLabels: false })}
+    <table class="tbl ap-months mt"><thead><tr><th>${t("Month")}</th><th class="num">${t("Budget")}</th><th class="num">${t("Realization")}</th>
+      <th class="num">${t("Variance")}</th><th class="num">${t("Used")}</th><th class="num">${t("Cumulative")}</th><th></th></tr></thead>
+      <tbody>${MONTH_NAMES.map((m, i) => {
+        const b = d.budget_months[i] || 0, a = d.actual_months[i] || 0;
+        run += a; runB += b;
+        const u = b ? Math.round(100 * a / b) : null;
+        return `<tr class="${a ? "ap-m" : ""}" data-m="${i + 1}"><td>${t(m)} ${state.year}</td><td class="num muted">${fmt(b)}</td>
+          <td class="num">${fmt(a)}</td><td class="num ${b - a < 0 ? "neg" : "pos"}">${fmt(round2(b - a))}</td>
+          <td class="num ${u != null && u > 100 ? "neg" : ""}">${u == null ? "—" : u + "%"}</td>
+          <td class="num muted" title="${t("budget so far")} ${fmt(runB)}">${fmt(round2(run))}</td>
+          <td>${a ? `<a href="#" class="ap-go">${t("entries")} &rarr;</a>` : ""}</td></tr>`;
+      }).join("")}
+      <tr class="total"><td>${t("TOTAL")}</td><td class="num">${fmt(d.budget_total)}</td><td class="num">${fmt(d.actual_total)}</td>
+        <td class="num ${d.budget_total - d.actual_total < 0 ? "neg" : "pos"}">${fmt(round2(d.budget_total - d.actual_total))}</td>
+        <td class="num">${used == null ? "—" : String(used).replace(".", ",") + "%"}</td><td></td><td></td></tr></tbody></table>
+    <p class="muted mt" style="font-size:12px">${t("Click a month for its entries. Realization follows the dashboard's project-company / booking-entity toggle.")}</p>`;
+  $$(".ap-m", box).forEach(tr => tr.onclick = e => { e.preventDefault(); onMonth(parseInt(tr.dataset.m, 10)); });
+}
+
+async function apLedger(box, code, fallbackName, range, onAll) {
+  const { from, to } = range;
+  const d = await api(`/api/reports/account-ledger?${scopeQS()}&date_from=${from}&date_to=${to}&code=${encodeURIComponent(code)}`);
+  if (!document.body.contains(box)) return;
+  const consolidated = state.companyId === "all";
+  const rows = d.entries.map(e => `<tr>
+    <td class="muted" style="white-space:nowrap">${esc(fmtDate(e.date))}</td>
+    <td><b>${esc(e.entry_no)}</b>${consolidated ? ` <span class="muted">${esc(e.company_code)}</span>` : ""}</td>
+    <td>${esc(e.description || e.line_desc || "")}${e.reference ? ` <span class="muted">ref ${esc(e.reference)}</span>` : ""}</td>
+    <td><span class="pill ${SOURCE_CLASS[e.source] || "inactive"}">${esc(e.source_label || e.source)}</span></td>
+    <td class="num">${e.debit ? fmt(e.debit) : ""}</td>
+    <td class="num">${e.credit ? fmt(e.credit) : ""}</td></tr>`).join("")
+    || `<tr><td colspan="6" class="empty">No posted entries in this period</td></tr>`;
+  const xlsx = `/api/reports/account-ledger.xlsx?${scopeQS()}&date_from=${from}&date_to=${to}&code=${encodeURIComponent(code)}`;
+  const used = d.used_pct, tone = used == null ? "" : used > 100 ? "bad" : used > 90 ? "watch" : "ok";
+  box.innerHTML = `
+    <div class="ledger-head">
+      <div><b>${esc(d.code)} — ${esc(d.name || fallbackName)}</b>
+        ${d.type ? ` <span class="pill">${esc(d.type)}</span>` : ""}</div>
+      <div class="muted">${esc(d.scope)} · ${esc(fmtDate(d.date_from))} → ${esc(fmtDate(d.date_to))} · ${d.entries.length} entr${d.entries.length === 1 ? "y" : "ies"}
+        <a class="btn al-dl" href="${xlsx}" download>&#x2913; ${t("Download Excel")}</a></div>
+    </div>
+    ${onAll ? `<div class="ap-month-chip">${t("Showing")} <b>${t(MONTH_NAMES[range.month - 1])} ${state.year}</b> · <a href="#" id="apAll">${t("show the whole year")}</a></div>`
+      : `<div class="al-budget ${tone}">
+      <div class="al-b-nums"><span>${t("Budget")} <b>${fmt(d.budget)}</b></span>
+        <span>${t("Realization")} <b>${fmt(d.actual)}</b></span>
+        <span class="al-b-pct">${used == null ? t("no budget set") : `<b>${String(used).replace(".", ",")}%</b> ${t("of budget used")}`}</span></div>
+      <div class="al-b-bar"><i style="width:${Math.min(100, used || 0)}%"></i></div>
+    </div>`}
+    <div class="ledger-scroll"><table class="tbl">
+      <thead><tr><th>Date</th><th>Entry</th><th>Description</th><th>Source</th>
+        <th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+      <tbody>${rows}
+      <tr class="total"><td colspan="4">TOTAL</td><td class="num">${fmt(d.total_debit)}</td>
+        <td class="num">${fmt(d.total_credit)}</td></tr></tbody></table></div>`;
+  if (onAll) $("#apAll", box).onclick = e => { e.preventDefault(); onAll(); };
 }
 
 // Opening-balances editor: enter each balance-sheet account's starting balance;
@@ -555,6 +633,50 @@ const TR = {
   "unchanged, as it must be.": "tidak berubah, sebagaimana mestinya.",
   "THESE DO NOT MATCH. Do not trust this result.": "TIDAK COCOK. Jangan percayai hasil ini.",
   "How to use": "Cara pakai",
+  "Monthly spending": "Pengeluaran bulanan",
+  "Account details": "Detail akun",
+  "realization vs budget by month": "realisasi vs anggaran per bulan",
+  "Realization YTD": "Realisasi YTD",
+  "Cumulative": "Kumulatif",
+  "budget so far": "anggaran s.d. bulan ini",
+  "show the whole year": "tampilkan setahun penuh",
+  "Click a month for its entries. Realization follows the dashboard's project-company / booking-entity toggle.": "Klik bulan untuk melihat entrinya. Realisasi mengikuti pilihan perusahaan proyek / entitas pembukuan di dashboard.",
+  "Short code (dashboard tile)": "Kode singkat (ubin dashboard)",
+  "auto from the name": "otomatis dari nama",
+  "Interest / profit sharing": "Bunga / bagi hasil",
+  "what is repaid on top of the base amount": "yang dibayar di atas pokok",
+  "None": "Tidak ada",
+  "Interest": "Bunga",
+  "Profit sharing": "Bagi hasil",
+  "Rate": "Tarif",
+  "Interest is": "Bunga dihitung",
+  "% a year, over the term": "% per tahun, sepanjang jangka waktu",
+  "a flat %, once": "% flat, sekali",
+  "Profit base (Rp)": "Dasar bagi hasil (Rp)",
+  "blank = the base amount": "kosong = pokok",
+  "Base": "Pokok",
+  "interest": "bunga",
+  "profit share": "bagi hasil",
+  "Total to repay": "Total pengembalian",
+  "outstanding": "sisa",
+  "a year": "per tahun",
+  "flat": "flat",
+  "No scheme — only the base amount is repaid.": "Tanpa skema — hanya pokok yang dibayar.",
+  "Interest or profit share on top of the base": "Bunga atau bagi hasil di atas pokok",
+  "+ Interest / PS": "+ Bunga / BH",
+  "Total to repay = base + interest or profit share (set per invoice/bill in Edit). Outstanding = total to repay − paid. Status and aging are computed from the As-of date vs each Due Date.": "Total pengembalian = pokok + bunga atau bagi hasil (diatur per tagihan di Edit). Sisa = total pengembalian − dibayar. Status dan umur dihitung dari tanggal As-of terhadap Jatuh Tempo.",
+  "d": "h",
+  "Collapse menu": "Ciutkan menu",
+  "Hide menu": "Sembunyikan menu",
+  "Show menu": "Tampilkan menu",
+  "Expand menu": "Lebarkan menu",
+  "Download Excel": "Unduh Excel",
+  "of budget used": "anggaran terpakai",
+  "no budget set": "belum ada anggaran",
+  "per project, by sector": "per proyek, per sektor",
+  "NCT = gross profit over realized revenue.": "NCT = laba kotor dibagi pendapatan terealisasi.",
+  "Gain over revenue": "Laba dibagi pendapatan",
+  "Subtotal": "Subtotal",
   "Click a picture for its cash in, cash out and outflow per project.": "Klik gambar untuk kas masuk, kas keluar dan pengeluaran per proyek.",
   "Budget used = the SBU's cost so far this year (COGS, operating cost, depreciation) against its cost budget for the whole year. Amber = ahead of the budget's pace, red = over the year's budget. Click a picture for its cash in, cash out and outflow per project.": "Anggaran terpakai = biaya SBU tahun ini (HPP, biaya operasional, penyusutan) terhadap anggaran biaya setahun penuh. Kuning = lebih cepat dari laju anggaran, merah = melebihi anggaran setahun. Klik gambar untuk kas masuk, kas keluar dan pengeluaran per proyek.",
   "Projects of": "Proyek milik",
@@ -1683,10 +1805,10 @@ const NAV_ITEMS = [
   ["product", "◇", "SBU"], ["investments", "✦", "Investment Center"],
   ["oracle", "☾", "The Oracle"],
   // Devil in Detail
-  ["journals", "☰", "Journal Entries"], ["expenses", "◔", "Jakarta Cost Office"], ["bank", "⇄", "Account Parsing"],
-  ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"], ["remuneration", "♛", "Remuneration"],
+  ["bank", "⇄", "Account Parsing"], ["journals", "☰", "Journal Entries"], ["expenses", "◔", "Jakarta Cost Office"],
+  ["receivables", "◰", "Receivables"], ["payables", "◱", "Payables"],
   ["budgets", "◎", "Budget Center"], ["reports", "▤", "Reports"],
-  ["accountant", "⚖", "Accountant Section"],
+  ["accountant", "⚖", "Accountant Section"], ["remuneration", "♛", "Remuneration"],
   // Admin panel
   ["settings", "⚙", "Settings"],
 ];
@@ -1699,7 +1821,10 @@ function relabelChrome() {
   const allowed = ma === "all" ? null : new Set(String(ma).split(",").map(s => s.trim()));
   $$("#nav a").forEach(a => {
     const item = NAV_ITEMS.find(n => n[0] === a.dataset.route);
-    if (item) a.innerHTML = `${item[1]} <span class="nav-t">${esc(t(item[2]))}</span>`;
+    if (item) {
+      a.innerHTML = `<span class="ni" aria-hidden="true">${item[1]}</span><span class="nav-t">${esc(t(item[2]))}</span>`;
+      a.dataset.label = t(item[2]);                 // the rail's tooltip
+    }
     const route = a.dataset.route;
     const hide = !isAdmin() && allowed && route !== "settings" && !allowed.has(route);
     a.style.display = hide ? "none" : "";
@@ -1743,8 +1868,36 @@ function companyOptions(selected, { includeAll } = {}) {
   return html;
 }
 
+/* ---- (v1.12b) sidebar: full, collapsed to an icon rail, or fully hidden ----- */
+const NAV_MODES = ["full", "rail", "hidden"];
+function setNavMode(mode) {
+  if (!NAV_MODES.includes(mode)) mode = "full";
+  document.documentElement.dataset.nav = mode;
+  try { localStorage.setItem("erp.nav", mode); } catch (_) {}
+  const next = { full: t("Collapse menu"), rail: t("Hide menu"), hidden: t("Show menu") }[mode];
+  const b = $("#navCycle");
+  if (b) { b.title = next + " (Ctrl+B)"; b.setAttribute("aria-label", next); b.dataset.mode = mode; }
+  const c = $("#navCollapse");
+  if (c) { c.title = mode === "rail" ? t("Expand menu") : t("Collapse menu"); c.innerHTML = mode === "rail" ? "&raquo;" : "&laquo;"; }
+  if (state._route) placeNavPill(state._route, false);   // right away when nothing slides
+}
+document.querySelector(".sidebar").addEventListener("transitionend", e => {
+  if (e.propertyName === "width" && state._route) placeNavPill(state._route, false);
+});
+function cycleNavMode() {
+  const cur = document.documentElement.dataset.nav || "full";
+  setNavMode(NAV_MODES[(NAV_MODES.indexOf(cur) + 1) % NAV_MODES.length]);
+}
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b"
+      && !(e.target.closest && e.target.closest("input, textarea, select, [contenteditable]"))) { e.preventDefault(); cycleNavMode(); }
+});
+
 /* ------------------------------------------------------------------ boot */
 async function boot() {
+  $("#navCycle").onclick = cycleNavMode;
+  $("#navCollapse").onclick = () => setNavMode(document.documentElement.dataset.nav === "rail" ? "full" : "rail");
+  setNavMode(document.documentElement.dataset.nav || "full");
   state.me = await api("/api/me");
   $("#userBox").innerHTML = `<b>${esc(state.me.full_name || state.me.username)}</b>
     <span class="muted">${esc(ROLE_LABELS[state.me.role] || state.me.role)}</span>
@@ -1829,14 +1982,133 @@ const INV_CATEGORIES = {
   csr: "CSR", strategic: "Strategic", other: "Other",
 };
 
+/* ---- (v1.12b) motion --------------------------------------------------------
+   Two moves, after the finance dashboard the user pointed at:
+   1. the highlight behind the menu item is ONE pill that slides to the new item:
+      its leading edge goes first and faster (0.36 s, power3.out), the trailing
+      edge catches up (0.55 s, power3.inOut), so it stretches and settles;
+   2. the page hands over: the old one fades and blurs out in 150 ms, and the
+      new one's header, tabs and cards come in one after another, from blurred
+      and a little low to sharp.
+   Nothing moves when the viewer asked for less motion. */
+const MOTION_OK = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+const EASE = { out3: x => 1 - Math.pow(1 - x, 3), inOut3: x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2 };
+function tween(obj, key, to, secs, ease, onUpdate) {
+  obj._tw = obj._tw || {};
+  const id = (obj._tw[key] || 0) + 1, from = obj[key], t0 = performance.now();
+  obj._tw[key] = id;
+  const step = now => {
+    if (obj._tw[key] !== id) return;               // a newer move took over this edge
+    const p = Math.min(1, (now - t0) / (secs * 1000));
+    obj[key] = from + (to - from) * ease(p);
+    onUpdate();
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+const navPill = { st: null };
+function placeNavPill(route, animate = true) {
+  const nav = $("#nav");
+  if (!nav) return;
+  let pill = $("#navPill");
+  if (!pill) {
+    pill = document.createElement("span");
+    pill.id = "navPill"; pill.setAttribute("aria-hidden", "true");
+    nav.prepend(pill);
+  }
+  const a = $(`#nav a[data-route="${route}"]`);
+  if (!a || !a.offsetParent) { pill.style.opacity = "0"; navPill.st = null; return; }
+  // the pill takes the colour and corners the item would have had on its own
+  nav.classList.remove("has-pill");
+  const cs = getComputedStyle(a), bg = cs.backgroundColor, radius = cs.borderTopLeftRadius;
+  nav.classList.add("has-pill");
+  const W = nav.clientWidth, H = nav.scrollHeight;
+  pill.style.height = H + "px";
+  pill.style.background = bg;
+  pill.style.opacity = "1";
+  const to = { l: a.offsetLeft, t: a.offsetTop, r: W - (a.offsetLeft + a.offsetWidth), b: H - (a.offsetTop + a.offsetHeight) };
+  const paint = () => { const s = navPill.st; pill.style.clipPath = `inset(${s.t}px ${s.r}px ${s.b}px ${s.l}px round ${radius})`; };
+  const prev = navPill.st;
+  if (!prev || !animate || !MOTION_OK) { navPill.st = Object.assign(prev || {}, to); paint(); return; }
+  const vertical = Math.abs(to.t - prev.t) >= Math.abs(to.l - prev.l);
+  const fwd = vertical ? to.t > prev.t : to.l > prev.l;
+  const [lead, trail] = vertical ? (fwd ? ["b", "t"] : ["t", "b"]) : (fwd ? ["r", "l"] : ["l", "r"]);
+  Object.keys(to).filter(k => k !== lead && k !== trail).forEach(k => { prev[k] = to[k]; });
+  tween(prev, lead, to[lead], 0.36, EASE.out3, paint);
+  tween(prev, trail, to[trail], 0.55, EASE.inOut3, paint);
+}
+window.addEventListener("resize", () => placeNavPill(state._route, false));
+// the pill follows the menu while it collapses, expands or hides
+if (window.ResizeObserver) new ResizeObserver(() => { if (state._route) placeNavPill(state._route, false); }).observe(document.getElementById("nav"));
+
+// the new page's parts come in one after another while it is being drawn
+const ENTER_SEL = ".page-head, .tabs, .card, .kpi, .sector-card, .hc-card, .ms-card";
+// big numbers roll their digits before they settle, left to right
+function rollDigits(el) {
+  const nodes = [];
+  const walk = n => n.nodeType === 3 ? (/\d/.test(n.nodeValue) && nodes.push([n, n.nodeValue])) : n.childNodes.forEach(walk);
+  walk(el);
+  if (!nodes.length) return;
+  const t0 = performance.now(), dur = 750;
+  const step = now => {
+    const p = Math.min(1, (now - t0) / dur);
+    nodes.forEach(([n, txt]) => {
+      if (!n.isConnected) return;
+      const keep = Math.floor(EASE.out3(p) * txt.length);
+      n.nodeValue = p >= 1 ? txt : txt.slice(0, keep) + txt.slice(keep).replace(/\d/g, () => String(Math.floor(Math.random() * 10)));
+    });
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+let enterObs = null;
+function pageEnter(el) {
+  if (enterObs) { enterObs.disconnect(); enterObs = null; }
+  if (!MOTION_OK) return;
+  let i = 0;
+  const until = performance.now() + 2600;
+  const mark = x => {
+    if (x.classList.contains("pg-in")) return;
+    const up = x.parentElement && x.parentElement.closest(".pg-in");
+    if (up && el.contains(up)) return;                  // its parent already carries it in
+    x.classList.add("pg-in");
+    x.style.setProperty("--pg-i", Math.min(i++, 10));
+    (x.matches(".kpi-value") ? [x] : x.querySelectorAll(".kpi-value")).forEach(rollDigits);
+  };
+  enterObs = new MutationObserver(muts => {
+    if (performance.now() > until) { enterObs.disconnect(); enterObs = null; return; }
+    muts.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType !== 1) return;
+      if (n.matches(ENTER_SEL)) mark(n);
+      n.querySelectorAll(ENTER_SEL).forEach(mark);
+    }));
+  });
+  enterObs.observe(el, { childList: true, subtree: true });
+}
+
 async function render() {
   const route = (location.hash || "#/dashboard").replace("#/", "").split("?")[0] || "dashboard";
   // the current page is stamped on <html> so a section can carry its own palette
   document.documentElement.dataset.page = route;
   $$("#nav a").forEach(a => a.classList.toggle("active", a.dataset.route === route));
+  const prevRoute = state._route;
+  state._route = route;
+  placeNavPill(route, !!prevRoute);
   const fn = routes[route] || pageDashboard;
   const el = $("#content");
-  el.innerHTML = `<div class="empty">Loading…</div>`;
+  if (MOTION_OK && prevRoute && prevRoute !== route && el.firstElementChild) {
+    // the old page dissolves; its height is held a moment so nothing jumps
+    el.style.minHeight = el.offsetHeight + "px";
+    el.classList.add("pg-out");
+    await new Promise(r => setTimeout(r, 200));
+    el.classList.remove("pg-out");
+    if (state._route !== route) return;                 // another click came in meanwhile
+    setTimeout(() => { if (state._route === route) el.style.minHeight = ""; }, 900);
+    window.scrollTo({ top: 0 });
+  }
+  pageEnter(el);
+  // "Loading…" only shows if the page really takes a while
+  el.innerHTML = `<div class="empty pg-wait">Loading…</div>`;
   try { await fn(el); } catch (e) { el.innerHTML = `<div class="card"><div class="empty">${esc(e.message)}</div></div>`; }
 }
 
@@ -2246,6 +2518,20 @@ function ceoInspectModal(c) {
     { title: t("Cash & bank accounts") });
 }
 
+// (v1.12b) a project's short code for the highlight tiles: the one set on the
+// project, else the first letters of its name (+ the year's last two digits)
+const ABBR_SKIP = new Set(["DAN", "AND", "THE", "OF", "FOR", "TO", "DI", "KE", "PT", "CV", "&"]);
+function prjAbbr(r) {
+  if (r.project_abbr) return r.project_abbr;
+  const src = String(r.project_name || r.title || r.project_code || "").toUpperCase();
+  const words = src.replace(/[()\[\],.:;'"]/g, " ").split(/[\s\-–—_/]+/)
+    .filter(w => w && /[A-Z]/.test(w) && !ABBR_SKIP.has(w));
+  let a = words.length === 1 ? words[0].replace(/[^A-Z0-9]/g, "").slice(0, 3) : words.slice(0, 3).map(w => w[0]).join("");
+  const yr = (src.match(/\b20(\d{2})\b/) || [])[1];
+  if (yr && a.length < 4) a += yr;
+  return a || "?";
+}
+
 function ceoHighlightsCard(h) {
   if (h.error) return `<div class="card ceo-card"><h3>${t("Project highlights")}</h3><p class="neg">${esc(h.error)}</p></div>`;
   if (!state.ceoHl) state.ceoHl = h.delayed.count ? "delayed" : "spm";
@@ -2256,17 +2542,22 @@ function ceoHighlightsCard(h) {
     const when = state.ceoHl === "delayed" ? `<span class="neg">${r.days_late} ${t("days late")}</span> <span class="muted">· ${t("due")} ${fmtDate(r.due)}</span>`
       : state.ceoHl === "spm" ? (r.days_late ? `<span class="neg">${r.days_late} ${t("days late")}</span>` : `<span class="muted">${t("due")} ${fmtDate(r.due)}</span>`)
       : `<span class="muted">${esc(t(r.phase_name || ""))}</span>`;
-    return `<div class="ceo-hl-row" ${r.id ? `data-track="${r.id}"` : `data-project="${r.project_id}" data-name="${esc(r.project_name)}"`}>
-      <div><div>${name}${r.is_hot ? " &#128293;" : ""}</div>
-        <div class="muted" style="font-size:12px">${esc(r.client || r.title || "")}${r.company_code ? ` · ${esc(r.company_code)}` : ""}</div></div>
-      <div class="ceo-hl-mid"><span class="pill ${state.ceoHl === "done" ? "posted" : state.ceoHl === "delayed" ? "bad" : "active"}">${esc(r.phase_label)}</span><br>${when}</div>
-      <div class="num"><b>${r.amount ? fmtShortRp(r.amount) : "—"}</b></div></div>`;
+    // (v1.12b) one square tile per project: its short code big, the rest small
+    const tip = `${r.project_code || ""} ${r.project_name || r.title || ""} · ${r.phase_label || ""}${r.client ? " · " + r.client : ""}`;
+    const badge = state.ceoHl === "done" ? "&#10003;" : r.days_late ? `+${r.days_late}${t("d")}` : "";
+    return `<div class="ceo-hl-row ceo-hl-tile ${state.ceoHl}" role="button" tabindex="0" title="${esc(tip.trim())}"
+        ${r.id ? `data-track="${r.id}"` : `data-project="${r.project_id}" data-name="${esc(r.project_name)}"`}>
+      ${badge ? `<span class="hlt-badge">${badge}</span>` : ""}${r.is_hot ? `<span class="hlt-hot">&#128293;</span>` : ""}
+      <b class="hlt-abbr">${esc(prjAbbr(r))}</b>
+      <span class="hlt-code">${esc(r.project_code || r.company_code || "")}</span>
+      <span class="hlt-phase">${esc(r.phase_label || "")}</span>
+      <span class="hlt-amt">${r.amount ? fmtShortRp(r.amount) : "—"}</span></div>`;
   };
   return `<div class="card ceo-card">
     <div class="ceo-head"><b>${t("Project highlights")}</b><a href="#/money" class="muted">${t("Money Tracker")} &rarr;</a></div>
     <div class="seg-group ceo-hl-tabs">${tabs.map(([k, l, v]) => `<button class="seg ${state.ceoHl === k ? "active" : ""}" data-k="${k}">
       ${l} <b>${v.count}</b><span class="muted"> · ${fmtShortRp(v.amount)}</span></button>`).join("")}</div>
-    <div class="ceo-hl-list">${cur.rows.map(row).join("") || `<div class="empty">${t("Nothing here.")}</div>`}</div>
+    <div class="ceo-hl-list ceo-hl-grid">${cur.rows.map(row).join("") || `<div class="empty">${t("Nothing here.")}</div>`}</div>
     ${cur.count > cur.rows.length ? `<p class="muted" style="font-size:12px">${t("and")} ${cur.count - cur.rows.length} ${t("more in the Money Tracker")}</p>` : ""}
     <p class="muted ceo-note">${t("Delayed = a track past its phase's planned days. In SPM process = between SPM and SP2D, the payment stretch. Done = paid, or the project is marked Done.")}</p>
   </div>`;
@@ -2393,6 +2684,7 @@ function renderCeoBlockWire(box, d, reload) {
     renderCeoBlockWire(box, d, reload);
   };
   $$(".ceo-hl-tabs .seg", box).forEach(b => b.onclick = () => { state.ceoHl = b.dataset.k; renderCeoBlock(box, reload); });
+  $$(".ceo-hl-tile", box).forEach(r => r.onkeydown = e => { if (e.key === "Enter") r.click(); });
   $$(".ceo-hl-row", box).forEach(r => r.onclick = () => r.dataset.track
     ? moneyTrackerDetail(r.dataset.track, () => renderCeoBlock(box, reload))
     : projectDetail(r.dataset.project, r.dataset.name, "completed"));
@@ -2739,26 +3031,7 @@ function cashAccountsModal(d) {
   if ($("#cashSet")) $("#cashSet").onclick = () => { closeModal(); state.settingsTab = "cash"; location.hash = "#/settings"; };
 }
 
-async function accountMonthlyModal(code, name) {
-  try {
-    const d = await api(`/api/reports/account-monthly?${scopeQS()}&attribution=${state.dashAttr || "project"}&code=${encodeURIComponent(code)}`);
-    const used = d.budget_total ? Math.round(100 * d.actual_total / d.budget_total) : null;
-    openModal(`
-      <div class="muted" style="margin-top:-4px">${esc(d.scope)} · ${state.year} · realization vs budget by month</div>
-      <div class="grid kpis mt">
-        <div class="kpi"><div class="kpi-label">Realization YTD</div><div class="kpi-value">${fmtShortRp(d.actual_total)}</div></div>
-        <div class="kpi"><div class="kpi-label">Budget</div><div class="kpi-value">${fmtShortRp(d.budget_total)}</div></div>
-        <div class="kpi ${used != null && used > 100 ? "red" : ""}"><div class="kpi-label">Used</div>
-          <div class="kpi-value">${used == null ? "—" : used + "%"}</div></div>
-      </div>
-      ${chartBars(MONTH_NAMES, [
-        { name: "Budget", color: "#c87a08", values: d.budget_months },
-        { name: "Realization", color: C_REV, values: d.actual_months },
-      ], { height: 280, valueLabels: false })}
-      <p class="muted mt" style="font-size:12px">Realization follows the ${(state.dashAttr || "project") === "project" ? "project company (management)" : "booking entity (legal)"} view — same as the dashboard toggle.</p>`,
-      { title: `${code} — ${name}` });
-  } catch (e) { toast(e.message, true); }
-}
+async function accountMonthlyModal(code, name) { return accountPopup(code, name, "monthly"); }
 
 const round2 = n => Math.round((n || 0) * 100) / 100;
 
@@ -2812,17 +3085,30 @@ function projectHealth(p, factor) {
   return { label: "Loss", cls: "bad", ach: null, budgetProfit, target };
 }
 
+// (v1.12b) Project HV groups its tables by sector, the same groups and order
+// as Project Details (Settings -> Project types, unassigned last).
+function phSectorGroups(rows, types) {
+  const key = r => r.type_id ? String(r.type_id) : "none";
+  return (types || []).map(x => ({ key: String(x.id), name: x.name, color: x.color }))
+    .concat([{ key: "none", name: t("Unassigned"), color: "#9aa6b1" }])
+    .map(g => Object.assign(g, { list: rows.filter(r => key(r) === g.key) }))
+    .filter(g => g.list.length);
+}
+const phSecRow = (g, span, extra) => `<tr class="ph-sec" style="--sc:${esc(g.color || "#9aa6b1")}"><td colspan="${span}">${sectorChip(g.name, g.color)}
+  <span class="muted">${g.list.length} ${t(g.list.length === 1 ? "project" : "projects")}</span>${extra || ""}</td></tr>`;
+
 async function pageProjectHV(el) {
-  const [perf, all] = await Promise.all([
+  const [perf, all, types] = await Promise.all([
     api(`/api/projects/performance?${scopeQS()}`),
     api(`/api/projects?company_id=${state.companyId}`),
+    api("/api/project-types").catch(() => []),
   ]);
   $("#scopeBadge").textContent = perf.scope;
   const perfBy = {}; perf.rows.forEach(p => perfBy[p.project_id] = p);
   const factor = ytdFactor();
   const rows = all.map(p => Object.assign(
     { project_id: p.id, code: p.code, name: p.name, company: p.company_code, status: p.status,
-      contract_value: p.contract_value || 0,
+      contract_value: p.contract_value || 0, type_id: p.type_id || null, type_name: p.type_name || "", type_color: p.type_color || "",
       revenue: 0, expense: 0, profit: 0, margin_pct: 0, budget_revenue: 0, budget_expense: 0,
       cogs: 0, opex: 0, cogs_by: {}, cost_by: {} },
     perfBy[p.id] || {}));
@@ -2855,19 +3141,19 @@ async function pageProjectHV(el) {
       <div class="kpi"><div class="kpi-label">Budget Target${ytdLabel}</div><div class="kpi-value">${fmtShort(totalTarget)}</div>
         <div class="kpi-sub">${totalTarget ? Math.round(100 * totalGain / totalTarget) + "% achieved" : ""}</div></div>
     </div>
-    ${phContractTable(rows)}
+    ${phContractTable(rows, types)}
     <div class="card mt"><h3>Actual Gain vs Budget Target${ytdLabel} per Project</h3>
       ${chartBars(active.map(r => r.code), [
         { name: "Actual Profit", color: C_REV, values: active.map(r => r.profit) },
         { name: "Budget Target" + ytdLabel, color: "#9ca3af", values: active.map(r => r.health.target) },
       ])}</div>
-    <div class="card mt"><h3>Project Scoreboard</h3>
-      <table class="tbl"><thead><tr><th>Project</th><th>Company</th>
+    <div class="card mt"><h3>Project Scoreboard <span class="muted" style="font-weight:500;font-size:13px">· ${t("by sector")}</span></h3>
+      <div class="ph-fit"><table class="tbl"><thead><tr><th>Project</th><th>Co.</th>
         <th class="num">Revenue</th><th class="num">Budget Rev</th>
         <th class="num">Expense</th><th class="num">Budget Exp</th>
         <th class="num">Gain</th><th class="num">Target${ytdLabel}</th>
-        <th class="num">Achieved</th><th class="num">Margin</th><th>Verdict</th></tr></thead>
-      <tbody>${rows.map(r => {
+        <th class="num">Achieved</th><th class="num" title="${t("Gain over revenue")}">NCT</th><th>Verdict</th></tr></thead>
+      <tbody>${phSectorGroups(rows, types).map(g => phSecRow(g, 11) + g.list.map(r => {
         const overBudgetExp = r.budget_expense && r.expense > r.budget_expense;
         return `<tr>
           <td><b>${esc(r.code)}</b> ${esc(r.name)}</td><td>${esc(r.company)}</td>
@@ -2878,9 +3164,9 @@ async function pageProjectHV(el) {
           <td class="num">${r.health.ach == null ? "-" : r.health.ach + "%"}</td>
           <td class="num">${r.margin_pct}%</td>
           <td><span class="pill ${r.health.cls}">${r.health.label}</span></td></tr>`;
-      }).join("") || `<tr><td colspan="11" class="empty">No projects</td></tr>`}</tbody></table>
+      }).join("")).join("") || `<tr><td colspan="11" class="empty">No projects</td></tr>`}</tbody></table></div>
       <p class="muted mt">Target = annual budget gain${factor < 1 ? " prorated to completed months (" + Math.round(factor * 12) + "/12)" : ""}.
-      Verdict: <b>Good</b> ≥ 90% of target (or margin ≥ 15% without budget) ·
+      NCT = gain over revenue. Verdict: <b>Good</b> ≥ 90% of target (or NCT ≥ 15% without budget) ·
       <b>Watch</b> 50–90% · <b>Underperforming / Loss</b> below 50% or negative. Red expense = over budget.</p>
     </div>
     <div class="card mt"><h3>Project Analysis — Diagrams &amp; Comparison</h3>
@@ -4151,6 +4437,65 @@ function exTile(label, value, sub, cls, text) {
 }
 
 /* ------------------------------------------------------------ receivables (AR aging) */
+// (v1.12b) a receivable or payable can carry a return on top of its base:
+// interest (% a year over the term from its date to its due date, or a flat %)
+// or profit sharing (% of a profit base). Mirrors reports.return_terms.
+const RET_TYPES = [["", "None"], ["interest", "Interest"], ["profit_share", "Profit sharing"]];
+function retCalc(amount, type, rate, basis, base, start, due) {
+  if (!type || !rate) return { extra: 0, days: null };
+  if (type === "interest") {
+    if (basis === "flat") return { extra: round2(amount * rate / 100), days: null };
+    let days = 365;
+    if (start && due) days = Math.max(0, Math.round((new Date(due) - new Date(start)) / 86400000));
+    return { extra: round2(amount * rate / 100 * days / 365), days };
+  }
+  return { extra: round2((base == null || base === "" ? amount : base) * rate / 100), days: null };
+}
+function retLabel(it) {
+  const r = it.ret || {};
+  if (!r.type) return "";
+  return r.type === "interest" ? `${t("Interest")} ${String(r.rate).replace(".", ",")}%${r.basis === "annual" ? " " + t("a year") : " " + t("flat")}`
+    : `${t("Profit sharing")} ${String(r.rate).replace(".", ",")}%`;
+}
+function retFields(r) {
+  const x = (r && r.ret) || {};
+  return `<div class="full ret-box">
+    <div class="ret-h">${t("Interest / profit sharing")} <span class="muted">· ${t("what is repaid on top of the base amount")}</span></div>
+    <div class="ret-grid">
+      <label>${t("Scheme")} <select id="retType">${RET_TYPES.map(([k, l]) => `<option value="${k}" ${(x.type || "") === k ? "selected" : ""}>${t(l)}</option>`).join("")}</select></label>
+      <label data-for="interest profit_share">${t("Rate")} (%) <input id="retRate" type="number" min="0" max="100" step="0.01" value="${x.rate || ""}"></label>
+      <label data-for="interest">${t("Interest is")} <select id="retBasis">
+        <option value="annual" ${x.basis !== "flat" ? "selected" : ""}>${t("% a year, over the term")}</option>
+        <option value="flat" ${x.basis === "flat" ? "selected" : ""}>${t("a flat %, once")}</option></select></label>
+      <label data-for="profit_share">${t("Profit base (Rp)")} <input id="retBase" inputmode="numeric" value="${x.base != null && x.type === "profit_share" ? fmt(x.base) : ""}"
+        placeholder="${t("blank = the base amount")}"></label>
+    </div>
+    <div class="ret-sum" id="retSum"></div></div>`;
+}
+function retWire(root, amountId, startId, dueId, paidId) {
+  const num = id => parseInt((($("#" + id, root) || {}).value || "0").replace(/[^\d-]/g, ""), 10) || 0;
+  const upd = () => {
+    const type = $("#retType", root).value;
+    root.querySelectorAll(".ret-box [data-for]").forEach(e => e.style.display = e.dataset.for.split(" ").includes(type) ? "" : "none");
+    const amount = num(amountId), baseRaw = $("#retBase", root).value.trim();
+    const c = retCalc(amount, type, parseFloat($("#retRate", root).value) || 0, $("#retBasis", root).value,
+      baseRaw === "" ? null : num("retBase"), $("#" + startId, root).value, $("#" + dueId, root).value);
+    const total = amount + c.extra, paid = num(paidId);
+    $("#retSum", root).innerHTML = type ? `${t("Base")} <b>${fmt(amount)}</b> + ${type === "interest" ? t("interest") : t("profit share")}
+      <b>${fmt(c.extra)}</b>${c.days != null ? ` <span class="muted">(${c.days} ${t("days")})</span>` : ""} = ${t("Total to repay")} <b>${fmt(total)}</b>
+      <span class="muted">· ${t("outstanding")} ${fmt(Math.max(0, total - paid))}</span>` : `<span class="muted">${t("No scheme — only the base amount is repaid.")}</span>`;
+  };
+  ["retType", "retRate", "retBasis", "retBase", amountId, startId, dueId, paidId].forEach(id => {
+    const e = $("#" + id, root); if (e) { e.addEventListener("input", upd); e.addEventListener("change", upd); }
+  });
+  upd();
+  return () => {
+    const type = $("#retType", root).value, baseRaw = $("#retBase", root).value.trim();
+    return { ret_type: type, ret_rate: parseFloat($("#retRate", root).value) || 0, ret_basis: $("#retBasis", root).value,
+      ret_base: type === "profit_share" && baseRaw !== "" ? num("retBase") : null };
+  };
+}
+
 async function pageReceivables(el) {
   const today = new Date().toISOString().slice(0, 10);
   if (!state.arAsOf) state.arAsOf = today;
@@ -4181,6 +4526,8 @@ async function pageReceivables(el) {
       <td class="muted">${esc(fmtDate(it.invoice_date))}</td>
       <td>${esc(fmtDate(it.due_date))}</td>
       <td class="num">${fmt(it.amount)}</td>
+      <td class="num ret-c">${it.extra ? `<span title="${esc(retLabel(it))}">+${fmt(it.extra)}</span><div class="ret-l">${esc(retLabel(it))}</div>` : `<span class="muted">-</span>`}</td>
+      <td class="num">${it.extra ? `<b>${fmt(it.total_repay)}</b>` : fmt(it.total_repay)}</td>
       <td class="num">${fmt(it.outstanding)}</td>
       <td class="num">${bcell(it, "not_due")}</td>
       <td class="num">${bcell(it, "d1_30")}</td>
@@ -4190,8 +4537,10 @@ async function pageReceivables(el) {
       <td class="num">${it.days_overdue == null ? "-" : it.days_overdue}</td>
       <td><span class="pill ${AR_STATUS_PILL[it.status] || "inactive"}">${esc(t(it.status_label))}</span></td>
       ${canWrite() ? `<td><button class="btn btn-sm" data-edit="${it.id}">Edit</button></td>` : ""}
-    </tr>`).join("") || `<tr><td colspan="${14 + (consol ? 1 : 0) + (canWrite() ? 1 : 0)}" class="empty">No invoices yet — add one to start tracking AR aging.</td></tr>`;
-    const totalRow = `<tr class="total"><td colspan="${consol ? 7 : 6}">${t("TOTAL")}</td>
+    </tr>`).join("") || `<tr><td colspan="${16 + (consol ? 1 : 0) + (canWrite() ? 1 : 0)}" class="empty">No invoices yet — add one to start tracking AR aging.</td></tr>`;
+    const totalRow = `<tr class="total"><td colspan="${consol ? 6 : 5}">${t("TOTAL")}</td>
+      <td class="num">${fmt(d.total_amount)}</td><td class="num">${d.total_extra ? "+" + fmt(d.total_extra) : "-"}</td>
+      <td class="num">${fmt(d.total_repay)}</td>
       <td class="num">${fmt(d.total_outstanding)}</td>
       <td class="num">${fmt(d.buckets.not_due)}</td><td class="num">${fmt(d.buckets.d1_30)}</td>
       <td class="num">${fmt(d.buckets.d31_60)}</td><td class="num">${fmt(d.buckets.d61_90)}</td>
@@ -4199,11 +4548,12 @@ async function pageReceivables(el) {
     $("#arBody").innerHTML = `
       <div class="card"><div style="overflow-x:auto"><table class="tbl ar-tbl">
         <thead><tr><th>No</th>${consol ? "<th>Co.</th>" : ""}<th>${t("Client")}</th><th>${t("Invoice")}</th>
-          <th>${t("Invoice Date")}</th><th>${t("Due Date")}</th><th class="num">${t("Amount")}</th><th class="num">${t("Outstanding")}</th>
+          <th>${t("Invoice Date")}</th><th>${t("Due Date")}</th><th class="num">${t("Base")}</th><th class="num" title="${t("Interest or profit share on top of the base")}">${t("+ Interest / PS")}</th>
+          <th class="num">${t("Total to repay")}</th><th class="num">${t("Outstanding")}</th>
           <th class="num">${t("Not Due")}</th><th class="num">1–30</th><th class="num">31–60</th><th class="num">61–90</th><th class="num">&gt;90</th>
           <th class="num">${t("Days Late")}</th><th>${t("Status")}</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
         <tbody>${rows}${totalRow}</tbody></table></div>
-        <p class="muted mt">Outstanding = Amount − Paid. Status &amp; aging are computed from the As-of date vs each Due Date.</p>
+        <p class="muted mt">${t("Total to repay = base + interest or profit share (set per invoice/bill in Edit). Outstanding = total to repay − paid. Status and aging are computed from the As-of date vs each Due Date.")}</p>
       </div>
       <div class="grid two-col mt">
         <div class="card"><h3>${t("Aging Summary")}</h3>
@@ -4242,17 +4592,19 @@ function receivableEditor(r, reload) {
     <label>Due Date <input type="date" id="rvDue" value="${esc(r ? (r.due_date || "") : "")}"></label>
     <label>Amount (Rp) <input id="rvAmount" inputmode="numeric" value="${r ? fmt(r.amount) : ""}"></label>
     <label>Paid / Received (Rp) <input id="rvPaid" inputmode="numeric" value="${r ? fmt(r.paid) : "0"}"></label>
+    ${retFields(r)}
     <label class="full">Notes <input id="rvNotes" value="${esc(r ? r.notes : "")}"></label>
     </div><div class="form-actions">
       ${r ? `<button class="btn btn-danger" id="rvDel">Delete</button>` : ""}
       <button class="btn btn-primary" id="rvSave">Save invoice</button></div>`,
     { title: r ? "Edit receivable" : "New receivable", small: true });
+  const retOf = retWire($("#modalRoot"), "rvAmount", "rvIdate", "rvDue", "rvPaid");
   const numv = id => parseInt(($("#" + id).value || "0").replace(/[^\d-]/g, ""), 10) || 0;
   $("#rvSave").onclick = async () => {
     const body = {
       client: $("#rvClient").value, invoice_no: $("#rvInv").value,
       invoice_date: $("#rvIdate").value || null, due_date: $("#rvDue").value || null,
-      amount: numv("rvAmount"), paid: numv("rvPaid"), notes: $("#rvNotes").value,
+      amount: numv("rvAmount"), paid: numv("rvPaid"), notes: $("#rvNotes").value, ...retOf(),
     };
     try {
       if (r) await api("/api/receivables/" + r.id, { method: "PUT", json: body });
@@ -4298,6 +4650,8 @@ async function pagePayables(el) {
       <td class="muted">${esc(fmtDate(it.bill_date))}</td>
       <td>${esc(fmtDate(it.due_date))}</td>
       <td class="num">${fmt(it.amount)}</td>
+      <td class="num ret-c">${it.extra ? `<span title="${esc(retLabel(it))}">+${fmt(it.extra)}</span><div class="ret-l">${esc(retLabel(it))}</div>` : `<span class="muted">-</span>`}</td>
+      <td class="num">${it.extra ? `<b>${fmt(it.total_repay)}</b>` : fmt(it.total_repay)}</td>
       <td class="num">${fmt(it.outstanding)}</td>
       <td class="num">${bcell(it, "not_due")}</td>
       <td class="num">${bcell(it, "d1_30")}</td>
@@ -4307,8 +4661,10 @@ async function pagePayables(el) {
       <td class="num">${it.days_overdue == null ? "-" : it.days_overdue}</td>
       <td><span class="pill ${AR_STATUS_PILL[it.status] || "inactive"}">${esc(t(it.status_label))}</span></td>
       ${canWrite() ? `<td><button class="btn btn-sm" data-edit="${it.id}">Edit</button></td>` : ""}
-    </tr>`).join("") || `<tr><td colspan="${14 + (consol ? 1 : 0) + (canWrite() ? 1 : 0)}" class="empty">No bills yet — add one to start tracking AP aging.</td></tr>`;
-    const totalRow = `<tr class="total"><td colspan="${consol ? 7 : 6}">${t("TOTAL")}</td>
+    </tr>`).join("") || `<tr><td colspan="${16 + (consol ? 1 : 0) + (canWrite() ? 1 : 0)}" class="empty">No bills yet — add one to start tracking AP aging.</td></tr>`;
+    const totalRow = `<tr class="total"><td colspan="${consol ? 6 : 5}">${t("TOTAL")}</td>
+      <td class="num">${fmt(d.total_amount)}</td><td class="num">${d.total_extra ? "+" + fmt(d.total_extra) : "-"}</td>
+      <td class="num">${fmt(d.total_repay)}</td>
       <td class="num">${fmt(d.total_outstanding)}</td>
       <td class="num">${fmt(d.buckets.not_due)}</td><td class="num">${fmt(d.buckets.d1_30)}</td>
       <td class="num">${fmt(d.buckets.d31_60)}</td><td class="num">${fmt(d.buckets.d61_90)}</td>
@@ -4316,11 +4672,12 @@ async function pagePayables(el) {
     $("#apBody").innerHTML = `
       <div class="card"><div style="overflow-x:auto"><table class="tbl ar-tbl">
         <thead><tr><th>No</th>${consol ? "<th>Co.</th>" : ""}<th>${t("Vendor")}</th><th>${t("Bill")}</th>
-          <th>${t("Bill Date")}</th><th>${t("Due Date")}</th><th class="num">${t("Amount")}</th><th class="num">${t("Outstanding")}</th>
+          <th>${t("Bill Date")}</th><th>${t("Due Date")}</th><th class="num">${t("Base")}</th><th class="num" title="${t("Interest or profit share on top of the base")}">${t("+ Interest / PS")}</th>
+          <th class="num">${t("Total to repay")}</th><th class="num">${t("Outstanding")}</th>
           <th class="num">${t("Not Due")}</th><th class="num">1–30</th><th class="num">31–60</th><th class="num">61–90</th><th class="num">&gt;90</th>
           <th class="num">${t("Days Late")}</th><th>${t("Status")}</th>${canWrite() ? "<th></th>" : ""}</tr></thead>
         <tbody>${rows}${totalRow}</tbody></table></div>
-        <p class="muted mt">Outstanding = Amount − Paid. Status &amp; aging are computed from the As-of date vs each Due Date.</p>
+        <p class="muted mt">${t("Total to repay = base + interest or profit share (set per invoice/bill in Edit). Outstanding = total to repay − paid. Status and aging are computed from the As-of date vs each Due Date.")}</p>
       </div>
       <div class="grid two-col mt">
         <div class="card"><h3>${t("Aging Summary")}</h3>
@@ -4359,17 +4716,19 @@ function payableEditor(r, reload) {
     <label>Due Date <input type="date" id="pvDue" value="${esc(r ? (r.due_date || "") : "")}"></label>
     <label>Amount (Rp) <input id="pvAmount" inputmode="numeric" value="${r ? fmt(r.amount) : ""}"></label>
     <label>Paid (Rp) <input id="pvPaid" inputmode="numeric" value="${r ? fmt(r.paid) : "0"}"></label>
+    ${retFields(r)}
     <label class="full">Notes <input id="pvNotes" value="${esc(r ? r.notes : "")}"></label>
     </div><div class="form-actions">
       ${r ? `<button class="btn btn-danger" id="pvDel">Delete</button>` : ""}
       <button class="btn btn-primary" id="pvSave">Save bill</button></div>`,
     { title: r ? "Edit payable" : "New payable", small: true });
+  const retOf = retWire($("#modalRoot"), "pvAmount", "pvBdate", "pvDue", "pvPaid");
   const numv = id => parseInt(($("#" + id).value || "0").replace(/[^\d-]/g, ""), 10) || 0;
   $("#pvSave").onclick = async () => {
     const body = {
       vendor: $("#pvVendor").value, bill_no: $("#pvBill").value,
       bill_date: $("#pvBdate").value || null, due_date: $("#pvDue").value || null,
-      amount: numv("pvAmount"), paid: numv("pvPaid"), notes: $("#pvNotes").value,
+      amount: numv("pvAmount"), paid: numv("pvPaid"), notes: $("#pvNotes").value, ...retOf(),
     };
     try {
       if (r) await api("/api/payables/" + r.id, { method: "PUT", json: body });
@@ -4985,7 +5344,7 @@ async function pageBudgets(el) {
       <th class="num">${t("Variance")}</th><th class="num">${t("Used")}</th></tr></thead>
       <tbody>${bva.rows.map(r => {
         const bad = r.type === "expense" ? r.variance > 0 : r.variance < 0;
-        return `<tr><td>${esc(r.code)} ${esc(r.name)}</td><td>${r.type}</td>
+        return `<tr><td><a href="#" class="acct-pop" data-code="${esc(r.code)}" data-name="${esc(r.name)}">${esc(r.code)} ${esc(r.name)}</a></td><td>${r.type}</td>
           <td class="num">${fmt(r.budget)}</td><td class="num">${fmt(r.actual)}</td>
           <td class="num ${bad ? "neg" : "pos"}">${fmt(r.variance)}</td>
           <td class="num">${r.used_pct == null ? "-" : r.used_pct + "%"}</td></tr>`;
@@ -5448,6 +5807,8 @@ async function projectEditor(p, reload, defaultCompanyId) {
       <label>Company <select id="pCompany" ${p ? "disabled" : ""}>${companyOptions(cid)}</select></label>
       <label>Code <input id="pCode" value="${esc(p ? p.code : "")}" ${p ? "disabled" : ""} placeholder="PRJ-XXX"></label>
       <label class="full">Name <input id="pName" value="${esc(p ? p.name : "")}"></label>
+      <label>${t("Short code (dashboard tile)")} <input id="pAbbr" maxlength="6" value="${esc(p ? p.abbr || "" : "")}"
+        placeholder="${esc(p ? prjAbbr({ project_name: p.name }) : t("auto from the name"))}" style="text-transform:uppercase"></label>
       <label>Status <select id="pStatus">${["active", "completed", "on_hold"].map(s =>
         `<option value="${s}" ${p && p.status === s ? "selected" : ""}>${esc(t(PRJ_STATUS_LABEL[s]))}</option>`).join("")}</select></label>
       <label>${t("Sector (project type)")} <select id="pType">${sectorOptions(types, p ? p.type_id : "")}</select></label>
@@ -5479,7 +5840,7 @@ async function projectEditor(p, reload, defaultCompanyId) {
       contract_value: parseInt(($("#pContract").value || "0").replace(/[^\d]/g, ""), 10) || 0,
       type_id: $("#pType").value ? parseInt($("#pType").value, 10) : null,
       remu_type: $("#pRemu").value || null, remu_stp_pct: $("#pStp").value === "" ? null : parseFloat($("#pStp").value),
-      remu_agent: $("#pAgent").value,
+      remu_agent: $("#pAgent").value, abbr: $("#pAbbr").value,
       description: $("#pDesc").value, custom,
     };
     try {
@@ -9359,51 +9720,57 @@ async function settingsDisplay(body) {
 // already keeps by hand. COGS here is EVERY cost account tagged to the project
 // (5000 and 6000 alike), which is the same figure the project screen shows:
 // counting only the 5000 family reported no cost at all on a real ledger.
-function phContractTable(rows) {
+function phContractTable(rows, types) {
   const val = r => (r.contract_value || 0) || (r.budget_revenue || 0);
   const list = rows.filter(r => val(r) || r.revenue || r.expense).sort((x, y) => val(y) - val(x));
   const totals = {};
   list.forEach(r => Object.values(r.cost_by || {}).forEach(a => {
     totals[a.code] = { code: a.code, name: a.name, amount: (totals[a.code] || { amount: 0 }).amount + a.amount };
   }));
-  const cols = Object.values(totals).sort((x, y) => y.amount - x.amount).slice(0, 5);
+  // the four biggest cost accounts get a column each; the rest is "Other COGS"
+  const cols = Object.values(totals).sort((x, y) => y.amount - x.amount).slice(0, 4);
   const cogsOf = (r, code) => ((r.cost_by || {})[code] || {}).amount || 0;
   const other = r => round2((r.expense || 0) - cols.reduce((a, c) => a + cogsOf(r, c.code), 0));
   const anyOther = list.some(r => Math.abs(other(r)) > 0.5);
-  const sum = f => round2(list.reduce((a, r) => a + (f(r) || 0), 0));
-  const tContract = sum(val), tRev = sum(r => r.revenue), tCogs = sum(r => r.expense);
-  const tGp = round2(tRev - tCogs);
+  const span = 8 + cols.length + (anyOther ? 1 : 0);
   const cell = (v, cls) => `<td class="num ${cls || ""}">${v ? fmt(v) : "—"}</td>`;
-  const colTitle = c => `${c.code} ${c.name}`;
+  const nct = (rev, gp) => rev ? Math.round(1000 * gp / rev) / 10 : null;
+  const sumLine = (rs, label, cls) => {
+    const sum = f => round2(rs.reduce((a, r) => a + (f(r) || 0), 0));
+    const rev = sum(r => r.revenue), cogs = sum(r => r.expense), gp = round2(rev - cogs), n = nct(rev, gp);
+    return `<tr class="${cls}"><td></td><td>${label}</td><td></td>
+      <td class="num contract">${fmt(sum(val))}</td><td class="num">${fmt(rev)}</td>
+      ${cols.map(c => `<td class="num cogs">${fmt(sum(r => cogsOf(r, c.code)))}</td>`).join("")}
+      ${anyOther ? `<td class="num cogs">${fmt(sum(other))}</td>` : ""}
+      <td class="num cogs">${fmt(cogs)}</td>
+      <td class="num ${gp >= 0 ? "pos" : "neg"}"><b>${fmt(gp)}</b></td>
+      <td class="num ${n != null && n < 0 ? "neg" : ""}">${n == null ? "—" : n + "%"}</td></tr>`;
+  };
+  let i = 0;
+  const groups = phSectorGroups(list, types);
+  const body = groups.map(g => phSecRow(g, span) + g.list.map(r => {
+    const contract = val(r), gp = round2((r.revenue || 0) - (r.expense || 0)), n = nct(r.revenue, gp);
+    return `<tr><td class="muted">${++i}</td>
+      <td><b>${esc(r.code)}</b> ${esc(r.name)}${r.contract_value ? "" : contract ? ` <span class="muted" title="${t("no contract value set — showing the revenue budget")}">*</span>` : ""}</td>
+      <td>${esc(r.company || "")}</td>
+      ${cell(contract, "contract")}${cell(r.revenue)}
+      ${cols.map(c => cell(cogsOf(r, c.code), "cogs")).join("")}
+      ${anyOther ? cell(other(r), "cogs") : ""}
+      ${cell(r.expense, "cogs")}
+      <td class="num ${gp >= 0 ? "pos" : "neg"}"><b>${fmt(gp)}</b></td>
+      <td class="num ${n != null && n < 0 ? "neg" : ""}">${n == null ? "—" : n + "%"}</td></tr>`;
+  }).join("") + (groups.length > 1 ? sumLine(g.list, `${t("Subtotal")} ${esc(g.name)}`, "ph-sub") : "")).join("");
   return `<div class="card"><h3>${t("Contract value · COGS · Gross profit")}
-      <span class="muted" style="font-weight:500;font-size:13px">· ${t("per project")} · IDR ${state.year}</span></h3>
-    <p class="muted" style="margin-top:-6px">${t("Contract value is what the project was sold for (set it on the project; blank falls back to its revenue budget). COGS is every cost account tagged to the project — the 5000 and 6000 families alike — so it matches the project's own expense figure. Gross profit is realized revenue less that cost.")}</p>
-    <div class="ph-gp-scroll"><table class="tbl">
-      <thead><tr><th style="width:34px">#</th><th>${t("Project")}</th><th>${t("Company")}</th>
+      <span class="muted" style="font-weight:500;font-size:13px">· ${t("per project, by sector")} · IDR ${state.year}</span></h3>
+    <p class="muted" style="margin-top:-6px">${t("Contract value is what the project was sold for (set it on the project; blank falls back to its revenue budget). COGS is every cost account tagged to the project — the 5000 and 6000 families alike — so it matches the project's own expense figure. Gross profit is realized revenue less that cost.")} ${t("NCT = gross profit over realized revenue.")}</p>
+    <div class="ph-gp-scroll ph-fit"><table class="tbl">
+      <thead><tr><th style="width:26px">#</th><th>${t("Project")}</th><th>Co.</th>
         <th class="num contract">${t("Contract value")}</th><th class="num">${t("Revenue realized")}</th>
-        ${cols.map(c => `<th class="num cogs" title="${esc(colTitle(c))}">${esc(c.code)}</th>`).join("")}
+        ${cols.map(c => `<th class="num cogs" title="${esc(c.code + " " + c.name)}">${esc(c.code)}</th>`).join("")}
         ${anyOther ? `<th class="num cogs">${t("Other COGS")}</th>` : ""}
         <th class="num cogs">${t("COGS total")}</th><th class="num">${t("Gross profit")}</th>
-        <th class="num">${t("Margin")}</th></tr></thead>
-      <tbody>${list.map((r, i) => {
-        const contract = val(r), gp = round2((r.revenue || 0) - (r.expense || 0));
-        const margin = r.revenue ? Math.round(1000 * gp / r.revenue) / 10 : null;
-        return `<tr><td class="muted">${i + 1}</td>
-          <td><b>${esc(r.code)}</b> ${esc(r.name)}${r.contract_value ? "" : contract ? ` <span class="muted" title="${t("no contract value set — showing the revenue budget")}">*</span>` : ""}</td>
-          <td>${esc(r.company || "")}</td>
-          ${cell(contract, "contract")}${cell(r.revenue)}
-          ${cols.map(c => cell(cogsOf(r, c.code), "cogs")).join("")}
-          ${anyOther ? cell(other(r), "cogs") : ""}
-          ${cell(r.expense, "cogs")}
-          <td class="num ${gp >= 0 ? "pos" : "neg"}"><b>${fmt(gp)}</b></td>
-          <td class="num ${margin != null && margin < 0 ? "neg" : ""}">${margin == null ? "—" : margin + "%"}</td></tr>`;
-      }).join("") || `<tr><td colspan="${7 + cols.length + (anyOther ? 1 : 0)}" class="empty">${t("No contract value, revenue or COGS on any project yet.")}</td></tr>`}
-      ${list.length ? `<tr class="total"><td></td><td>${t("TOTAL")}</td><td></td>
-        <td class="num contract">${fmt(tContract)}</td><td class="num">${fmt(tRev)}</td>
-        ${cols.map(c => `<td class="num cogs">${fmt(sum(r => cogsOf(r, c.code)))}</td>`).join("")}
-        ${anyOther ? `<td class="num cogs">${fmt(sum(other))}</td>` : ""}
-        <td class="num cogs">${fmt(tCogs)}</td>
-        <td class="num ${tGp >= 0 ? "pos" : "neg"}"><b>${fmt(tGp)}</b></td>
-        <td class="num">${tRev ? Math.round(1000 * tGp / tRev) / 10 + "%" : "—"}</td></tr>` : ""}</tbody></table></div>
+        <th class="num" title="${t("NCT = gross profit over realized revenue.")}">NCT</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="${span}" class="empty">${t("No contract value, revenue or COGS on any project yet.")}</td></tr>`}
+      ${list.length ? sumLine(list, t("TOTAL"), "total") : ""}</tbody></table></div>
     ${list.some(r => !r.contract_value && val(r)) ? `<p class="muted" style="font-size:12px">* ${t("no contract value set on the project — its revenue budget is shown instead")}</p>` : ""}</div>`;
 }
