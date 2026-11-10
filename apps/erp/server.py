@@ -348,6 +348,22 @@ def content_admin_page():
     return send_from_directory(STATIC_DIR, "content-admin.html")
 
 
+@app.get("/manifest.webmanifest")
+def pwa_manifest():
+    """MORES HV as an installable desktop app (Edge / Chrome: Install app)."""
+    resp = send_from_directory(os.path.join(STATIC_DIR, "pwa"), "manifest.webmanifest",
+                               mimetype="application/manifest+json")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@app.get("/sw.js")
+def pwa_service_worker():
+    resp = send_from_directory(os.path.join(STATIC_DIR, "pwa"), "sw.js", mimetype="application/javascript")
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 @app.get("/static/<path:path>")
 def static_files(path):
     return send_from_directory(STATIC_DIR, path)

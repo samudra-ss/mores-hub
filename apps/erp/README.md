@@ -49,10 +49,18 @@ python server.py
 
 Open http://127.0.0.1:8000
 
-**Windows desktop shortcut:** double-click `create_desktop_shortcut.bat` once.
-It puts **MORES HV** and **MORES HV - RAB ROT** on the desktop (MORES HV icon);
-each starts the app and opens the browser, the second straight into
-Remuneration > RAB ROT plan. Run it again if the folder moves.
+**Windows: MORES HV as a desktop app.** Double-click
+`create_desktop_shortcut.bat` once. It puts **MORES HV** and
+**MORES HV - RAB ROT** on the desktop (and in the Start menu, with
+**Stop MORES HV server**). An icon starts the server in the background - no
+console window, log in `%LOCALAPPDATA%\MORES HV` - and opens
+http://127.0.0.1:8000 in its own app window (Edge or Chrome app mode: no tabs,
+no address bar, its own taskbar icon). Run it again if the folder moves.
+`start_erp.bat` still works the old way, with a console window.
+
+MORES HV is also an installable web app: in Edge or Chrome, the
+"App available / Install" button in the address bar installs it the same
+way, with right-click jumps to RAB ROT, Remuneration and the CEO Dashboard.
 
 | user    | password   | role           | access                          |
 |---------|------------|----------------|---------------------------------|

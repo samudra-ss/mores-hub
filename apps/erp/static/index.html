@@ -32,6 +32,11 @@ h1 { font-family: var(--term); font-weight: 400; line-height: 1; font-size: clam
 .motto .latin { font-family: var(--term); font-size: clamp(30px, 4vw, 52px); line-height: 1; letter-spacing: .06em; text-transform: uppercase; }
 .motto .en { margin-top: 8px; font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: var(--soft); }
 </style>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#00a2b6">
+<link rel="icon" type="image/png" href="/static/pwa/icon-192.png">
+<link rel="apple-touch-icon" href="/static/pwa/apple-touch-icon.png">
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));</script>
 </head>
 <body>
 <div class="crt">
