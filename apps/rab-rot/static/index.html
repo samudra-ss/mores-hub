@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MORES RAB ROT</title>
+<script>document.documentElement.dataset.theme = localStorage.getItem("rr.theme") || "light";</script>
+<link rel="stylesheet" href="/static/styles.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1f2f41">
+<link rel="icon" type="image/png" href="/static/pwa/icon-192.png">
+<link rel="apple-touch-icon" href="/static/pwa/apple-touch-icon.png">
+<script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));</script>
+<style>
+  .brand-chip.rr { background: #1f2f41; }
+  .rr-foot { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .rr-title { display: flex; align-items: baseline; gap: 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo" title="MORES RAB ROT"></div>
+      <div class="brand-row">
+        <span class="brand-sub">Cost&nbsp;Plan</span>
+        <span class="brand-chip rr">RAB ROT</span>
+      </div>
+    </div>
+    <nav id="nav">
+      <div class="nav-sec">RAB ROT</div>
+      <a href="#/plans" data-route="plans">&#x25A4; Cost plans</a>
+      <div class="nav-sec">Remuneration</div>
+      <a href="#/people" data-route="people">&#x265F; People &amp; grades</a>
+      <a href="#/scheme" data-route="scheme">&#x265B; Scheme</a>
+    </nav>
+    <div class="sidebar-foot rr-foot">Runs on this computer only.<br>Data: <code>data/rabrot.db</code></div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-left rr-title"><b style="font-size:14px">MORES RAB ROT</b>
+        <span class="muted" style="font-size:12.5px">project cost plan &amp; remuneration</span></div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost" id="themeBtn" title="Toggle dark / light mode">&#127769;</button>
+      </div>
+    </header>
+    <main id="content" class="content"></main>
+  </div>
+</div>
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

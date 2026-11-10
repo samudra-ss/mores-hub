@@ -40,3 +40,6 @@ data/*.db
 .claude/
 .agents/
 skills-lock.json
+
+# MORES RAB ROT (apps/rab-rot) - local data
+apps/rab-rot/data/
