@@ -1930,8 +1930,21 @@ async function boot() {
     render();
   };
   relabelChrome();
+  openFromShortcut();
   window.addEventListener("hashchange", render);
   render();
+}
+
+// Desktop shortcuts open /app?open=rab: straight into a page and tab. The
+// target is kept in localStorage while the sign-in runs, then used once.
+const SHORTCUTS = { rab: ["remuneration", () => { state.remuTab = "rab"; state.rabEdit = null; }] };
+function openFromShortcut() {
+  let key = new URLSearchParams(location.search).get("open");
+  try { key = key || localStorage.getItem("mhv.open"); localStorage.removeItem("mhv.open"); } catch (e) { /* private mode */ }
+  const sc = SHORTCUTS[key];
+  if (!sc) return;
+  sc[1]();
+  history.replaceState(null, "", "/app#/" + sc[0]);
 }
 
 function changePasswordModal() {

@@ -49,6 +49,11 @@ python server.py
 
 Open http://127.0.0.1:8000
 
+**Windows desktop shortcut:** double-click `create_desktop_shortcut.bat` once.
+It puts **MORES HV** and **MORES HV - RAB ROT** on the desktop (MORES HV icon);
+each starts the app and opens the browser, the second straight into
+Remuneration > RAB ROT plan. Run it again if the folder moves.
+
 | user    | password   | role           | access                          |
 |---------|------------|----------------|---------------------------------|
 | admin   | admin123   | Admin          | full access incl. users/settings|

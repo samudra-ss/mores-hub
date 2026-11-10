@@ -302,7 +302,9 @@ def index():
 @app.get("/app")
 def console():
     if not session.get("user_id"):
-        return redirect("/")
+        # a desktop shortcut's ?open=rab survives the sign-in (landing -> app)
+        target = re.sub(r"[^a-z]", "", (request.args.get("open") or "").lower())[:20]
+        return redirect("/?open=" + target if target else "/")
     return send_from_directory(STATIC_DIR, "app.html")
 
 
