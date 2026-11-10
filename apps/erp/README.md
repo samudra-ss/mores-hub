@@ -30,16 +30,6 @@ the finance core) for a multi-company group.
   each transfer to a cost account (+ optional project) to book it as a journal
   entry (debit cost, credit bank).
 
-- **RAB ROT — project cost plan (Remuneration → RAB ROT plan)** — the
-  "PROJECT RAB ROT ACTUAL" Excel sheet as a form: cost lines (Harga Satuan ×
-  JMLH × SAT × VOL), contingency, service fee 10% and PSC 5% of the net value,
-  profit element, project value per PT net of PPN 11% and PPh 23 2%, and the
-  Finance Review column with a GREEN / AMBER / RED signal (green from the
-  remuneration scheme's minimum GP, else 40%). The plan's team gets a live
-  remuneration preview. Import the existing Excel sheet, export a signed-off
-  PDF. PPh 23 is withheld on DPP (net = 98/111 = 88.29%); "Old sheet formula"
-  reproduces the sheet's value × 2/102 for reconciling.
-
 ## Run
 
 ```powershell
@@ -48,19 +38,6 @@ python server.py
 ```
 
 Open http://127.0.0.1:8000
-
-**Windows: MORES HV as a desktop app.** Double-click
-`create_desktop_shortcut.bat` once. It puts **MORES HV** and
-**MORES HV - RAB ROT** on the desktop (and in the Start menu, with
-**Stop MORES HV server**). An icon starts the server in the background - no
-console window, log in `%LOCALAPPDATA%\MORES HV` - and opens
-http://127.0.0.1:8000 in its own app window (Edge or Chrome app mode: no tabs,
-no address bar, its own taskbar icon). Run it again if the folder moves.
-`start_erp.bat` still works the old way, with a console window.
-
-MORES HV is also an installable web app: in Edge or Chrome, the
-"App available / Install" button in the address bar installs it the same
-way, with right-click jumps to RAB ROT, Remuneration and the CEO Dashboard.
 
 | user    | password   | role           | access                          |
 |---------|------------|----------------|---------------------------------|
