@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "MORES RAB ROT",
+  "short_name": "RAB ROT",
+  "description": "Project cost plan (RAB ROT) and the remuneration it pays — runs on this computer.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#eff1f3",
+  "theme_color": "#1f2f41",
+  "icons": [
+    { "src": "/static/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/pwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Cost plans", "url": "/#/plans", "icons": [{ "src": "/static/pwa/icon-192.png", "sizes": "192x192" }] },
+    { "name": "People & grades", "url": "/#/people", "icons": [{ "src": "/static/pwa/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Scheme", "url": "/#/scheme", "icons": [{ "src": "/static/pwa/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
