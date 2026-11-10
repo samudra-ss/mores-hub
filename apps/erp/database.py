@@ -1743,6 +1743,21 @@ def migrate_database(conn):
         _add_column(conn, tbl, "ret_rate", "REAL NOT NULL DEFAULT 0")
         _add_column(conn, tbl, "ret_basis", "TEXT NOT NULL DEFAULT 'annual'")
         _add_column(conn, tbl, "ret_base", "REAL")
+    # (v1.13) RAB ROT - the project cost plan behind the remuneration: the
+    # Excel sheet as a form. The plan itself is one JSON document (lines, PTs,
+    # rates, team); the columns are what the list shows and filters on.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS rab_plans ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "name TEXT NOT NULL,"
+        "company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,"
+        "project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,"
+        "status TEXT NOT NULL DEFAULT 'draft',"
+        "data TEXT NOT NULL DEFAULT '{}',"
+        "created_by TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')),"
+        "updated_by TEXT NOT NULL DEFAULT '',"
+        "updated_at TEXT NOT NULL DEFAULT (datetime('now')))")
     # sections added after a user's menu was set must still reach them
     _ensure_menu_routes(conn, ("oracle", "product", "expenses"))
     # Product Finance Analysis (v1.08)

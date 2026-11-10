@@ -1370,3 +1370,49 @@ html[data-nav="hidden"] .sidebar > * { visibility: hidden; transition: visibilit
 .ret-c { white-space: nowrap; }
 .ret-c span { color: #1f6db0; font-weight: 600; }
 .ret-l { font-size: 10.5px; color: var(--muted); font-weight: 400; }
+
+/* ---- RAB ROT: the project cost plan (v1.13) ------------------------------- */
+.rab-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+.rab-side { position: sticky; top: 70px; display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 1180px) { .rab-layout { grid-template-columns: 1fr; } .rab-side { position: static; } }
+.rab-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 14px; }
+.rab-fields label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.rab-fields label.w2 { grid-column: span 2; }
+.rab-fields input, .rab-fields select { width: 100%; }
+@media (max-width: 760px) { .rab-fields { grid-template-columns: 1fr 1fr; } }
+.rab-lines td { padding: 3px 3px; vertical-align: middle; }
+.rab-lines input { padding: 5px 6px; font-size: 12.5px; }
+.rab-lines th { padding: 6px 3px; font-size: 10px; }
+.rab-lines .rab-txt { width: 100%; min-width: 128px; }
+.rab-lines input[data-k="review_note"] { min-width: 150px; }
+.rab-lines .rab-money { width: 104px; text-align: right; font-family: var(--font-mono); }
+.rab-lines .rab-num { text-align: right; }
+.rab-lines tr.rab-grp td { background: transparent; font-weight: 600; padding-top: 8px; }
+.rab-gname { font-weight: 600; min-width: 220px; border-style: dashed; }
+.rab-money[data-diff="up"] { color: var(--red); border-color: var(--red); }
+.rab-money[data-diff="down"] { color: var(--green); }
+.rab-ent .rab-money { width: 160px; text-align: right; font-family: var(--font-mono); }
+.rab-ent .rab-txt { width: 100%; }
+.rab-card { padding: 14px 16px; }
+.rab-card h3 { margin-bottom: 8px; }
+.rab-sum td { padding: 5px 6px; font-size: 12.5px; }
+.rab-sum tr.total td { border-top: 1px solid var(--border); }
+.rab-sum tr.neg-row td.num { color: var(--red); }
+.rab-sum tr.rab-nct td { font-weight: 700; color: var(--green); background: rgba(31,157,87,.08); }
+.rab-hint { font-size: 11.5px; margin: 8px 0 0; line-height: 1.45; }
+.rab-signal { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px;
+  border-radius: 12px; border: 1px solid var(--border); border-left: 5px solid var(--muted); background: var(--card); }
+.rab-signal .kpi-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .11em; font-weight: 600; }
+.rab-sig-big { font-family: var(--font-mono); font-size: 26px; font-weight: 700; margin-top: 4px; letter-spacing: .04em; }
+.rab-sig-val { font-family: var(--font-mono); font-size: 18px; font-weight: 600; margin-top: 4px; }
+.rab-signal.green { border-left-color: var(--green); background: rgba(31,157,87,.07); }
+.rab-signal.green .rab-sig-big { color: var(--green); }
+.rab-signal.amber { border-left-color: var(--amber); background: rgba(200,122,8,.07); }
+.rab-signal.amber .rab-sig-big { color: var(--amber); }
+.rab-signal.red { border-left-color: var(--red); background: rgba(189,54,47,.07); }
+.rab-signal.red .rab-sig-big { color: var(--red); }
+.rab-remu { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin-bottom: 8px; }
+.rab-remu div { display: flex; flex-direction: column; gap: 2px; }
+.rab-remu span { font-family: var(--font-mono); font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.rab-remu b { font-family: var(--font-mono); font-size: 13px; }
+.rab-sig { font-weight: 700; letter-spacing: .04em; }

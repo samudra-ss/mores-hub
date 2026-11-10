@@ -18,6 +18,7 @@ import excel_io
 import expense_detail
 import fpa_cash
 import harmony
+import rab_rot
 import remuneration
 import product_fa
 import pdf_export
@@ -3614,6 +3615,188 @@ def remu_simulate():
         rows.append({**f, "team": team, "result": remuneration.compute(f, team, people, cfg)})
     return jsonify({"seed": seed, "people": sim_people, "projects": rows,
                     "totals": _remu_totals(rows, people), "config": cfg})
+
+
+# --------------------------------------------------------------------------
+# RAB ROT - the project cost plan behind the remuneration (v1.13)
+# --------------------------------------------------------------------------
+
+def _rab_row(pid):
+    row = db().execute("SELECT * FROM rab_plans WHERE id=?", (pid,)).fetchone()
+    if not row:
+        raise ValueError("Plan not found")
+    if row["company_id"]:
+        check_company_access(row["company_id"])
+    return row
+
+
+def _rab_full(data):
+    """The plan's figures and the remuneration it would pay."""
+    cfg = remuneration.config(db())
+    plan = rab_rot.clean(data)
+    calc = rab_rot.compute(plan, cfg)
+    people = _remu_people()
+    remu = rab_rot.remuneration_preview(plan, calc, people, cfg)
+    for po in remu["payouts"]:
+        po["grade_label"] = next(("%s %s" % (x["code"], x["title"]) for x in cfg["grades"] if x["grade"] == po.get("grade")), "")
+    return plan, calc, remu
+
+
+def _rab_header(d, plan):
+    """name / company / project / status from the request, checked."""
+    name = (d.get("name") or plan.get("project_name") or "").strip()
+    if not name:
+        raise ValueError("Give the plan a project name")
+    cid = d.get("company_id") or None
+    if cid:
+        cid = int(cid)
+        check_company_access(cid)
+    pid = d.get("project_id") or None
+    if pid:
+        prow = db().execute("SELECT company_id FROM projects WHERE id=?", (int(pid),)).fetchone()
+        if not prow:
+            raise ValueError("Project not found")
+        check_company_access(prow["company_id"])
+        pid, cid = int(pid), cid or prow["company_id"]
+    status = d.get("status") or "draft"
+    if status not in rab_rot.STATUSES:
+        raise ValueError("Unknown status")
+    return name, cid, pid, status
+
+
+def _rab_summary(row):
+    try:
+        plan = rab_rot.clean(json.loads(row["data"] or "{}"))
+        calc = rab_rot.compute(plan, remuneration.config(db()))
+    except (ValueError, TypeError):
+        return {}
+    return {"value": calc["value"], "net": calc["net"], "cogs": calc["cogs"], "review_cogs": calc["review"]["cogs"],
+            "nct": calc["nct"], "nct_pct": calc["nct_pct"], "review_margin": calc["review"]["margin"],
+            "signal": calc["review"]["status"], "lines": len(plan["lines"]), "entities": len(plan["entities"])}
+
+
+@app.get("/api/rab/plans")
+@login_required
+def rab_list():
+    _remu_guard()
+    ids = accessible_company_ids()
+    rows = db().execute(
+        "SELECT r.*, c.code AS company_code, p.code AS project_code, p.name AS project_title"
+        " FROM rab_plans r LEFT JOIN companies c ON c.id = r.company_id LEFT JOIN projects p ON p.id = r.project_id"
+        " WHERE r.company_id IS NULL OR r.company_id IN (%s) ORDER BY r.updated_at DESC, r.id DESC"
+        % (",".join("?" * len(ids)) or "NULL"), ids).fetchall()
+    out = []
+    for r in rows:
+        d = {k: r[k] for k in r.keys() if k != "data"}
+        d.update(_rab_summary(r))
+        out.append(d)
+    return jsonify(out)
+
+
+@app.get("/api/rab/blank")
+@login_required
+def rab_blank():
+    _remu_guard()
+    plan, calc, remu = _rab_full(rab_rot.blank_plan())
+    return jsonify({"data": plan, "calc": calc, "remu": remu})
+
+
+@app.post("/api/rab/calc")
+@login_required
+def rab_calc():
+    """Recalculate a plan as it is typed - nothing is saved."""
+    _remu_guard()
+    plan, calc, remu = _rab_full((request.get_json(force=True) or {}).get("data") or {})
+    return jsonify({"data": plan, "calc": calc, "remu": remu})
+
+
+@app.get("/api/rab/plans/<int:pid>")
+@login_required
+def rab_get(pid):
+    _remu_guard()
+    row = _rab_row(pid)
+    plan, calc, remu = _rab_full(json.loads(row["data"] or "{}"))
+    return jsonify({"plan": {k: row[k] for k in row.keys() if k != "data"}, "data": plan, "calc": calc, "remu": remu})
+
+
+@app.post("/api/rab/plans")
+@role_required("admin", "finance")
+def rab_create():
+    _remu_guard()
+    d = request.get_json(force=True) or {}
+    plan = rab_rot.clean(d.get("data") or rab_rot.blank_plan())
+    name, cid, pid, status = _rab_header(d, plan)
+    who = g.user["full_name"] or g.user["username"]
+    cur = db().execute("INSERT INTO rab_plans (name, company_id, project_id, status, data, created_by, updated_by)"
+                       " VALUES (?,?,?,?,?,?,?)", (name, cid, pid, status, rab_rot.dumps(plan), who, who))
+    db().commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.put("/api/rab/plans/<int:pid>")
+@role_required("admin", "finance")
+def rab_update(pid):
+    _remu_guard()
+    _rab_row(pid)
+    d = request.get_json(force=True) or {}
+    plan = rab_rot.clean(d.get("data") or {})
+    name, cid, proj, status = _rab_header(d, plan)
+    db().execute("UPDATE rab_plans SET name=?, company_id=?, project_id=?, status=?, data=?, updated_by=?,"
+                 " updated_at=datetime('now') WHERE id=?",
+                 (name, cid, proj, status, rab_rot.dumps(plan), g.user["full_name"] or g.user["username"], pid))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.delete("/api/rab/plans/<int:pid>")
+@role_required("admin", "finance")
+def rab_delete(pid):
+    _remu_guard()
+    _rab_row(pid)
+    db().execute("DELETE FROM rab_plans WHERE id=?", (pid,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.post("/api/rab/import")
+@role_required("admin", "finance")
+def rab_import():
+    """Read a RAB ROT Excel sheet into a new draft plan."""
+    _remu_guard()
+    f = request.files.get("file")
+    if not f or not f.filename.lower().endswith((".xlsx", ".xlsm")):
+        raise ValueError("Choose the RAB ROT Excel file (.xlsx)")
+    plan = rab_rot.import_xlsx(io.BytesIO(f.read()))
+    name = plan["project_name"] or os.path.splitext(f.filename)[0]
+    plan["project_name"] = name
+    cid = request.form.get("company_id") or None
+    if cid:
+        cid = int(cid)
+        check_company_access(cid)
+    who = g.user["full_name"] or g.user["username"]
+    cur = db().execute("INSERT INTO rab_plans (name, company_id, status, data, created_by, updated_by)"
+                       " VALUES (?,?,?,?,?,?)", (name, cid, "draft", rab_rot.dumps(plan), who, who))
+    db().commit()
+    return jsonify({"id": cur.lastrowid, "lines": len(plan["lines"]), "entities": len(plan["entities"])}), 201
+
+
+@app.get("/api/rab/plans/<int:pid>/pdf")
+@login_required
+def rab_pdf(pid):
+    _remu_guard()
+    row = _rab_row(pid)
+    plan, calc, remu = _rab_full(json.loads(row["data"] or "{}"))
+    meta = {k: row[k] for k in row.keys() if k != "data"}
+    if row["company_id"]:
+        c = db().execute("SELECT code, name FROM companies WHERE id=?", (row["company_id"],)).fetchone()
+        meta["company"] = "%s - %s" % (c["code"], c["name"]) if c else ""
+    if row["project_id"]:
+        p = db().execute("SELECT code, name FROM projects WHERE id=?", (row["project_id"],)).fetchone()
+        meta["project"] = "%s - %s" % (p["code"], p["name"]) if p else ""
+    buf = pdf_export.export_rab_rot_pdf(meta, plan, calc, remu, g.user["full_name"] or g.user["username"],
+                                        _dmy(datetime.now().date().isoformat()))
+    name = re.sub(r"[^A-Za-z0-9_-]+", "_", row["name"]).strip("_")[:60] or "plan"
+    return _pdf(buf, "RAB_ROT_%s.pdf" % name)
 
 
 @app.get("/api/money-tracker/phases")

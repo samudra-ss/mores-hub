@@ -30,6 +30,16 @@ the finance core) for a multi-company group.
   each transfer to a cost account (+ optional project) to book it as a journal
   entry (debit cost, credit bank).
 
+- **RAB ROT — project cost plan (Remuneration → RAB ROT plan)** — the
+  "PROJECT RAB ROT ACTUAL" Excel sheet as a form: cost lines (Harga Satuan ×
+  JMLH × SAT × VOL), contingency, service fee 10% and PSC 5% of the net value,
+  profit element, project value per PT net of PPN 11% and PPh 23 2%, and the
+  Finance Review column with a GREEN / AMBER / RED signal (green from the
+  remuneration scheme's minimum GP, else 40%). The plan's team gets a live
+  remuneration preview. Import the existing Excel sheet, export a signed-off
+  PDF. PPh 23 is withheld on DPP (net = 98/111 = 88.29%); "Old sheet formula"
+  reproduces the sheet's value × 2/102 for reconciling.
+
 ## Run
 
 ```powershell
