@@ -938,6 +938,10 @@ def ensure_product_tables(conn):
     # (v1.12) the company whose projects make up the SBU's cash brief on the CEO
     # Dashboard; blank = the company most of its linked projects belong to
     _add_column(conn, "products", "cash_company_id", "INTEGER")
+    # (v1.12b) the SBU's live Google Sheet (read on the SBU Dashboard) and any
+    # further source links - JSON list of {label, url}
+    _add_column(conn, "products", "live_url", "TEXT NOT NULL DEFAULT ''")
+    _add_column(conn, "products", "links", "TEXT NOT NULL DEFAULT '[]'")
 
 
 GRAB_ACCOUNT_NAME = "CORP PAY - GRAB"      # until v1.12: Grab was booked against this cash account
@@ -1743,6 +1747,20 @@ def migrate_database(conn):
         _add_column(conn, tbl, "ret_rate", "REAL NOT NULL DEFAULT 0")
         _add_column(conn, tbl, "ret_basis", "TEXT NOT NULL DEFAULT 'annual'")
         _add_column(conn, tbl, "ret_base", "REAL")
+    # (v1.12b) the Money Tracker <-> journal connector: a revenue line tagged to
+    # a project, validated against one of the project's invoices ('paid' closes
+    # the invoice, 'partial' keeps it open) or set aside ('dismissed'). Only the
+    # choice is stored; the journal itself is never changed.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS money_receipts ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "line_id INTEGER NOT NULL UNIQUE,"
+        "tracker_id INTEGER REFERENCES money_tracker(id) ON DELETE SET NULL,"
+        "project_id INTEGER,"
+        "amount REAL NOT NULL DEFAULT 0,"
+        "kind TEXT NOT NULL DEFAULT 'paid',"
+        "author TEXT NOT NULL DEFAULT '',"
+        "created_at TEXT NOT NULL DEFAULT (datetime('now')))")
     # sections added after a user's menu was set must still reach them
     _ensure_menu_routes(conn, ("oracle", "product", "expenses"))
     # Product Finance Analysis (v1.08)

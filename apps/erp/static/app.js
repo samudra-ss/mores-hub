@@ -633,6 +633,80 @@ const TR = {
   "unchanged, as it must be.": "tidak berubah, sebagaimana mestinya.",
   "THESE DO NOT MATCH. Do not trust this result.": "TIDAK COCOK. Jangan percayai hasil ini.",
   "How to use": "Cara pakai",
+  "more queued behind them": "lagi mengantre",
+  "with no open invoice": "tanpa invoice terbuka",
+  "Live sheet": "Sheet live",
+  "Invoices": "Invoice",
+  "Live": "Live",
+  "Not reading": "Tidak terbaca",
+  "data up to": "data sampai",
+  "read": "dibaca",
+  "Total expenses": "Total beban",
+  "Profit (loss)": "Laba (rugi)",
+  "of revenue": "dari pendapatan",
+  "asset purchases": "pembelian aset",
+  "balance sheet": "neraca",
+  "Average expense / month": "Rata-rata beban / bulan",
+  "month(s) with data": "bulan berisi data",
+  "line(s)": "baris",
+  "Revenue and expenses by month": "Pendapatan dan beban per bulan",
+  "Cost structure": "Struktur biaya",
+  "Top accounts": "Akun terbesar",
+  "By project": "Per project",
+  "Lines in the sheet": "Baris di sheet",
+  "Open in Google Sheets": "Buka di Google Sheets",
+  "Open live sheet": "Buka sheet live",
+  "Connect": "Hubungkan",
+  "Connect a Google Sheet": "Hubungkan Google Sheet",
+  "Sheet template": "Template sheet",
+  "Links": "Link",
+  "Further sources": "Sumber lainnya",
+  "Add a link": "Tambah link",
+  "Save & read the sheet": "Simpan & baca sheet",
+  "Disconnect the sheet": "Putuskan sheet",
+  "Live sheet & sources": "Sheet live & sumber",
+  "Connect this SBU to its Google Sheet": "Hubungkan SBU ini ke Google Sheet-nya",
+  "Reading the sheet…": "Membaca sheet…",
+  "All projects": "Semua project",
+  "All lines": "Semua baris",
+  "Expense": "Beban",
+  "Capex": "Capex",
+  "Deposit": "Deposit",
+  "Balance sheet": "Neraca",
+  "Validated from the journal": "Tervalidasi dari jurnal",
+  "payments linked to invoices": "pembayaran tertaut ke invoice",
+  "payment(s) found in the journal": "pembayaran ditemukan di jurnal",
+  "No payment waiting": "Tidak ada pembayaran menunggu",
+  "Payment found": "Pembayaran ditemukan",
+  "All invoices": "Semua invoice",
+  "Started": "Mulai",
+  "payment(s) to validate": "pembayaran untuk divalidasi",
+  "validate": "validasi",
+  "Payments found in the journal": "Pembayaran ditemukan di jurnal",
+  "Payment found in the journal": "Pembayaran ditemukan di jurnal",
+  "For invoice": "Untuk invoice",
+  "Received in full — mark Paid": "Diterima penuh — tandai Lunas",
+  "Partial payment — keep open": "Pembayaran sebagian — tetap terbuka",
+  "Not an invoice payment": "Bukan pembayaran invoice",
+  "Create the invoice": "Buat invoice",
+  "Payment validated": "Pembayaran tervalidasi",
+  "Set aside": "Disisihkan",
+  "Validated": "Tervalidasi",
+  "Payments from the journal": "Pembayaran dari jurnal",
+  "paid in full": "lunas",
+  "partial": "sebagian",
+  "undo": "batalkan",
+  "Undone": "Dibatalkan",
+  "Received so far": "Diterima sejauh ini",
+  "payment(s) found in the journal - waiting for validation": "pembayaran ditemukan di jurnal - menunggu validasi",
+  "Payments first": "Pembayaran dulu",
+  "same amount": "nilai sama",
+  "matches the invoice": "sesuai invoice",
+  "a little under (tax withheld?)": "sedikit kurang (dipotong pajak?)",
+  "part of the invoice": "sebagian dari invoice",
+  "more than the invoice": "lebih dari invoice",
+  "No project": "Tanpa project",
+  "Close menu": "Tutup menu",
   "Monthly spending": "Pengeluaran bulanan",
   "Account details": "Detail akun",
   "realization vs budget by month": "realisasi vs anggaran per bulan",
@@ -1870,10 +1944,30 @@ function companyOptions(selected, { includeAll } = {}) {
 
 /* ---- (v1.12b) sidebar: full, collapsed to an icon rail, or fully hidden ----- */
 const NAV_MODES = ["full", "rail", "hidden"];
-function setNavMode(mode) {
+// (v1.12b) on a phone the menu is a drawer: the menu button opens and closes
+// it, a tap outside or on a menu item closes it; the desktop choice is kept
+const PHONE_MQ = window.matchMedia ? window.matchMedia("(max-width: 760px)") : { matches: false };
+const isPhone = () => PHONE_MQ.matches;
+function setDrawer(open) {
+  document.documentElement.classList.toggle("nav-open", !!open);
+  const b = $("#navCycle");
+  if (b) { const l = open ? t("Close menu") : t("Show menu"); b.title = l; b.setAttribute("aria-label", l); b.setAttribute("aria-expanded", String(!!open)); }
+}
+if (PHONE_MQ.addEventListener) PHONE_MQ.addEventListener("change", () => {
+  setDrawer(false);
+  setNavMode(isPhone() ? "full" : (localStorage.getItem("erp.nav") || "full"), true);
+});
+document.addEventListener("click", e => {
+  if (!isPhone() || !document.documentElement.classList.contains("nav-open")) return;
+  if (e.target.closest && (e.target.closest("#navScrim") || e.target.closest("#nav a"))) setDrawer(false);
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && document.documentElement.classList.contains("nav-open")) setDrawer(false); });
+
+function setNavMode(mode, keepStored) {
   if (!NAV_MODES.includes(mode)) mode = "full";
+  if (isPhone()) mode = "full";                       // the drawer always shows the full menu
   document.documentElement.dataset.nav = mode;
-  try { localStorage.setItem("erp.nav", mode); } catch (_) {}
+  if (!keepStored && !isPhone()) { try { localStorage.setItem("erp.nav", mode); } catch (_) {} }
   const next = { full: t("Collapse menu"), rail: t("Hide menu"), hidden: t("Show menu") }[mode];
   const b = $("#navCycle");
   if (b) { b.title = next + " (Ctrl+B)"; b.setAttribute("aria-label", next); b.dataset.mode = mode; }
@@ -1885,6 +1979,7 @@ document.querySelector(".sidebar").addEventListener("transitionend", e => {
   if (e.propertyName === "width" && state._route) placeNavPill(state._route, false);
 });
 function cycleNavMode() {
+  if (isPhone()) { setDrawer(!document.documentElement.classList.contains("nav-open")); return; }
   const cur = document.documentElement.dataset.nav || "full";
   setNavMode(NAV_MODES[(NAV_MODES.indexOf(cur) + 1) % NAV_MODES.length]);
 }
@@ -1897,7 +1992,8 @@ document.addEventListener("keydown", e => {
 async function boot() {
   $("#navCycle").onclick = cycleNavMode;
   $("#navCollapse").onclick = () => setNavMode(document.documentElement.dataset.nav === "rail" ? "full" : "rail");
-  setNavMode(document.documentElement.dataset.nav || "full");
+  setNavMode(document.documentElement.dataset.nav || "full", true);
+  if (isPhone()) setDrawer(false);
   state.me = await api("/api/me");
   $("#userBox").innerHTML = `<b>${esc(state.me.full_name || state.me.username)}</b>
     <span class="muted">${esc(ROLE_LABELS[state.me.role] || state.me.role)}</span>
@@ -2022,7 +2118,9 @@ function placeNavPill(route, animate = true) {
   nav.classList.remove("has-pill");
   const cs = getComputedStyle(a), bg = cs.backgroundColor, radius = cs.borderTopLeftRadius;
   nav.classList.add("has-pill");
-  const W = nav.clientWidth, H = nav.scrollHeight;
+  // the pill's own height must not count, or the menu could never get shorter
+  const W = nav.clientWidth;
+  const H = Math.max(0, ...[...nav.children].filter(x => x !== pill && x.offsetParent).map(x => x.offsetTop + x.offsetHeight));
   pill.style.height = H + "px";
   pill.style.background = bg;
   pill.style.opacity = "1";
@@ -4521,8 +4619,8 @@ async function pageReceivables(el) {
     const rows = d.items.map((it, i) => `<tr>
       <td>${i + 1}</td>
       ${consol ? `<td>${esc(it.company_code)}</td>` : ""}
-      <td><b>${esc(it.client)}</b></td>
-      <td>${esc(it.invoice_no)}</td>
+      <td class="w"><b>${esc(it.client)}</b></td>
+      <td class="w">${esc(it.invoice_no)}</td>
       <td class="muted">${esc(fmtDate(it.invoice_date))}</td>
       <td>${esc(fmtDate(it.due_date))}</td>
       <td class="num">${fmt(it.amount)}</td>
@@ -4645,8 +4743,8 @@ async function pagePayables(el) {
     const rows = d.items.map((it, i) => `<tr>
       <td>${i + 1}</td>
       ${consol ? `<td>${esc(it.company_code)}</td>` : ""}
-      <td><b>${esc(it.vendor)}</b></td>
-      <td>${esc(it.bill_no)}</td>
+      <td class="w"><b>${esc(it.vendor)}</b></td>
+      <td class="w">${esc(it.bill_no)}</td>
       <td class="muted">${esc(fmtDate(it.bill_date))}</td>
       <td>${esc(fmtDate(it.due_date))}</td>
       <td class="num">${fmt(it.amount)}</td>
@@ -6796,7 +6894,7 @@ async function pageProduct(el) {
   const num = id => list.findIndex(p => p.id === id) + 1;
 
   // the finance report (the NX-Sentimind workbook's sheets) first, the forecast model after the divider
-  const tabs = [["dash", t("Dashboard")], ["rpnl", t("P&L YTD")], ["rcash", t("Cash Flow")], ["rtrack", t("Project Tracker")],
+  const tabs = [["dash", t("Dashboard")], ["live", t("Live sheet")], ["rpnl", t("P&L YTD")], ["rcash", t("Cash Flow")], ["rtrack", t("Project Tracker")],
                 ["rhealth", t("Health Indicators")], ["rsaas", t("SaaS Performance")], ["rset", t("Report settings")], "|",
                 ["overview", t("Forecast model")], ["pnl", t("P&L by month")], ["saas", t("SaaS model")],
                 ["server", t("Server cost")], ["target", t("Target & marketing")], ["settings", t("Model settings & drivers")]];
@@ -6826,6 +6924,7 @@ async function pageProduct(el) {
     if (!cur) return pfPortfolio(body, list, open);
     body.innerHTML = `<div class="card"><div class="empty">${t("Running the numbers…")}</div></div>`;
     if (state.pfTab === "settings") return pfSettings(body, state.pfId, () => pageProduct(el));
+    if (state.pfTab === "live") return pfLive(body, state.pfId, () => pageProduct(el));
     if (SBU_REPORT_TABS.includes(state.pfTab)) {
       let R;
       try { R = await api(`/api/products/${state.pfId}/report?year=${state.year}`); }
@@ -7352,11 +7451,13 @@ function pfRDash(body, R) {
     <div class="sbu-tile-v" title="${x.unit === "rp" && x.value != null ? fmtRp(x.value) : ""}">${sbuVal(x.value, x.unit, x.status)}</div>
     <div class="sbu-tile-s">${esc(fmtDatesIn(x.sub || ""))}</div></div>`;
   body.innerHTML = `${sbuBanner(R, "FINANCIAL DASHBOARD EKSEKUTIF")}
+    <div id="sbuLiveDash" class="mt"></div>
     <div class="sbu-tiles">${R.tiles.map(tile).join("")}</div>
     <div class="card mt sbu-card"><div class="sbu-sec">🚦  ${t("INDIKATOR KESEHATAN KEUANGAN")} — ${esc(R.title)} ${esc(R.quarter)}</div>
       ${sbuHealthTable(R.dashboard_indicators, true)}
       ${sbuLegend()}</div>
     ${R.projects.length ? "" : `<div class="card mt"><p class="neg">${t("This SBU has no linked projects, so there is no ledger behind the report. Link its projects on Model settings & drivers.")}</p></div>`}`;
+  if (state.pfId) sbuLiveDashCard($("#sbuLiveDash"), state.pfId);
 }
 function sbuLegend() {
   return `<div class="sbu-legend"><span class="sbu-status sbu-safe">🟢 AMAN = ${t("Dalam target")}</span>
@@ -7373,6 +7474,183 @@ function sbuHealthTable(list, compact) {
       <td class="num sbu-v-${i.status}"><b>${sbuVal(i.value, i.unit, i.status)}</b></td>
       <td class="muted">${sbuLimit(i.safe, i.unit, i.direction)}</td><td class="muted">${sbuLimit(i.attention, i.unit, i.direction)}</td>
       <td>${sbuStatus(i.status)}</td><td class="sbu-note">${esc(fmtDatesIn(i.note))}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+/* ---- (v1.12b) the SBU's live Google Sheet ----------------------------------
+   The sheet is the SBU's own database: the server reads it (read only) each
+   time the tab opens - Rincian Pengeluaran + Pendapatan - and the dashboard
+   shows it. Other links (Drive folders, docs, reports) sit next to it. */
+const SBU_LINK_IC = { sheet: "&#9638;", doc: "&#9636;", slides: "&#9645;", form: "&#9745;", folder: "&#128449;", drive: "&#11034;", web: "&#8599;" };
+const SBU_KIND = { expense: "Expense", capex: "Capex", deposit: "Deposit", balance: "Balance sheet", revenue: "Revenue" };
+function sbuLinkChips(L) {
+  const all = (L.live_url ? [{ label: t("Live sheet"), url: L.live_url, kind: "sheet", live: true }] : []).concat(L.links || []);
+  if (!all.length) return "";
+  return `<div class="lv-links">${all.map(x => `<a class="lv-link ${x.live ? "live" : ""}" href="${esc(x.url)}" target="_blank" rel="noopener noreferrer"
+      title="${esc(x.url)}"><span>${SBU_LINK_IC[x.kind] || SBU_LINK_IC.web}</span>${esc(x.label)}</a>`).join("")}</div>`;
+}
+function sbuLiveLoad(pid, refresh, year) {
+  return api(`/api/products/${pid}/live?year=${year || state.pfLiveYear || state.year}${refresh ? "&refresh=1" : ""}`);
+}
+function sbuLiveTiles(L) {
+  const T = L.totals;
+  const tile = (lbl, v, sub, cls) => `<div class="lv-tile ${cls || ""}"><span>${esc(lbl)}</span><b title="${fmtRp(v)}">${fmtShortRp(v)}</b><small>${esc(sub || "")}</small></div>`;
+  return `<div class="lv-tiles">
+    ${tile(t("Revenue"), T.revenue, `${L.count.revenues} ${t("line(s)")}`, "rev")}
+    ${tile(t("Total expenses"), T.expense, T.expense_pct != null ? `${T.expense_pct}% ${t("of revenue")}` : `${L.count.expenses} ${t("line(s)")}`, "exp")}
+    ${tile(t("Profit (loss)"), T.profit, T.margin_pct != null ? `${T.margin_pct}% ${t("margin")}` : "", T.profit < 0 ? "neg" : "pos")}
+    ${tile("Capex", T.capex, t("asset purchases"))}
+    ${tile("Deposit", T.deposit, t("balance sheet"))}
+    ${tile(t("Average expense / month"), T.avg_month_expense, `${T.months_with_data} ${t("month(s) with data")}`)}
+  </div>`;
+}
+function sbuLiveBars(L) {
+  const max = Math.max(1, ...L.months.map(m => Math.max(m.revenue, m.expense)));
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `<div class="lv-chart">${L.months.map(m => `<div class="lv-col" title="${MON[m.month - 1]} ${L.year}
+${t("Revenue")} ${fmtRp(m.revenue)}
+${t("Expenses")} ${fmtRp(m.expense)}${m.capex ? `\nCapex ${fmtRp(m.capex)}` : ""}">
+      <div class="lv-bars"><i class="r" style="height:${(100 * m.revenue / max).toFixed(1)}%"></i><i class="e" style="height:${(100 * m.expense / max).toFixed(1)}%"></i></div>
+      <span>${MON[m.month - 1]}</span></div>`).join("")}</div>
+    <div class="lv-legend"><span><i class="r"></i>${t("Revenue")}</span><span><i class="e"></i>${t("Expenses")}</span></div>`;
+}
+function sbuLiveStatus(L) {
+  return `<span class="lv-dot ${L.error ? "bad" : "ok"}"></span>${L.error ? t("Not reading") : t("Live")}
+    ${L.last_date ? ` · ${t("data up to")} <b>${esc(fmtDate(L.last_date))}</b>` : ""}${L.fetched_at ? ` · ${t("read")} ${esc(L.fetched_at)}` : ""}`;
+}
+function sbuLiveEmpty(pid, L, reload) {
+  return `<div class="lv-empty">
+    <b>${t("Connect this SBU to its Google Sheet")}</b>
+    <p>${t("The sheet becomes the SBU's live database: its expense register (Rincian Pengeluaran) and revenue register (Pendapatan) are read every time the dashboard opens - nothing is copied into MORES HV.")}</p>
+    <ol><li>${t("Use the same layout as the template (or the NX-Sentimind sheet).")}</li>
+      <li>${t("In Google Sheets: Share → General access → Anyone with the link → Viewer.")}</li>
+      <li>${t("Paste the link here. Drive folders, documents and reports can be added as further sources.")}</li></ol>
+    <div class="form-actions" style="justify-content:flex-start">
+      ${canWrite() ? `<button class="btn btn-primary" id="lvConnect">&#128279; ${t("Connect a Google Sheet")}</button>` : ""}
+      <a class="btn" href="/api/products/live-template.xlsx">&#x2913; ${t("Sheet template")}</a></div>
+    ${sbuLinkChips(L)}</div>`;
+}
+
+// compact card at the top of the SBU Dashboard
+async function sbuLiveDashCard(box, pid) {
+  let L;
+  try { L = await sbuLiveLoad(pid); } catch (e) { box.innerHTML = ""; return; }
+  if (!document.body.contains(box)) return;
+  if (!L.connected) {
+    box.innerHTML = `<div class="card lv-card lv-off"><div class="lv-head"><b>&#128279; ${t("Live sheet")}</b>
+      <span class="muted">${t("Not connected - link the SBU's Google Sheet to read its costs and revenue live.")}</span>
+      <button class="btn btn-sm" id="lvGo">${t("Connect")}</button></div>${sbuLinkChips(L)}</div>`;
+  } else {
+    box.innerHTML = `<div class="card lv-card"><div class="lv-head"><b>&#128279; ${t("Live sheet")} · ${L.year || ""}</b>
+      <span class="muted">${sbuLiveStatus(L)}</span>
+      <button class="btn btn-sm" id="lvGo">${t("Open live sheet")} &rarr;</button></div>
+      ${L.error ? `<p class="neg" style="margin:8px 0 0">${esc(L.error)}</p>` : sbuLiveTiles(L)}
+      ${sbuLinkChips(L)}</div>`;
+  }
+  $("#lvGo", box).onclick = () => { const b = $(`#pfTabs button[data-t="live"]`); if (b) b.click(); };
+}
+
+async function pfLive(body, pid, reload, refresh) {
+  let L;
+  try { L = await sbuLiveLoad(pid, refresh); }
+  catch (e) { body.innerHTML = `<div class="card"><p class="neg">${esc(e.message)}</p></div>`; return; }
+  if (!document.body.contains(body)) return;
+  const again = r => pfLive(body, pid, reload, r);
+  const editBtn = canWrite() ? `<button class="btn" id="lvEdit">&#9998; ${t("Links")}</button>` : "";
+  if (!L.connected) {
+    body.innerHTML = `<div class="card">${sbuLiveEmpty(pid, L, reload)}</div>`;
+    if ($("#lvConnect")) $("#lvConnect").onclick = () => sbuLiveEditor(pid, L, () => again(true));
+    return;
+  }
+  const head = `<div class="card lv-card"><div class="lv-head">
+      <b>&#128279; ${t("Live sheet")}</b><span class="muted">${sbuLiveStatus(L)}</span>
+      <span class="lv-acts">
+        ${(L.years || []).length > 1 ? `<select id="lvYear">${L.years.map(y => `<option ${y === L.year ? "selected" : ""}>${y}</option>`).join("")}</select>` : ""}
+        <a class="btn" href="${esc(L.live_url)}" target="_blank" rel="noopener noreferrer">&#8599; ${t("Open in Google Sheets")}</a>
+        <button class="btn" id="lvRefresh" title="${t("Read the sheet again now")}">&#8635; ${t("Refresh")}</button>${editBtn}</span></div>
+      ${sbuLinkChips(L)}</div>`;
+  if (L.error || !L.readable) {
+    body.innerHTML = `${head}<div class="card mt"><p class="neg">${esc(L.error || t("The sheet was read, but no tab looks like an expense or revenue register (a header row with Tanggal / Date and Nominal / Amount)."))}</p>
+      ${L.tabs ? `<p class="muted">${t("Tabs found")}: ${L.tabs.map(esc).join(", ")}</p>` : ""}
+      <a class="btn" href="/api/products/live-template.xlsx">&#x2913; ${t("Sheet template")}</a></div>`;
+  } else {
+    const groups = L.by_group, gmax = Math.max(1, ...groups.map(g => g.amount));
+    const projects = [...new Set(L.lines.map(l => l.project).filter(Boolean))].sort();
+    body.innerHTML = `${head}
+      ${sbuLiveTiles(L)}
+      <div class="grid two-col mt">
+        <div class="card"><h3>${t("Revenue and expenses by month")} · ${L.year}</h3>${sbuLiveBars(L)}</div>
+        <div class="card"><h3>${t("Cost structure")}</h3>
+          ${groups.map(g => `<div class="lv-grp"><span>${esc(g.name)}</span><b>${fmtShortRp(g.amount)}</b>
+            <em>${L.totals.expense ? Math.round(100 * g.amount / L.totals.expense) : 0}%</em><i style="width:${(100 * g.amount / gmax).toFixed(1)}%"></i></div>`).join("") || `<p class="muted">${t("No expenses this year.")}</p>`}
+          <h3 style="margin-top:14px">${t("Top accounts")}</h3>
+          <table class="tbl lv-mini"><tbody>${L.by_account.slice(0, 8).map(a => `<tr><td>${esc(a.name)}</td><td class="num">${fmtShortRp(a.amount)}</td></tr>`).join("")}</tbody></table></div>
+      </div>
+      <div class="card mt"><h3>${t("By project")}</h3>
+        <table class="tbl"><thead><tr><th>${t("Project")}</th><th class="num">${t("Revenue")}</th><th class="num">${t("Expenses")}</th><th class="num">${t("Profit (loss)")}</th></tr></thead>
+        <tbody>${L.by_project.map(p => `<tr><td><b>${esc(p.name)}</b></td><td class="num">${p.revenue ? fmtRp(p.revenue) : "—"}</td>
+          <td class="num">${fmtRp(p.expense)}</td><td class="num ${p.profit < 0 ? "neg" : "pos"}">${fmtRp(p.profit)}</td></tr>`).join("")}
+          <tr class="total"><td>${t("Total")}</td><td class="num">${fmtRp(L.totals.revenue)}</td><td class="num">${fmtRp(L.totals.expense)}</td>
+            <td class="num ${L.totals.profit < 0 ? "neg" : "pos"}">${fmtRp(L.totals.profit)}</td></tr></tbody></table>
+        <p class="muted" style="margin:8px 0 0;font-size:12px">${t("Capex and deposits are balance-sheet items: shown above, kept out of the profit.")}</p></div>
+      <div class="card mt"><div class="lv-head"><h3 style="margin:0">${t("Lines in the sheet")} · ${L.year}</h3>
+          <span class="lv-acts"><input id="lvQ" placeholder="${t("search…")}">
+          <select id="lvP"><option value="">${t("All projects")}</option>${projects.map(p => `<option>${esc(p)}</option>`).join("")}</select>
+          <select id="lvK"><option value="">${t("All lines")}</option>${Object.keys(SBU_KIND).map(k => `<option value="${k}">${esc(t(SBU_KIND[k]))}</option>`).join("")}</select></span></div>
+        <div id="lvLines"></div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">${t("Tabs read")}: ${[L.expense_tab, L.revenue_tab].filter(Boolean).map(esc).join(" + ")} — ${t("edit the sheet itself; this page shows it as it is.")}</p></div>`;
+    const draw = () => {
+      const q = ($("#lvQ").value || "").toLowerCase(), pj = $("#lvP").value, k = $("#lvK").value;
+      const rows = L.lines.filter(l => (!pj || l.project === pj) && (!k || l.kind === k)
+        && (!q || `${l.desc} ${l.account} ${l.account_name} ${l.group} ${l.ref}`.toLowerCase().includes(q)));
+      $("#lvLines").innerHTML = `<div class="lv-scroll"><table class="tbl lv-lines"><thead><tr><th>${t("Date")}</th><th>${t("Account")}</th><th>${t("Description")}</th>
+        <th>${t("Project")}</th><th>${t("Group")}</th><th class="num">${t("Amount")}</th></tr></thead>
+        <tbody>${rows.slice(0, 300).map(l => `<tr><td>${esc(fmtDate(l.date))}</td>
+          <td><b>${esc(l.account || "—")}</b>${l.account_name ? `<br><span class="muted">${esc(l.account_name)}</span>` : ""}</td>
+          <td>${esc(l.desc || "")}${l.ref ? `<br><span class="muted">${esc(l.ref)}</span>` : ""}</td>
+          <td>${esc(l.project || "—")}</td><td><span class="lv-k k-${l.kind}">${esc(t(SBU_KIND[l.kind] || l.kind))}</span>${l.group ? ` <span class="muted">${esc(l.group)}</span>` : ""}</td>
+          <td class="num ${l.kind === "revenue" ? "pos" : ""}">${fmtRp(l.amount)}</td></tr>`).join("") || `<tr><td colspan="6" class="empty">${t("No line matches.")}</td></tr>`}</tbody>
+        <tfoot>${(() => {
+          // money in and money out are totalled apart, never added together
+          const inn = rows.filter(l => l.kind === "revenue").reduce((a, l) => a + l.amount, 0);
+          const out = rows.filter(l => l.kind !== "revenue").reduce((a, l) => a + l.amount, 0);
+          return `<tr class="total"><td colspan="5">${rows.length} ${t("line(s)")}${inn && out ? ` · ${t("revenue")} ${fmtRp(inn)} · ${t("spent")}` : ""}</td>
+            <td class="num">${fmtRp(out || inn)}</td></tr>`;
+        })()}</tfoot></table></div>`;
+    };
+    $("#lvQ").oninput = draw; $("#lvP").onchange = draw; $("#lvK").onchange = draw;
+    draw();
+  }
+  $("#lvRefresh").onclick = () => { toast(t("Reading the sheet…")); again(true); };
+  if ($("#lvYear")) $("#lvYear").onchange = e => { state.pfLiveYear = parseInt(e.target.value, 10); again(); };
+  if ($("#lvEdit")) $("#lvEdit").onclick = () => sbuLiveEditor(pid, L, () => again(true));
+}
+
+function sbuLiveEditor(pid, L, onDone) {
+  const row = l => `<div class="lv-erow"><input class="lv-el" value="${esc(l.label || "")}" placeholder="${t("Label, e.g. Drive folder - invoices")}">
+    <input class="lv-eu" value="${esc(l.url || "")}" placeholder="https://drive.google.com/…"><button class="btn btn-sm lv-edel" title="${t("Remove")}">&times;</button></div>`;
+  openModal(`
+    <label class="full">${t("Live Google Sheet (the SBU's database)")}
+      <input id="lvUrl" value="${esc(L.live_url || "")}" placeholder="https://docs.google.com/spreadsheets/d/…/edit"></label>
+    <p class="muted" style="font-size:12px;margin:4px 0 12px">${t("Share the sheet as 'Anyone with the link: Viewer'. MORES HV only reads it; the tabs Rincian Pengeluaran and Pendapatan (or the template's layout) are picked up by their header row.")}
+      <a href="/api/products/live-template.xlsx">${t("Download the template")}</a></p>
+    <b>${t("Further sources")}</b>
+    <p class="muted" style="font-size:12px;margin:2px 0 8px">${t("Any link: a Drive folder with receipts, a contract, another sheet, a report.")}</p>
+    <div id="lvRows">${(L.links || []).map(row).join("")}</div>
+    <button class="btn btn-sm" id="lvAdd">+ ${t("Add a link")}</button>
+    <div class="form-actions">${L.live_url ? `<button class="btn btn-danger" id="lvOff">${t("Disconnect the sheet")}</button>` : ""}
+      <button class="btn btn-primary" id="lvSave">${t("Save & read the sheet")}</button></div>`, { title: t("Live sheet & sources") });
+  const wire = () => $$("#lvRows .lv-edel").forEach(b => b.onclick = () => b.closest(".lv-erow").remove());
+  wire();
+  $("#lvAdd").onclick = () => { $("#lvRows").insertAdjacentHTML("beforeend", row({})); wire(); };
+  const save = async url => {
+    const links = $$("#lvRows .lv-erow").map(r => ({ label: $(".lv-el", r).value, url: $(".lv-eu", r).value })).filter(l => l.url.trim());
+    try {
+      await api(`/api/products/${pid}/live`, { method: "PUT", json: { live_url: url, links } });
+      toast(t("Saved")); closeModal(); onDone && onDone();
+    } catch (e) { toast(e.message, true); }
+  };
+  $("#lvSave").onclick = () => save($("#lvUrl").value.trim());
+  if ($("#lvOff")) $("#lvOff").onclick = () => { if (confirm(t("Disconnect the live sheet? The sheet itself is not touched."))) save(""); };
 }
 
 /* ---- P&L YTD ---------------------------------------------------------------- */
@@ -8138,27 +8416,42 @@ const MT_STATUS_PILL = { prospectus: "prospectus", active: "active", done: "post
 // picture card, grouped in sections by sector, status as the mode tabs on top;
 // click a picture for its phases. List: the table with its filters.
 async function pageMoneyTracker(el) {
-  let view = "pics";
-  try { view = localStorage.getItem("erp.mtView") || "pics"; } catch (e) { /* private window */ }
+  // (v1.12b) the invoice view is the default; Pictures stays one click away
+  let view = "inv";
+  try { view = localStorage.getItem("erp.mtView2") || "inv"; } catch (e) { /* private window */ }
+  if (view !== "pics") view = "inv";
   if (state.mtStatus == null) state.mtStatus = "";
   el.innerHTML = `
     <div class="page-head"><h2>${t("Money Tracker")} <span class="muted" style="font-size:13px;font-weight:500">· ${t("invoicing process per project — Project Details sets the amounts")}</span></h2>
       <div class="page-actions">
         <div class="seg-group" id="mtView">
-          <button class="seg ${view === "pics" ? "active" : ""}" data-v="pics">${t("Pictures")}</button>
-          <button class="seg ${view === "list" ? "active" : ""}" data-v="list">${t("List")}</button></div>
+          <button class="seg ${view === "inv" ? "active" : ""}" data-v="inv">${t("Invoices")}</button>
+          <button class="seg ${view === "pics" ? "active" : ""}" data-v="pics">${t("Pictures")}</button></div>
         <button class="btn" id="mtHarmony" title="${t("Is every invoice in line with its project in Project Details?")}">&#9878; ${t("Harmonization check")}</button>
         ${canWrite() ? `<button class="btn btn-primary" id="mtNew">+ ${t("New invoice track")}</button>` : ""}
       </div></div>
     <div id="mtBody"><div class="empty">Loading…</div></div>`;
   $$("#mtView .seg").forEach(b => b.onclick = () => {
-    try { localStorage.setItem("erp.mtView", b.dataset.v); } catch (e) { /* private window */ }
+    try { localStorage.setItem("erp.mtView2", b.dataset.v); } catch (e) { /* private window */ }
     pageMoneyTracker(el);
   });
+  let announced = false;
   const load = async () => {
-    const [d, types] = await Promise.all([api(`/api/money-tracker?${scopeQS()}`), api("/api/project-types").catch(() => [])]);
+    // the journal is read every time the tracker opens: revenue tagged to a
+    // project is offered as the payment of one of its invoices
+    const [d, types, rc] = await Promise.all([api(`/api/money-tracker?${scopeQS()}`), api("/api/project-types").catch(() => []),
+                                              api(`/api/money-tracker/receipts?${scopeQS()}`).catch(() => null)]);
     if (!document.body.contains($("#mtBody"))) return;
     $("#scopeBadge").textContent = d.scope;
+    state.mtReceipts = rc;
+    if (rc && rc.pending && !announced) { announced = true; toast(`${rc.pending} ${t("payment(s) found in the journal - waiting for validation")}`); }
+    if (view === "inv") {
+      mtInvoicesView(d, types, rc, load);
+      const deb2 = (fn, ms) => { let h; return (...a) => { clearTimeout(h); h = setTimeout(() => fn(...a), ms); }; };
+      $("#mtfClient").oninput = deb2(e => { state.mtClient = e.target.value; const p = e.target.selectionStart; load().then(() => { const i = $("#mtfClient"); if (i) { i.focus(); i.setSelectionRange(p, p); } }); }, 300);
+      $("#mtfSort").onchange = e => { state.mtSort = e.target.value; load(); };
+      return;
+    }
     // ---- filters (client name / amount order / current phase / sector / status) ----
     const fClient = (state.mtClient || "").toLowerCase();
     const fPhase = state.mtPhase || "";
@@ -8289,6 +8582,185 @@ async function pageMoneyTracker(el) {
   if ($("#mtNew")) $("#mtNew").onclick = () => moneyTrackerEditor(null, load);
   $("#mtHarmony").onclick = () => moneyHarmonyModal(load);
   await load();
+}
+
+/* ---- (v1.12b) Money Tracker: the invoice view ------------------------------
+   Plain and clear: summary cards, one card with search + status tabs, and a
+   table where every project is a row and its invoices (termin) sit under it.
+   Payments found in the journal (revenue tagged to the project) wait on the
+   invoice for a person to validate them. */
+const IV_ST = { prospectus: ["Prospectus", "pros"], active: ["Active", "act"], done: ["Paid", "paid"],
+                on_hold: ["On hold", "hold"], cancelled: ["Cancelled", "can"] };
+const IV_FIT = { exact: "matches the invoice", near: "a little under (tax withheld?)", partial: "part of the invoice", over: "more than the invoice" };
+const SRC_LBL = { bca_csv: "Account Parsing (BCA CSV)", bca_pdf: "Account Parsing (BCA PDF)", manual: "Manual journal" };
+
+function mtInvoicesView(d, types, rc, load) {
+  const R = rc || { tracks: {}, unmatched: [], pending: 0 };
+  const rx = id => R.tracks[String(id)] || { received: 0, receipts: [], suggestion: null };
+  const q = (state.mtClient || "").toLowerCase();
+  const tab = state.ivTab || "";
+  const sector = state.mtSector || "";
+  const secKey = m => m.sector_id ? String(m.sector_id) : "none";
+  const waiting = m => !!rx(m.id).suggestion;
+  const inTab = m => !tab || (tab === "waiting" ? waiting(m) : m.status === tab);
+  const match = m => (!q || `${m.client || ""} ${m.project_code || ""} ${m.project_name || ""} ${m.title || ""} ${m.invoice_no || ""}`.toLowerCase().includes(q))
+    && (!sector || secKey(m) === sector);
+  const pool = d.items.filter(match);
+  const shown = pool.filter(inTab);
+  const nTab = k => pool.filter(m => !k || (k === "waiting" ? waiting(m) : m.status === k)).length;
+  const journalIn = Object.values(R.tracks).reduce((a, x) => a + (x.received || 0), 0);
+  // ---- group by project (free-text tracks share one "no project" group) ----
+  const groups = new Map();
+  shown.forEach(m => {
+    const k = m.project_id ? "p" + m.project_id : "none";
+    if (!groups.has(k)) groups.set(k, { key: k, pid: m.project_id, code: m.project_code, name: m.project_name || t("No project"),
+      contract: m.project_contract || 0, type_name: m.type_name, type_color: m.type_color, co: m.company_code, list: [] });
+    groups.get(k).list.push(m);
+  });
+  let G = [...groups.values()];
+  G.forEach(g => {
+    g.list.sort((a, b) => a.id - b.id);
+    g.all = d.items.filter(m => (m.project_id ? "p" + m.project_id : "none") === g.key);
+    g.billed = g.all.filter(m => m.status !== "cancelled").reduce((a, m) => a + (m.amount || 0), 0);
+    g.paid = g.all.filter(m => m.status === "done").reduce((a, m) => a + (m.amount || 0), 0);
+    g.journal = g.all.reduce((a, m) => a + rx(m.id).received, 0);
+    g.waiting = g.all.filter(waiting).length;
+  });
+  const srt = state.mtSort || "";
+  if (srt === "amount_desc") G.sort((a, b) => b.billed - a.billed);
+  else if (srt === "amount_asc") G.sort((a, b) => a.billed - b.billed);
+  else G.sort((a, b) => (b.waiting - a.waiting) || (Math.max(...b.list.map(m => m.id)) - Math.max(...a.list.map(m => m.id))));
+  if (!state.ivClosed) state.ivClosed = {};
+
+  const stat = (ic, v, lbl, sub, cls) => `<div class="iv-stat ${cls || ""}"><span class="iv-ic">${ic}</span>
+    <b title="${fmtRp(v)}">${fmtShortRp(v)}</b><span>${esc(lbl)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</div>`;
+  const TABS = [["", t("All invoices")], ["active", t("Active")], ["waiting", t("Payment found")], ["prospectus", t("Prospectus")],
+                ["on_hold", t("On hold")], ["done", t("Paid")], ["cancelled", t("Cancelled")]];
+  const pill = m => `<span class="iv-pill ${IV_ST[m.status] ? IV_ST[m.status][1] : ""}">${esc(t(IV_ST[m.status] ? IV_ST[m.status][0] : m.status))}</span>`;
+  const row = m => {
+    const x = rx(m.id), s = x.suggestion;
+    const passed = m.status === "done" ? m.phase_total : m.phase_index - 1;
+    return `<tr class="iv-row" data-id="${m.id}">
+      <td>${pill(m)}${m.is_hot ? ` <span class="iv-hot" title="HOT">&#128293;</span>` : ""}</td>
+      <td><b>${esc(m.title || "—")}</b>${m.invoice_no ? `<br><span class="muted">#${esc(m.invoice_no)}</span>` : ""}</td>
+      <td>${esc(m.client || "—")}</td>
+      <td class="nw">${esc(fmtDate(m.started_at) || "—")}</td>
+      <td><span class="iv-ph" title="${esc(m.phase_name)}">${esc(m.phase_label)}</span>
+        <span class="iv-steps">${Array.from({ length: m.phase_total }, (_, i) => `<i class="${i < passed ? "on" : i === passed && m.status !== "done" ? "cur" : ""}"></i>`).join("")}</span>
+        <small class="muted iv-phn">${esc(m.phase_name)}</small></td>
+      <td class="num"><b>${fmtRp(m.amount)}</b></td>
+      <td class="num">${x.received ? `<span class="pos" title="${t("validated from the journal")}">${fmtRp(x.received)}</span>` : `<span class="muted">—</span>`}
+        ${s ? `<br><button type="button" class="iv-pay fit-${s.fit}" data-pay="${m.id}" title="${esc(t("Payment found in the journal"))} · ${esc(s.entry_no)}">&#128176; ${fmtShortRp(s.amount)} · ${t("validate")}</button>` : ""}</td>
+      <td class="iv-go">&rsaquo;</td></tr>`;
+  };
+  const head = g => {
+    const closed = !!state.ivClosed[g.key];
+    const pct = g.contract ? Math.min(100, Math.round(100 * g.paid / g.contract)) : (g.billed ? Math.round(100 * g.paid / g.billed) : 0);
+    return `<tr class="iv-prj ${closed ? "closed" : ""}" data-g="${esc(g.key)}"><td colspan="8">
+      <div class="iv-prj-in">
+        <span class="iv-chev">&#9662;</span>
+        <span class="iv-prj-name"><b>${g.code ? esc(g.code) + " — " : ""}${esc(g.name)}</b>
+          <small>${g.co ? esc(g.co) + " · " : ""}${g.all.length} ${t("invoice(s)")}${g.type_name ? ` · ${sectorChip(g.type_name, g.type_color)}` : ""}${g.waiting ? ` · <span class="iv-wait">&#128176; ${g.waiting} ${t("payment(s) to validate")}</span>` : ""}</small></span>
+        <span class="iv-prj-num"><small>${t("Contract")}</small><b>${g.contract ? fmtShortRp(g.contract) : "—"}</b></span>
+        <span class="iv-prj-num"><small>${t("Invoiced")}</small><b>${fmtShortRp(g.billed)}</b></span>
+        <span class="iv-prj-num"><small>${t("Paid")}</small><b class="pos">${fmtShortRp(g.paid)}</b></span>
+        <span class="iv-prj-bar" title="${pct}% ${t("paid")}"><i style="width:${pct}%"></i><em>${pct}%</em></span>
+        ${canWrite() && g.pid ? `<button type="button" class="btn btn-sm iv-add" data-add="${g.pid}" title="${t("Add an invoice (termin) to this project")}">+ ${t("Invoice")}</button>` : ""}
+      </div></td></tr>`;
+  };
+  const sortSel = `<select id="mtfSort"><option value="">${t("Payments first")}</option>
+      <option value="amount_desc" ${srt === "amount_desc" ? "selected" : ""}>${t("Big to small")}</option>
+      <option value="amount_asc" ${srt === "amount_asc" ? "selected" : ""}>${t("Small to big")}</option></select>`;
+  const secSel = `<select id="mtfSector"><option value="">${t("All sectors")}</option>
+      ${types.map(x => `<option value="${x.id}" ${String(sector) === String(x.id) ? "selected" : ""}>${esc(x.name)}</option>`).join("")}
+      <option value="none" ${sector === "none" ? "selected" : ""}>${t("Unassigned")}</option></select>`;
+  $("#mtBody").innerHTML = `
+    <div class="iv-stats">
+      ${stat("&#9201;", d.outstanding, t("Outstanding"), `${d.count_active} ${t("invoice(s) moving")}`)}
+      ${stat("&#10003;", d.received, t("Paid"), t("received & done"), "ok")}
+      ${stat("&#8987;", d.on_hold || 0, t("On hold"), `${d.count_on_hold || 0} ${t("parked")}`)}
+      ${stat("&#9733;", d.prospectus || 0, t("Prospectus"), `${d.count_prospectus || 0}${d.count_hot ? ` · ${d.count_hot} HOT` : ""}`)}
+      ${stat("&#8644;", journalIn, t("Validated from the journal"), t("payments linked to invoices"))}
+      <button type="button" class="iv-stat iv-found ${R.pending ? "on" : ""}" id="ivFound">
+        <span class="iv-found-n">${R.pending}</span>
+        <span><b>${R.pending ? t("payment(s) found in the journal") : t("No payment waiting")}</b>
+        <small>${R.pending ? t("revenue tagged to a project - validate against its invoice") : t("revenue posted to a project shows up here")}${(() => {
+          const q = R.unmatched.filter(u => u.reason === "queued").length, no = R.unmatched.length - q;
+          return (q ? ` · ${q} ${t("more queued behind them")}` : "") + (no ? ` · ${no} ${t("with no open invoice")}` : "");
+        })()}</small></span></button>
+    </div>
+    <div class="card iv-card">
+      <div class="iv-bar">
+        <span class="iv-search">&#9906;<input id="mtfClient" value="${esc(state.mtClient || "")}" placeholder="${t("Search project, client or invoice no")}"></span>
+        <div class="iv-tabs">${TABS.map(([k, l]) => `<button type="button" class="iv-tab ${tab === k ? "on" : ""} ${k === "waiting" && nTab(k) ? "hl" : ""}" data-tab="${k}">${esc(l)} <span>${nTab(k)}</span></button>`).join("")}</div>
+        <span class="iv-tools">${secSel}${sortSel}</span>
+      </div>
+      <table class="iv-tbl"><thead><tr><th>${t("Status")}</th><th>${t("Invoice")}</th><th>${t("Client")}</th><th>${t("Started")}</th>
+        <th>${t("Phase")}</th><th class="num">${t("Amount")}</th><th class="num">${t("Received")}</th><th></th></tr></thead>
+        ${G.map(g => `<tbody class="iv-grp ${state.ivClosed[g.key] ? "closed" : ""}" data-g="${esc(g.key)}">${head(g)}${g.list.map(row).join("")}</tbody>`).join("")
+          || `<tbody><tr><td colspan="8" class="empty">${d.items.length ? t("No invoice matches these filters.") : t("No invoice yet — plan them from a project's Revenue invoicing in Project Details, or add one.")}</td></tr></tbody>`}
+      </table>
+      <p class="muted iv-note">${t("Each project is a row; its invoices (termin) sit under it. Click a project to fold it, an invoice to open its 12 phases. A payment posted to the journal as revenue of the project - from Account Parsing or a manual entry - is offered on the invoice it fits best; the amounts may differ.")}</p>
+    </div>`;
+  $$("#mtBody .iv-tab").forEach(b => b.onclick = () => { state.ivTab = b.dataset.tab; load(); });
+  $$("#mtBody tr.iv-prj").forEach(tr => tr.onclick = e => {
+    if (e.target.closest(".iv-add")) return;
+    const k = tr.dataset.g; state.ivClosed[k] = !state.ivClosed[k];
+    tr.closest("tbody").classList.toggle("closed", state.ivClosed[k]); tr.classList.toggle("closed", state.ivClosed[k]);
+  });
+  $$("#mtBody tr.iv-row").forEach(tr => tr.onclick = e => { if (!e.target.closest(".iv-pay")) moneyTrackerDetail(tr.dataset.id, load); });
+  $$("#mtBody .iv-pay").forEach(b => b.onclick = () => mtPayModal(d, R, load, parseInt(b.dataset.pay, 10)));
+  $$("#mtBody .iv-add").forEach(b => b.onclick = () => moneyTrackerEditor(null, load, { project_id: b.dataset.add }));
+  $("#ivFound").onclick = () => mtPayModal(d, R, load);
+  $("#mtfSector").onchange = e => { state.mtSector = e.target.value; load(); };
+}
+
+// Payments found in the journal, each with the invoice it fits best (and the
+// project's other open invoices to choose from). One for an invoice, or all.
+function mtPayModal(d, R, load, onlyTid) {
+  const open = pid => d.items.filter(m => m.project_id === pid && ["active", "on_hold", "prospectus"].includes(m.status));
+  const sugg = Object.entries(R.tracks).filter(([tid, x]) => x.suggestion && (!onlyTid || +tid === onlyTid))
+    .map(([tid, x]) => Object.assign({ tid: +tid }, x.suggestion));
+  const byTid = Object.fromEntries(d.items.map(m => [m.id, m]));
+  const rows = sugg.map(s => Object.assign(s, { pid: (byTid[s.tid] || {}).project_id }))
+    .concat(onlyTid ? [] : R.unmatched.map(u => Object.assign({ tid: null, pid: u.project_id }, u)));
+  const card = s => {
+    const m = s.tid ? byTid[s.tid] : null, opts = open(s.pid);
+    const prj = m ? `${m.project_code || ""} — ${m.project_name || ""}` : `${s.project_code || ""} — ${s.project_name || ""}`;
+    return `<div class="pay-card" data-line="${s.line_id}">
+      <div class="pay-top"><span class="pay-amt">${fmtRp(s.amount)}</span>
+        <span class="muted">${esc(fmtDate(s.date))} · ${esc(s.entry_no)} · ${esc(SRC_LBL[s.source] || s.source)}</span></div>
+      <div class="pay-desc">${esc(s.desc || "")}<br><span class="muted">${esc(s.account)} · ${t("project")} <b>${esc(prj)}</b></span></div>
+      ${opts.length ? `<div class="pay-inv"><label>${t("For invoice")} <select class="pay-t">${opts.map(o =>
+          `<option value="${o.id}" ${o.id === s.tid ? "selected" : ""}>${esc(o.title || "—")}${o.invoice_no ? " #" + esc(o.invoice_no) : ""} · ${fmtRp(o.amount)} · ${esc(o.phase_label)}</option>`).join("")}</select></label>
+        ${s.tid ? `<span class="pay-fit fit-${s.fit}">${s.diff === 0 ? t("same amount") : `${s.diff > 0 ? "+" : "−"}${fmtRp(Math.abs(s.diff))}`} · ${esc(t(IV_FIT[s.fit] || ""))}</span>`
+                : `<span class="pay-fit fit-partial">${t("its open invoices already have a payment waiting")}</span>`}</div>`
+        : `<div class="pay-inv"><span class="pay-fit fit-over">${t("This project has no open invoice for this payment.")}</span>
+           ${canWrite() ? `<button class="btn btn-sm pay-new" data-p="${s.pid}" data-a="${s.amount}">+ ${t("Create the invoice")}</button>` : ""}</div>`}
+      ${canWrite() ? `<div class="pay-acts">
+        ${opts.length ? `<button class="btn btn-sm btn-primary" data-k="paid">&#10003; ${t("Received in full — mark Paid")}</button>
+        <button class="btn btn-sm" data-k="partial">${t("Partial payment — keep open")}</button>` : ""}
+        <button class="btn btn-sm btn-ghost" data-k="dismissed" title="${t("Not a payment for an invoice - it will not be offered again")}">${t("Not an invoice payment")}</button></div>` : ""}
+    </div>`;
+  };
+  openModal(`<p class="muted" style="margin-top:0">${t("Revenue posted to the journal and tagged to a project - from Account Parsing or a manual entry - read now, when the Money Tracker opened. Validate it against the invoice it pays; the amount may differ (tax withheld, a partial termin). The journal is not changed.")}</p>
+    ${rows.map(card).join("") || `<div class="empty">${t("No payment waiting for validation.")}</div>`}`,
+    { title: onlyTid ? t("Payment found in the journal") : `${t("Payments found in the journal")} · ${sugg.length}`, wide: !onlyTid });
+  $$("#modalRoot .pay-card").forEach(c => {
+    $$("[data-k]", c).forEach(b => b.onclick = async () => {
+      const kind = b.dataset.k, sel = $(".pay-t", c);
+      if (kind === "paid" && !confirm(t("Mark this invoice Paid (phase 12, received & done)?"))) return;
+      try {
+        await api("/api/money-tracker/receipts", { json: { line_id: parseInt(c.dataset.line, 10), kind,
+          tracker_id: sel ? parseInt(sel.value, 10) : null } });
+        toast(kind === "dismissed" ? t("Set aside") : t("Payment validated"));
+        c.classList.add("done"); c.innerHTML = `<b>${kind === "dismissed" ? t("Set aside") : "&#10003; " + t("Validated")}</b>`;
+        load();
+      } catch (e) { toast(e.message, true); }
+    });
+    const nb = $(".pay-new", c);
+    if (nb) nb.onclick = () => moneyTrackerEditor(null, load, { project_id: nb.dataset.p, amount: parseFloat(nb.dataset.a) });
+  });
 }
 
 // The harmonization check: every place the Money Tracker has drifted from its
@@ -8425,6 +8897,19 @@ async function moneyTrackerDetail(tid, reload) {
         </td></tr>`).join("")}
       </tbody></table></div>
     ${m.notes ? `<p class="muted mt">${esc(m.notes)}</p>` : ""}
+    ${(() => {
+      const x = state.mtReceipts && state.mtReceipts.tracks[String(tid)];
+      if (!x || (!x.receipts.length && !x.suggestion)) return "";
+      return `<h3 style="margin-top:16px">${t("Payments from the journal")}</h3>
+        ${x.receipts.map(r => `<div class="pay-line"><b>${fmtRp(r.amount)}</b> <span class="muted">${esc(fmtDate(r.date))} · ${esc(r.entry_no)} · ${esc(SRC_LBL[r.source] || r.source)}</span>
+          <span class="iv-pill ${r.kind === "paid" ? "paid" : "act"}">${r.kind === "paid" ? t("paid in full") : t("partial")}</span>
+          <span class="muted">${t("by")} ${esc(r.by || "")}</span>
+          ${canWrite() ? `<a href="#" class="pay-undo" data-line="${r.line_id}">${t("undo")}</a>` : ""}</div>`).join("")}
+        ${x.suggestion ? `<div class="pay-line"><span class="iv-pay fit-${x.suggestion.fit}">&#128176; ${fmtRp(x.suggestion.amount)}</span>
+          <span class="muted">${esc(fmtDate(x.suggestion.date))} · ${esc(x.suggestion.entry_no)} — ${t("found in the journal, waiting for validation")}</span>
+          <a href="#" id="mtPayGo">${t("validate")}</a></div>` : ""}
+        <p class="muted" style="font-size:12px">${t("Received so far")}: <b>${fmtRp(x.received)}</b> ${t("of")} ${fmtRp(m.amount)}</p>`;
+    })()}
     <h3 style="margin-top:16px">${t("Comments")}</h3>
     <div id="mtGeneral" style="max-height:220px;overflow:auto">${mtComments(general)}</div>
     <div class="filters" style="margin-top:8px">
@@ -8495,6 +8980,17 @@ async function moneyTrackerDetail(tid, reload) {
     } catch (err) { toast(err.message, true); }
   });
   if ($("#mtEdit")) $("#mtEdit").onclick = () => moneyTrackerEditor(m, reload);
+  $$("#modalRoot .pay-undo").forEach(a => a.onclick = async e => {
+    e.preventDefault();
+    if (!confirm(t("Undo this validation? The payment is offered again; the invoice keeps its current phase and status."))) return;
+    try { await api("/api/money-tracker/receipts/" + a.dataset.line, { method: "DELETE" }); toast(t("Undone")); reload && await reload(); moneyTrackerDetail(tid, reload); }
+    catch (err) { toast(err.message, true); }
+  });
+  if ($("#mtPayGo")) $("#mtPayGo").onclick = async e => {
+    e.preventDefault();
+    const d = await api(`/api/money-tracker?${scopeQS()}`);
+    mtPayModal(d, state.mtReceipts, reload, parseInt(tid, 10));
+  };
   if ($("#mtDel")) $("#mtDel").onclick = async () => {
     if (!confirm("Delete this invoice track and its phase history?")) return;
     try { await api("/api/money-tracker/" + tid, { method: "DELETE" });
@@ -8503,7 +8999,7 @@ async function moneyTrackerDetail(tid, reload) {
   };
 }
 
-async function moneyTrackerEditor(m, reload) {
+async function moneyTrackerEditor(m, reload, preset) {
   const [projects, types] = await Promise.all([api("/api/projects?company_id=all").catch(() => []),
                                                api("/api/project-types").catch(() => [])]);
   const cid = m ? m.company_id : (state.companyId === "all" ? firstCompanyId() : parseInt(state.companyId, 10));
@@ -8558,6 +9054,11 @@ async function moneyTrackerEditor(m, reload) {
     } catch (e) { box.textContent = ""; }
   };
   $("#mtProject").onchange = () => { syncType(); syncContract(); };
+  if (!m && preset && preset.project_id) {
+    $("#mtProject").value = String(preset.project_id);
+    syncType();
+    if (preset.amount) $("#mtAmount").value = fmt(Math.round(preset.amount));
+  }
   syncContract();
   $("#mtTypeNote").textContent = $("#mtProject").value ? t("saved on the project, so Project Details shows the same sector")
                                                         : t("kept on this track until it is linked to a project");

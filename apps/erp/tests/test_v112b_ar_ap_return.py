@@ -116,5 +116,18 @@ check("POPUP", 'data-t="monthly"' in js and 'data-t="details"' in js and "async 
       and "async function openAccountLedger(code, fallbackName, tab) { return accountPopup(" in js,
       "every account click opens one popup: Monthly spending first, Account details in its own tab")
 
+print("=== the menu fits the window, phones get a drawer, AR / AP fit the page ===")
+css = open(os.path.join(ERP, "static", "styles.css"), encoding="utf-8").read()
+check("COMPACT", ".sidebar nav a { padding: 6px 10px; font-size: 12.5px; border-radius: 7px; }" in css
+      and "@media (max-height: 780px)" in css and "overflow-y: auto" in css[css.index("so every item fits the window"):],
+      "the menu is compact by default, tighter on short screens, scrolls only as a last resort")
+check("PILL-H", "filter(x => x !== pill && x.offsetParent)" in js, "the highlight is sized from the menu items, so the menu can shrink")
+check("DRAWER", 'matchMedia("(max-width: 760px)")' in html and 'id="navScrim"' in html and "function setDrawer(open)" in js
+      and "html.nav-open .sidebar { transform: none;" in css, "on a phone the menu is a drawer opened by the menu button")
+check("AR-FIT", ".ar-tbl { font-size: 11px; width: 100%; }" in css and '<td class="w"><b>${esc(it.client)}</b></td>' in js
+      and '<td class="w"><b>${esc(it.vendor)}</b></td>' in js, "receivables and payables fit: small type, only client and invoice wrap")
+
+check("DARK", 'localStorage.getItem("erp.theme") || "dark"' in html, "dark mode is the default until the user picks light")
+
 print("\n%d passed, %d failed" % (ok, fail))
 sys.exit(1 if fail else 0)

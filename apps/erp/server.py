@@ -25,6 +25,8 @@ import ceo
 import reports
 import sbu_report
 import sbu_cash
+import sbu_live
+import money_link
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
@@ -3657,6 +3659,101 @@ def list_money_tracker():
     })
 
 
+@app.get("/api/money-tracker/receipts")
+@login_required
+def money_receipts():
+    """(v1.12b) Payments found in the journal for the tracked projects - read
+    each time the Money Tracker opens, matched to the invoices waiting for
+    money (money_link). Read only."""
+    ids, _ = scope_from_request()
+    ph = ",".join("?" * len(ids))
+    rows = db().execute(
+        "SELECT m.id, m.project_id, m.amount, m.status, m.phase_key, m.title, m.invoice_no,"
+        " p.code AS project_code, p.name AS project_name"
+        " FROM money_tracker m LEFT JOIN projects p ON p.id = m.project_id"
+        " WHERE m.company_id IN (%s)" % ph, ids).fetchall() if ids else []
+    tracks = [dict(r, phase_index=_phase_index(r["phase_key"]) + 1) for r in rows]
+    res = money_link.match(db(), tracks)
+    names = {t["project_id"]: (t["project_code"], t["project_name"]) for t in tracks if t["project_id"]}
+    for u in res["unmatched"]:
+        u["project_code"], u["project_name"] = names.get(u["project_id"], ("", ""))
+    res["tracks"] = {str(k): v for k, v in res["tracks"].items()}
+    return jsonify(res)
+
+
+def _money_close_paid(tid, day):
+    """Move an invoice to the last phase (received & done) on the day it was paid."""
+    cur_key = db().execute("SELECT phase_key FROM money_tracker WHERE id=?", (tid,)).fetchone()[0]
+    last = _PHASE_KEYS[-1]
+    db().execute("UPDATE money_tracker_stages SET completed_at=COALESCE(completed_at, ?)"
+                 " WHERE tracker_id=? AND phase_key=?", (day, tid, cur_key))
+    if not db().execute("SELECT 1 FROM money_tracker_stages WHERE tracker_id=? AND phase_key=?",
+                        (tid, last)).fetchone():
+        db().execute("INSERT INTO money_tracker_stages (tracker_id, phase_key, plan_days, entered_at, completed_at)"
+                     " VALUES (?,?,?,?,?)", (tid, last, _PHASE_BY_KEY[last][3], day, day))
+    db().execute("UPDATE money_tracker SET phase_key=?, status='done' WHERE id=?", (last, tid))
+
+
+@app.post("/api/money-tracker/receipts")
+@role_required("admin", "finance")
+def validate_money_receipt():
+    """Validate a payment found in the journal: 'paid' (the invoice is received
+    and Done), 'partial' (counted, the invoice stays open) or 'dismissed' (not a
+    payment for an invoice - never offered again)."""
+    d = request.get_json(force=True) or {}
+    line_id = int(d.get("line_id") or 0)
+    kind = d.get("kind")
+    if kind not in ("paid", "partial", "dismissed"):
+        raise ValueError("Choose paid, partial or dismissed")
+    line = db().execute(
+        "SELECT l.id, l.project_id, l.credit, e.date, e.company_id, e.status, a.type"
+        " FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id JOIN accounts a ON a.id=l.account_id"
+        " WHERE l.id=?", (line_id,)).fetchone()
+    if not line or line["type"] != "revenue" or not line["credit"] or not line["project_id"]:
+        raise ValueError("That journal line is not a revenue line tagged to a project")
+    check_company_access(line["company_id"])
+    if db().execute("SELECT 1 FROM money_receipts WHERE line_id=?", (line_id,)).fetchone():
+        raise ValueError("This payment has already been validated - undo it first")
+    tid = None
+    if kind != "dismissed":
+        tid = int(d.get("tracker_id") or 0)
+        trk = db().execute("SELECT project_id, status FROM money_tracker WHERE id=?", (tid,)).fetchone()
+        if not trk:
+            raise ValueError("Invoice not found")
+        _money_access(tid)
+        if trk["project_id"] != line["project_id"]:
+            raise ValueError("The payment is tagged to another project than this invoice")
+        if trk["status"] == "cancelled":
+            raise ValueError("This invoice is cancelled")
+    author = g.user["full_name"] or g.user["username"]
+    db().execute("INSERT INTO money_receipts (line_id, tracker_id, project_id, amount, kind, author)"
+                 " VALUES (?,?,?,?,?,?)", (line_id, tid, line["project_id"], line["credit"], kind, author))
+    if kind == "paid":
+        _money_close_paid(tid, line["date"][:10])
+    if tid:
+        db().execute("INSERT INTO money_tracker_comments (tracker_id, phase_key, author, body) VALUES (?,?,?,?)",
+                     (tid, "", author, "Payment validated from the journal (%s): Rp %s on %s"
+                      % ("received in full" if kind == "paid" else "partial", "{:,.0f}".format(line["credit"]).replace(",", "."),
+                         line["date"][:10])))
+    db().commit()
+    return jsonify({"ok": True, "kind": kind, "tracker_id": tid})
+
+
+@app.delete("/api/money-tracker/receipts/<int:line_id>")
+@role_required("admin", "finance")
+def undo_money_receipt(line_id):
+    """Undo a validation - the payment is offered again next time. An invoice
+    that was closed by it stays Done; reopen it with its status if needed."""
+    row = db().execute("SELECT r.id, e.company_id FROM money_receipts r JOIN journal_lines l ON l.id=r.line_id"
+                       " JOIN journal_entries e ON e.id=l.entry_id WHERE r.line_id=?", (line_id,)).fetchone()
+    if not row:
+        raise ValueError("Nothing to undo")
+    check_company_access(row["company_id"])
+    db().execute("DELETE FROM money_receipts WHERE line_id=?", (line_id,))
+    db().commit()
+    return jsonify({"ok": True})
+
+
 @app.get("/api/money-tracker/<int:tid>")
 @login_required
 def get_money_tracker(tid):
@@ -3877,6 +3974,8 @@ def delete_money_tracker(tid):
     db().execute("DELETE FROM money_tracker_stages WHERE tracker_id=?", (tid,))
     db().execute("DELETE FROM money_tracker_comments WHERE tracker_id=?", (tid,))
     db().execute("DELETE FROM entity_images WHERE kind='money' AND entity_id=?", (tid,))
+    # its validated payments are offered again to the project's other invoices
+    db().execute("DELETE FROM money_receipts WHERE tracker_id=?", (tid,))
     db().execute("DELETE FROM money_tracker WHERE id=?", (tid,))
     db().commit()
     return jsonify({"ok": True})
@@ -4930,6 +5029,63 @@ def product_cash_source(pid):
     db().execute("UPDATE products SET cash_company_id=? WHERE id=?", (cid, pid))
     db().commit()
     return jsonify({"ok": True, "company_id": cid})
+
+
+def _product_links(row):
+    try:
+        links = json.loads(row["links"] or "[]") if "links" in row.keys() else []
+    except (TypeError, ValueError):
+        links = []
+    return [dict(l, kind=sbu_live.link_kind(l.get("url"))) for l in links if isinstance(l, dict) and l.get("url")]
+
+
+@app.get("/api/products/<int:pid>/live")
+@login_required
+def product_live(pid):
+    """(v1.12b) The SBU's live Google Sheet, read now (cached a few minutes;
+    ?refresh=1 reads it again). Nothing from the sheet is stored."""
+    p = _product_access(pid)
+    url = p["live_url"] if "live_url" in p.keys() else ""
+    out = {"live_url": url or "", "links": _product_links(p), "connected": bool(url),
+           "readable_link": bool(url and sbu_live.export_url(url))}
+    if not url:
+        return jsonify(out)
+    if not out["readable_link"]:
+        out["error"] = "This link is kept as a source, but only a Google Sheets link can be read live."
+        return jsonify(out)
+    year = request.args.get("year", type=int)
+    try:
+        out.update(sbu_live.brief(url, year, force=request.args.get("refresh") == "1"))
+    except Exception as e:  # network, sharing, a sheet that is not a register: show it, never 500
+        out["error"] = str(e) or e.__class__.__name__
+    return jsonify(out)
+
+
+@app.put("/api/products/<int:pid>/live")
+@role_required("admin", "finance")
+def product_live_save(pid):
+    """Set the SBU's live sheet link and its further source links."""
+    _product_access(pid)
+    d = request.get_json(force=True) or {}
+    url = sbu_live.clean_url(d.get("live_url"))
+    if url and not sbu_live.export_url(url):
+        raise ValueError("The live link must be a Google Sheets link (docs.google.com/spreadsheets/...) "
+                         "- put any other link under Further sources")
+    links = []
+    for l in (d.get("links") or [])[:30]:
+        u = sbu_live.clean_url((l or {}).get("url"))
+        if u:
+            links.append({"label": ((l.get("label") or "").strip() or u)[:80], "url": u})
+    db().execute("UPDATE products SET live_url=?, links=? WHERE id=?", (url, json.dumps(links), pid))
+    db().commit()
+    return jsonify({"ok": True, "live_url": url, "links": links})
+
+
+@app.get("/api/products/live-template.xlsx")
+@login_required
+def product_live_template():
+    return send_file(sbu_live.template_workbook(), mimetype=XLSX, as_attachment=True,
+                     download_name="MORES-HV-SBU-live-sheet-template.xlsx")
 
 
 @app.get("/api/products/<int:pid>/report")

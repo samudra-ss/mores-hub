@@ -4,9 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MORES HV — Console</title>
-<script>document.documentElement.dataset.theme = localStorage.getItem("erp.theme") || "light";
+<script>document.documentElement.dataset.theme = localStorage.getItem("erp.theme") || "dark";
 document.documentElement.dataset.fontsize = localStorage.getItem("erp.fontsize") || "normal";
-document.documentElement.dataset.nav = localStorage.getItem("erp.nav") || "full";</script>
+document.documentElement.dataset.nav = localStorage.getItem("erp.nav") || "full";
+// on a phone the menu is a drawer, closed until the menu button opens it
+if (window.matchMedia && matchMedia("(max-width: 760px)").matches) document.documentElement.dataset.nav = "full";</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Cinzel:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -69,6 +71,7 @@ document.documentElement.dataset.nav = localStorage.getItem("erp.nav") || "full"
     <main id="content" class="content"></main>
   </div>
 </div>
+<div class="nav-scrim" id="navScrim"></div>
 <div id="modalRoot"></div>
 <div id="toastRoot"></div>
 <script src="/static/app.js"></script>
